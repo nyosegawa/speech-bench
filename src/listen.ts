@@ -13,8 +13,8 @@ const PAGE = path.join(import.meta.dirname, 'listen-page.html')
  * One synthesis run as the listening page shows it: the result file, its run line, its sentences, and what
  * is read from each sentence's audio: the median pitch, or null where it has none, and how much its voice
  * sounds like the run's other sentences, the mean similarity of their speaker embeddings, or null for a
- * sentence with too little voice to tell who speaks; and, when the page compares the runs with a reference
- * voice, how much each sentence sounds like it.
+ * sentence with too little voice to tell who speaks; its speaker embedding, or null for such a sentence; and,
+ * when the page compares the runs with a reference voice, how much each sentence sounds like it.
  */
 export interface ListenedRun {
   file: string
@@ -22,19 +22,30 @@ export interface ListenedRun {
   sentences: SentenceRecord[]
   pitches: Readonly<Record<string, number | null>>
   likeness: Readonly<Record<string, number | null>>
+  embeddings: Readonly<Record<string, Float32Array | null>>
   likeReference: Readonly<Record<string, number | null>>
 }
 
 const audioFile = (file: string, record: SentenceRecord): string => path.join(path.dirname(file), path.basename(file, '.jsonl'), record.audio)
 
+/** Where a take's audio is, as a link relative to the folder of the page at `page`, so that it opens from the file system. */
+export const takeUrl = (page: string, entry: ListenedRun, record: SentenceRecord): string =>
+  path.relative(path.dirname(page), audioFile(entry.file, record)).split(path.sep).map(encodeURIComponent).join('/')
+
+/** The characters the recognizer heard wrong in the sentences, as a share of the characters they have. */
+export function heardErrorRate(records: readonly SentenceRecord[], locale: string): number {
+  const counts = records.map((record) => countErrors(record.text, record.transcript, locale))
+  return counts.reduce((sum, count) => sum + count.errors, 0) / counts.reduce((sum, count) => sum + count.referenceLength, 0)
+}
+
 /**
- * The synthesis runs among the result files, of one set of sentences when it is named, each sentence also
- * compared with the embedding of the reference voice `referenceOf` gives for its run, if any.
+ * The synthesis runs among the result files that `keep` takes, each sentence also compared with the embedding
+ * of the reference voice `referenceOf` gives for its run, if any. Only the runs kept are embedded.
  */
-export function readTtsRuns(files: readonly string[], embedder: SpeakerEmbedder, set?: string, referenceOf: (run: TtsRunRecord) => Float32Array | undefined = () => undefined): ListenedRun[] {
+export function readTtsRuns(files: readonly string[], embedder: SpeakerEmbedder, keep: (run: TtsRunRecord) => boolean = () => true, referenceOf: (run: TtsRunRecord) => Float32Array | undefined = () => undefined): ListenedRun[] {
   return files.flatMap((file) => {
     const parsed = parseResultFile(fs.readFileSync(file, 'utf8').split('\n'))
-    if (!('sentences' in parsed) || (set !== undefined && parsed.run.set.name !== set)) return []
+    if (!('sentences' in parsed) || !keep(parsed.run)) return []
     const audio = parsed.sentences.map((record) => readWav(fs.readFileSync(audioFile(file, record))))
     const pitches = Object.fromEntries(parsed.sentences.map((record, index) => [record.id, medianPitch(audio[index]!)]))
     const judged = parsed.sentences.flatMap((record, index) => (voicedSeconds(audio[index]!) >= MIN_VOICED_SECONDS ? [{ id: record.id, pcm: audio[index]! }] : []))
@@ -42,12 +53,13 @@ export function readTtsRuns(files: readonly string[], embedder: SpeakerEmbedder,
     const likenesses = likenessToTheRest(embeddings)
     const judgedAt = (id: string): number => judged.findIndex((take) => take.id === id)
     const likeness = Object.fromEntries(parsed.sentences.map((record) => [record.id, likenesses[judgedAt(record.id)] ?? null]))
+    const embeddingOf = Object.fromEntries(parsed.sentences.map((record) => [record.id, embeddings[judgedAt(record.id)] ?? null]))
     const reference = referenceOf(parsed.run)
     const likeReference = Object.fromEntries(parsed.sentences.map((record) => {
       const embedding = embeddings[judgedAt(record.id)]
       return [record.id, reference && embedding ? cosine(embedding, reference) : null]
     }))
-    return [{ file, run: parsed.run, sentences: parsed.sentences, pitches, likeness, likeReference }]
+    return [{ file, run: parsed.run, sentences: parsed.sentences, pitches, likeness, embeddings: embeddingOf, likeReference }]
   })
 }
 
@@ -132,13 +144,8 @@ export function listeningData(runs: readonly ListenedRun[], page: string, blind:
   const ordered = blind ? [...runs].map((entry) => ({ entry, order: random() })).sort((a, b) => a.order - b.order).map(({ entry }) => entry) : [...runs]
   const { names, shared } = runNames(ordered)
   const locale = ordered[0]!.run.set.locale
-  const audioUrl = (entry: ListenedRun, record: SentenceRecord): string =>
-    path.relative(path.dirname(page), audioFile(entry.file, record)).split(path.sep).map(encodeURIComponent).join('/')
   const pitchesOf = (entry: ListenedRun): number[] => entry.sentences.map((record) => entry.pitches[record.id]).filter((hz): hz is number => typeof hz === 'number')
-  const rate = (records: readonly SentenceRecord[]): number => {
-    const counts = records.map((record) => countErrors(record.text, record.transcript, locale))
-    return counts.reduce((sum, count) => sum + count.errors, 0) / counts.reduce((sum, count) => sum + count.referenceLength, 0)
-  }
+  const rate = (records: readonly SentenceRecord[]): number => heardErrorRate(records, locale)
   return {
     title: ordered[0]!.run.set.name,
     reference,
@@ -163,7 +170,7 @@ export function listeningData(runs: readonly ListenedRun[], page: string, blind:
       takes: ordered.map((entry) => {
         const record = entry.sentences.find((candidate) => candidate.id === sentence.id)
         if (!record) return null
-        const take = { url: audioUrl(entry, record), seconds: record.audioSeconds }
+        const take = { url: takeUrl(page, entry, record), seconds: record.audioSeconds }
         return blind ? take : { ...take, transcript: record.transcript, heardErrorRate: rate([record]), firstAudioSeconds: record.firstAudioSeconds, pitchHz: entry.pitches[record.id] ?? null, likeness: entry.likeness[record.id] ?? null, likeReference: entry.likeReference[record.id] ?? null }
       })
     })),

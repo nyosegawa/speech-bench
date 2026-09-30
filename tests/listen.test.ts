@@ -26,6 +26,7 @@ function run(model: string, startedAt: string, options: RunOptions = {}): Listen
     sentences,
     pitches: Object.fromEntries(sentences.map((spoken, index) => [spoken.id, pitches[index]!])),
     likeness: Object.fromEntries(sentences.map((spoken, index) => [spoken.id, likeness[index]!])),
+    embeddings: {},
     likeReference: {}
   }
 }

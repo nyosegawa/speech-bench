@@ -16,12 +16,13 @@ import { ASIST_LOCALES, isLocale } from './language.ts'
 import { dataDir, recordingsDir, resultsDir } from './paths.ts'
 import { latestRuns, listeningPage, readTtsRuns } from './listen.ts'
 import { embedGroups, largestSet, neighborGroups, neighborsPage, similarityOf } from './neighbors.ts'
-import { candidateGroups, loadReference, referenceFile, writeReference } from './references.ts'
+import { candidateGroups, loadReference, referenceFile, referenceManifest, writeReference } from './references.ts'
 import { allResultFiles, formatReport, readSummaries } from './report.ts'
 import type { AudioPreparation, TtsRunRecord } from './results.ts'
 import { runAsr } from './run-asr.ts'
 import { runTts } from './run-tts.ts'
 import { ASIST_HANGOVER_MS, ASIST_VAD, type VadValues } from './vad.ts'
+import { voicesData, voicesPage } from './voices.ts'
 import { readWav } from './wav.ts'
 
 const USAGE = `usage:
@@ -37,6 +38,7 @@ const USAGE = `usage:
   node src/cli.ts listen [--blind] [--set speak-ja-JP-20] [--page name] [--reference name] [result.jsonl ...]
   node src/cli.ts neighbors [--page name] [result.jsonl ...]
   node src/cli.ts reference --name name [--threshold 0.8] [--seconds 30] [--candidates 6 | --takes sentence@seed,...] result.jsonl ...
+  node src/cli.ts voices [--page name] [result.jsonl ...]
 
 Downloads, recordings and results go to ${dataDir()} (SPEECH_BENCH_DATA moves them).`
 
@@ -213,6 +215,16 @@ function inputReportCommand(args: string[]): void {
   console.log(inputReport(positionals, candidate))
 }
 
+/** The speaker embedding of each reference voice by name, embedded once. */
+function referenceEmbeddings(embedder: SpeakerEmbedder): (name: string) => Float32Array {
+  const embeddings = new Map<string, Float32Array>()
+  return (name) => {
+    const known = embeddings.get(name) ?? embedder.embed(readWav(fs.readFileSync(referenceFile(name))))
+    embeddings.set(name, known)
+    return known
+  }
+}
+
 async function listen(args: string[]): Promise<void> {
   const { values, positionals } = parseArgs({
     args,
@@ -221,21 +233,30 @@ async function listen(args: string[]): Promise<void> {
   })
   if (values.page !== undefined && !isSafeName(values.page)) throw new Error('--page names the page in lower-case letters, digits, - and _')
   const embedder = await SpeakerEmbedder.open(SPEAKER_MODEL)
+  const embeddingOf = referenceEmbeddings(embedder)
   // Each run is compared with the reference it spoke like, unless --reference names one for them all.
-  const embeddings = new Map<string, Float32Array>()
-  const embeddingOf = (name: string): Float32Array => {
-    const known = embeddings.get(name) ?? embedder.embed(readWav(fs.readFileSync(referenceFile(name))))
-    embeddings.set(name, known)
-    return known
-  }
   const referenceOf = (run: TtsRunRecord): Float32Array | undefined => {
     const name = values.reference ?? run.reference?.name
     return name === undefined ? undefined : embeddingOf(name)
   }
-  const runs = latestRuns(readTtsRuns(positionals.length > 0 ? positionals : allResultFiles(), embedder, values.set, referenceOf))
+  const inSet = (run: TtsRunRecord): boolean => values.set === undefined || run.set.name === values.set
+  const runs = latestRuns(readTtsRuns(positionals.length > 0 ? positionals : allResultFiles(), embedder, inSet, referenceOf))
   if (runs.length === 0) throw new Error('there are no speech synthesis results to listen to; run "node src/cli.ts tts" first')
   const page = path.join(resultsDir(), `listen-${values.page ?? runs[0]!.run.set.name}${values.blind ? '-blind' : ''}.html`)
   fs.writeFileSync(page, listeningPage(runs, page, values.blind, Math.random, values.reference ?? null))
+  console.log(page)
+}
+
+async function voices(args: string[]): Promise<void> {
+  const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { page: { type: 'string' } } })
+  if (values.page !== undefined && !isSafeName(values.page)) throw new Error('--page names the page in lower-case letters, digits, - and _')
+  const embedder = await SpeakerEmbedder.open(SPEAKER_MODEL)
+  const embeddingOf = referenceEmbeddings(embedder)
+  const runs = latestRuns(readTtsRuns(positionals.length > 0 ? positionals : allResultFiles(), embedder, (run) => run.reference !== null, (run) => embeddingOf(run.reference!.name)))
+  if (runs.length === 0) throw new Error('there are no runs that spoke like a reference voice; run "node src/cli.ts tts --reference name" first')
+  const name = values.page ?? 'voices'
+  const page = path.join(resultsDir(), `voices-${name}.html`)
+  fs.writeFileSync(page, voicesPage(voicesData(runs, (reference) => ({ manifest: referenceManifest(reference), file: referenceFile(reference) }), page, name)))
   console.log(page)
 }
 
@@ -308,6 +329,7 @@ async function main(): Promise<void> {
   else if (command === 'input-report') inputReportCommand(rest)
   else if (command === 'listen') await listen(rest)
   else if (command === 'neighbors') await neighbors(rest)
+  else if (command === 'voices') await voices(rest)
   else if (command === 'reference') await reference(rest)
   else if (command === 'report') console.log(formatReport(readSummaries(rest.length > 0 ? rest : allResultFiles())))
   else {

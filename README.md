@@ -203,13 +203,26 @@ Irodori-TTS's README says captures most of the gain; at most 120 s). It goes to 
 manifest of its takes. `--candidates n` makes up to n references of the length instead, from all the takes rather
 than the largest set, which can be too small for more than one: groups in which every pair holds and no sentence
 is said twice, no take in two, the most alike first. `--takes sentence@seed,...` makes one from takes named by
-hand. `tts --reference name` then has
-the model speak like it; the listening page shows how much each run sounds like the reference it spoke like, or
-like the one `listen --reference name` names.
+hand. `tts --reference name` then has the model speak like it; the listening page shows how much each run sounds
+like the reference it spoke like, or like the one `listen --reference name` names.
 
 ```sh
 node src/cli.ts reference --name bright-young-woman-30s --seconds 30 ~/speech-bench-data/results/tts-*-young-woman-words-*-speak-ja-JP-60.jsonl
 node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-16steps --reference bright-young-woman-30s --seeds 1
+```
+
+`voices` writes a page for choosing one reference per voice. It takes the runs that spoke like a reference, groups
+them by reference and the references by the voice their takes were gathered from, and sums up each candidate over
+every sentence of every seed: how alike its takes are, how much they sound like its reference, what the
+recognizer heard and how many takes broke down. It marks the candidate with the fewest broken takes and then the
+most alike ones, plays the references and the sentences of each candidate, and shows how alike the chosen voices
+are to each other, so that two voices that would sound like one person stand out. The choices are kept in the
+browser and can be copied.
+
+```sh
+node src/cli.ts reference --name soft-young-woman-candidate --seconds 10 --candidates 3 ~/speech-bench-data/results/tts-*-soft-young-woman-seed*-speak-ja-JP-10.jsonl
+node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-16steps --reference soft-young-woman-candidate-1 --seeds 1,2
+node src/cli.ts voices --page women ~/speech-bench-data/results/tts-*-ref-*-candidate-*-speak-ja-JP-20.jsonl
 ```
 
 ## Pinned inputs
