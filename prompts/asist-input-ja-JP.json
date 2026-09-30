@@ -1,0 +1,28 @@
+{
+  "locale": "ja-JP",
+  "items": [
+    { "id": "quiet-start", "kind": "quiet", "seconds": 10, "note": "話さず、音も立てずに待ってください" },
+    { "id": "short-hai", "kind": "say", "seconds": 5, "text": "はい" },
+    { "id": "short-un", "kind": "say", "seconds": 5, "text": "うん" },
+    { "id": "short-iie", "kind": "say", "seconds": 5, "text": "いいえ" },
+    { "id": "short-daijoubu", "kind": "say", "seconds": 5, "text": "大丈夫です" },
+    { "id": "short-arigatou", "kind": "say", "seconds": 5, "text": "ありがとう" },
+    { "id": "request-weather", "kind": "say", "seconds": 8, "text": "今日の東京の天気と、傘が必要かどうか教えて" },
+    { "id": "request-dollar", "kind": "say", "seconds": 6, "text": "1ドルは今いくら?" },
+    { "id": "filler-kangaeru", "kind": "say", "seconds": 8, "text": "うーん、どうしようかな、ちょっと考えさせて" },
+    { "id": "long-kyoto", "kind": "say", "seconds": 25, "text": "次の旅行は京都に二泊三日で行こうと思っていて、一日目は清水寺と祇園を回って、二日目は嵐山で竹林を見て、三日目は午前中に伏見稲荷に寄ってから帰る予定なんだけど、移動の順番はこれでいいかな" },
+    { "id": "interrupt-matte", "kind": "interrupt", "seconds": 5, "text": "ちょっと待って", "note": "返事の途中で言ってください" },
+    { "id": "request-train", "kind": "say", "seconds": 8, "text": "渋谷から品川まで、山手線で何分かかる?" },
+    { "id": "soft-compare", "kind": "say", "seconds": 8, "text": "Claude CodeとCodexの違いを簡単に説明して", "note": "いつもより小さな声で" },
+    { "id": "soft-hai", "kind": "say", "seconds": 5, "text": "はい", "note": "いつもより小さな声で" },
+    { "id": "far-dollar", "kind": "say", "seconds": 6, "text": "1ドルは今いくら?", "note": "マイクから1mほど離れて、普通の声で" },
+    { "id": "far-hai", "kind": "say", "seconds": 5, "text": "はい", "note": "マイクから1mほど離れて、普通の声で" },
+    { "id": "noise-cough", "kind": "noise", "seconds": 5, "note": "咳を1回してください" },
+    { "id": "noise-throat", "kind": "noise", "seconds": 5, "note": "咳払いを1回してください" },
+    { "id": "noise-keyboard", "kind": "noise", "seconds": 8, "note": "キーボードで文字を打ち続けてください(どこに入力しても構いません)" },
+    { "id": "noise-desk", "kind": "noise", "seconds": 5, "note": "机を指で2回たたいてください" },
+    { "id": "noise-cup", "kind": "noise", "seconds": 5, "note": "コップなどを机に置いてください" },
+    { "id": "background-talk", "kind": "noise", "seconds": 15, "note": "マイクから2mほど離れて、ASIST には話しかけずに普通の声で話してください(2人なら会話で)" },
+    { "id": "quiet-end", "kind": "quiet", "seconds": 10, "note": "話さず、音も立てずに待ってください" }
+  ]
+}

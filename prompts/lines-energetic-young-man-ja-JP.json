@@ -1,0 +1,15 @@
+{
+  "locale": "ja-JP",
+  "prompts": [
+    { "id": "statement-1", "kind": "statement", "text": "週末は一日晴れるみたいです!外に出るにはもってこいですね。" },
+    { "id": "statement-2", "kind": "statement", "text": "十時半からの打ち合わせ、ちゃんと入れておきました!" },
+    { "id": "statement-3", "kind": "statement", "text": "リマインダー、セット完了です!忘れずにお知らせしますね。" },
+    { "id": "statement-4", "kind": "statement", "text": "このままいけば、今日中に全部終わりそうですよ。" },
+    { "id": "statement-5", "kind": "statement", "text": "新しいメールが三件来てます。ひとつは急ぎみたいです!" },
+    { "id": "statement-6", "kind": "statement", "text": "週末はサッカーの試合がありますよ。応援に行きませんか?" },
+    { "id": "statement-7", "kind": "statement", "text": "少し休憩したら、また一緒に頑張りましょう!" },
+    { "id": "greet-8", "kind": "greet", "text": "おはようございます!今日もよろしくお願いします!" },
+    { "id": "feeling-9", "kind": "feeling", "text": "よっしゃ、うまくいきましたね!" },
+    { "id": "ask-10", "kind": "ask", "text": "次は何をやりましょうか?" }
+  ]
+}

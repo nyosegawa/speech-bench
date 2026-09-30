@@ -1,0 +1,15 @@
+{
+  "locale": "ja-JP",
+  "prompts": [
+    { "id": "statement-1", "kind": "statement", "text": "週末はお天気が崩れにくいみたいですよ。ゆっくりお散歩するのもいいですね。" },
+    { "id": "statement-2", "kind": "statement", "text": "十時半からの打ち合わせ、カレンダーに入れておきましたよ。" },
+    { "id": "statement-3", "kind": "statement", "text": "今日はたくさんがんばったので、少しゆっくりしてくださいね。" },
+    { "id": "statement-4", "kind": "statement", "text": "さっきのメモ、ちゃんと保存しておきました。安心してくださいね。" },
+    { "id": "statement-5", "kind": "statement", "text": "温かいお茶を飲むと、気持ちがほっとしますよね。" },
+    { "id": "statement-6", "kind": "statement", "text": "急がなくても大丈夫ですよ。ひとつずつ進めていきましょう。" },
+    { "id": "statement-7", "kind": "statement", "text": "夕方から少し冷えるみたいなので、羽織るものがあるといいかもしれません。" },
+    { "id": "greet-8", "kind": "greet", "text": "おはようございます。よく眠れましたか?" },
+    { "id": "feeling-9", "kind": "feeling", "text": "わあ、うれしいです。ありがとうございます。" },
+    { "id": "ask-10", "kind": "ask", "text": "何か困っていることがあったら、いつでも話してくださいね。" }
+  ]
+}

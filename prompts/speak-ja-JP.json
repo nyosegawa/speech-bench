@@ -1,0 +1,25 @@
+{
+  "locale": "ja-JP",
+  "prompts": [
+    { "id": "aizuchi-hai", "kind": "aizuchi", "text": "はい。" },
+    { "id": "aizuchi-aa", "kind": "aizuchi", "text": "あー。" },
+    { "id": "aizuchi-naruhodo", "kind": "aizuchi", "text": "なるほど。" },
+    { "id": "aizuchi-unun", "kind": "aizuchi", "text": "うんうん。" },
+    { "id": "reply-weather", "kind": "reply", "text": "明日の東京は晴れで、最高気温は二十四度の予報です。" },
+    { "id": "reply-meeting", "kind": "reply", "text": "承知しました。明日の午後三時に、佐藤さんとの打ち合わせを入れておきますね。" },
+    { "id": "reply-reminder", "kind": "reply", "text": "来週の月曜日の朝九時に、請求書を確認するリマインダーを作りました。" },
+    { "id": "reply-sorry", "kind": "reply", "text": "すみません、うまく聞き取れませんでした。もう一度言っていただけますか?" },
+    { "id": "reply-done", "kind": "reply", "text": "できました。ほかに何かあれば言ってください。" },
+    { "id": "number-pin", "kind": "number", "text": "暗証番号は4桁で、8264です。" },
+    { "id": "number-date", "kind": "number", "text": "会議は10月15日の午前10時半からです。" },
+    { "id": "number-money", "kind": "number", "text": "今は1ドルが148円32銭です。" },
+    { "id": "mixed-github", "kind": "mixed", "text": "GitHubのプルリクエストは、CIがすべて通ったのでマージしました。" },
+    { "id": "mixed-typescript", "kind": "mixed", "text": "TypeScriptの型エラーは、tsconfigのstrictを有効にしたことが原因でした。" },
+    { "id": "mixed-slack", "kind": "mixed", "text": "Slackで山田さんに、資料は金曜日までに送ると伝えました。" },
+    { "id": "question-which", "kind": "question", "text": "午前と午後、どちらの時間がいいですか?" },
+    { "id": "question-confirm", "kind": "question", "text": "このメールを送ってもよろしいでしょうか?" },
+    { "id": "long-plan", "kind": "long", "text": "今週の予定をまとめると、月曜日は設計の見直し、火曜日はテスト、水曜日はリリースノートの作成で、木曜日に公開する流れになります。無理があれば、公開を金曜日にずらすこともできます。" },
+    { "id": "long-trip", "kind": "long", "text": "京都は二泊三日なら、一日目に清水寺と祇園、二日目に嵐山、三日目の午前中に伏見稲荷を回ると、移動が少なくて済みます。伏見稲荷は朝のほうが空いているので、最終日に回すのがおすすめです。" },
+    { "id": "long-cause", "kind": "long", "text": "ログを見たところ、マイクが止まる直前に、音声の入力の機器が切り替わった記録が残っていました。Bluetoothのイヤホンをつないだときに起きている可能性が高いので、まずは有線のマイクで試してみてください。" }
+  ]
+}

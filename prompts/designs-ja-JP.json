@@ -1,0 +1,27 @@
+{
+  "locale": "ja-JP",
+  "designs": [
+    { "id": "young-woman-words", "instruction": "若い女性、明るい声、はっきりした話し方" },
+    { "id": "young-woman-caption", "instruction": "若く明るい女性の声。落ち着いたトーンで、はっきりと丁寧に話している。" },
+    { "id": "young-woman-detailed", "instruction": "20代前半の女性。やや高めの澄んだ声で、明るく親しみやすい口調。普通の速さで、一語ずつはっきりと丁寧に話している。静かな部屋で、マイクの近くで録音された音声。" },
+    { "id": "young-man-words", "instruction": "若い男性、爽やかな声、はっきりした話し方" },
+    { "id": "young-man-caption", "instruction": "若く爽やかな男性の声。落ち着いたトーンで、はっきりと丁寧に話している。" },
+    { "id": "young-man-detailed", "instruction": "20代前半の男性。中くらいの高さの明るい声で、爽やかで親しみやすい口調。普通の速さで、一語ずつはっきりと丁寧に話している。静かな部屋で、マイクの近くで録音された音声。" },
+    { "id": "mature-woman-words", "instruction": "大人の女性、落ち着いた低めの声、上品な話し方" },
+    { "id": "mature-woman-caption", "instruction": "落ち着いた大人の女性の声。やや低めの柔らかいトーンで、上品に丁寧に話している。" },
+    { "id": "mature-woman-detailed", "instruction": "30代後半の女性。やや低めで柔らかく響く声で、落ち着いた上品な口調。ややゆっくりした速さで、一語ずつはっきりと丁寧に話している。静かな部屋で、マイクの近くで録音された音声。" },
+    { "id": "soft-young-woman", "instruction": "若い女性、ふんわりした柔らかい声、やさしい話し方" },
+    { "id": "calm-young-woman", "instruction": "若い女性、落ち着いた澄んだ声、知的で簡潔な話し方" },
+    { "id": "bright-adult-woman", "instruction": "大人の女性、明るく張りのある声、軽快な話し方" },
+    { "id": "announcer-woman", "instruction": "大人の女性、明瞭な声、アナウンサーのような正確な話し方" },
+    { "id": "low-adult-woman", "instruction": "大人の女性、低く柔らかい声、ゆったりした話し方" },
+    { "id": "gentle-older-woman", "instruction": "年配の女性、温かく優しい声、ゆっくりした話し方" },
+    { "id": "energetic-young-man", "instruction": "若い男性、元気で明るい声、はきはきした話し方" },
+    { "id": "calm-young-man", "instruction": "若い男性、落ち着いた声、理知的で簡潔な話し方" },
+    { "id": "bright-adult-man", "instruction": "大人の男性、明るく張りのある声、軽快な話し方" },
+    { "id": "calm-adult-man", "instruction": "大人の男性、落ち着いた低い声、丁寧な話し方" },
+    { "id": "announcer-man", "instruction": "大人の男性、明瞭な声、アナウンサーのような正確な話し方" },
+    { "id": "deep-adult-man", "instruction": "大人の男性、低く渋い声、ゆったりした話し方" },
+    { "id": "gentle-older-man", "instruction": "年配の男性、穏やかで温かい声、ゆっくりした話し方" }
+  ]
+}

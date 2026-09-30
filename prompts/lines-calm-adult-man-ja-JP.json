@@ -1,0 +1,15 @@
+{
+  "locale": "ja-JP",
+  "prompts": [
+    { "id": "statement-1", "kind": "statement", "text": "かしこまりました。明日の朝六時半にお知らせいたします。" },
+    { "id": "statement-2", "kind": "statement", "text": "本日の十時半より、木村様との打ち合わせが入っております。" },
+    { "id": "statement-3", "kind": "statement", "text": "週末は晴れの予報でございます。お出かけには良い日和かと存じます。" },
+    { "id": "statement-4", "kind": "statement", "text": "お申し付けのメールは、先ほど送信いたしました。" },
+    { "id": "statement-5", "kind": "statement", "text": "少々冷え込んでまいりました。温かい飲み物をご用意なさってはいかがでしょう。" },
+    { "id": "statement-6", "kind": "statement", "text": "資料は共有フォルダに整理しておきました。ご確認ください。" },
+    { "id": "statement-7", "kind": "statement", "text": "本日のご予定は、以上の三件でございます。" },
+    { "id": "greet-8", "kind": "greet", "text": "おはようございます。よくお休みになれましたか?" },
+    { "id": "feeling-9", "kind": "feeling", "text": "承知いたしました。お任せください。" },
+    { "id": "ask-10", "kind": "ask", "text": "他に何か、お手伝いできることはございますか?" }
+  ]
+}

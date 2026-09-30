@@ -1,0 +1,15 @@
+{
+  "locale": "ja-JP",
+  "prompts": [
+    { "id": "statement-1", "kind": "statement", "text": "さあ、今日も一日はじまりました!まずは予定をチェックしていきましょう。" },
+    { "id": "statement-2", "kind": "statement", "text": "週末は朝から青空が広がりそうです。絶好のお出かけ日和ですよ。" },
+    { "id": "statement-3", "kind": "statement", "text": "十時半からは打ち合わせです。ここが今日の山場ですね。" },
+    { "id": "statement-4", "kind": "statement", "text": "今週もいよいよ金曜日!あとひと踏ん張りいきましょう。" },
+    { "id": "statement-5", "kind": "statement", "text": "新しいメールが二件届いてます。どちらも落ち着いて見れば大丈夫そうですよ。" },
+    { "id": "statement-6", "kind": "statement", "text": "週末は映画でもどうですか?話題の新作が公開されてますよ。" },
+    { "id": "statement-7", "kind": "statement", "text": "ここまで順調です!この調子で最後まで走り抜けましょう。" },
+    { "id": "greet-8", "kind": "greet", "text": "おはようございます!今日も元気にいきましょう!" },
+    { "id": "feeling-9", "kind": "feeling", "text": "いいですねえ、最高です!" },
+    { "id": "ask-10", "kind": "ask", "text": "さて、次はどうしましょうか?" }
+  ]
+}

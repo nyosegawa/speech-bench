@@ -1,0 +1,15 @@
+{
+  "locale": "ja-JP",
+  "prompts": [
+    { "id": "statement-1", "kind": "statement", "text": "週末は全国的に晴れ、日中は気温が上がる見込みです。" },
+    { "id": "statement-2", "kind": "statement", "text": "本日の予定をお伝えします。十時半から打ち合わせが予定されています。" },
+    { "id": "statement-3", "kind": "statement", "text": "関東地方は、夜遅くにかけて雨が降るところがある見込みです。" },
+    { "id": "statement-4", "kind": "statement", "text": "現在、中央線は平常どおり運転しています。" },
+    { "id": "statement-5", "kind": "statement", "text": "日経平均株価は、午前の取引で小幅に値下がりしています。" },
+    { "id": "statement-6", "kind": "statement", "text": "札幌の明日の最低気温は八度、最高気温は十七度の予想です。" },
+    { "id": "statement-7", "kind": "statement", "text": "週末は各地で行楽日和となりそうです。" },
+    { "id": "greet-8", "kind": "greet", "text": "おはようございます。午前七時のニュースです。" },
+    { "id": "feeling-9", "kind": "feeling", "text": "以上、今日の予定でした。" },
+    { "id": "ask-10", "kind": "ask", "text": "続いて、天気予報です。" }
+  ]
+}

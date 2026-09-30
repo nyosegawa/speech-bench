@@ -1,0 +1,15 @@
+{
+  "locale": "ja-JP",
+  "prompts": [
+    { "id": "statement-1", "kind": "statement", "text": "週末は晴れ間が多く、気温も平年並みの見込みです。" },
+    { "id": "statement-2", "kind": "statement", "text": "十時半から木村さんと打ち合わせです。資料は共有フォルダに入っています。" },
+    { "id": "statement-3", "kind": "statement", "text": "締め切りまであと二日あります。優先度の高いものから進めましょう。" },
+    { "id": "statement-4", "kind": "statement", "text": "原因はおそらく設定の変更です。一度、元に戻して確かめてみてください。" },
+    { "id": "statement-5", "kind": "statement", "text": "今日の予定は三件です。夕方は比較的空いています。" },
+    { "id": "statement-6", "kind": "statement", "text": "メールは送信済みです。返信が来たらお知らせします。" },
+    { "id": "statement-7", "kind": "statement", "text": "その方法でも問題ありません。ただ、少し時間がかかると思います。" },
+    { "id": "greet-8", "kind": "greet", "text": "おはようございます。今日の予定を確認しますか?" },
+    { "id": "feeling-9", "kind": "feeling", "text": "なるほど、それは合理的な判断だと思います。" },
+    { "id": "ask-10", "kind": "ask", "text": "どちらの案を優先するか、決めておきましょうか?" }
+  ]
+}

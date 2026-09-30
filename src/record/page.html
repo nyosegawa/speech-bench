@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>speech-bench recorder</title>
+<style>
+  :root { color-scheme: light dark; --bg: #f6f6f4; --card: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #deded8; --track: #ecece8; --accent: #c2410c; --primary: #1d4ed8; --on-primary: #ffffff; --ok: #15803d; --warn: #b45309; --bad: #b91c1c; --wave: #6b6b66; --played: #1d4ed8; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #161615; --card: #22221f; --text: #ececea; --muted: #a3a39c; --line: #3a3a36; --track: #2e2e2a; --accent: #fb923c; --primary: #60a5fa; --on-primary: #0b1220; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171; --wave: #a3a39c; --played: #60a5fa; } }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, sans-serif; }
+  .inner { max-width: 860px; margin: 0 auto; padding: 12px 16px; }
+  .bar { position: sticky; top: 0; z-index: 1; background: var(--card); border-bottom: 1px solid var(--line); box-shadow: 0 2px 8px rgb(0 0 0 / .06); }
+  .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 15px; margin: 0; font-weight: 600; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .count { font-variant-numeric: tabular-nums; }
+  .count strong { font-size: 22px; }
+  .steps { display: flex; gap: 2px; margin-top: 6px; }
+  .steps button { flex: 1; min-width: 0; height: 12px; padding: 0; border: 0; border-radius: 2px; background: var(--track); cursor: pointer; }
+  .steps button.done { background: var(--ok); }
+  .steps button.current { outline: 2px solid var(--text); outline-offset: 1px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
+  .spacer { flex: 1; }
+  button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; }
+  button:disabled { opacity: .4; cursor: default; }
+  kbd { font: 12px ui-monospace, monospace; padding: 0 4px; margin-left: 6px; border: 1px solid currentColor; border-radius: 4px; opacity: .7; }
+  .record { border: 2px solid var(--accent); color: var(--accent); font-weight: 700; min-width: 170px; }
+  .record.on { background: var(--accent); color: var(--card); }
+  .next { background: var(--primary); border: 2px solid var(--primary); color: var(--on-primary); font-weight: 700; min-width: 150px; font-size: 18px; }
+  .next.ready { animation: ready 1.2s ease-in-out infinite; }
+  @keyframes ready { 50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--primary) 35%, transparent); } }
+  .meter { position: relative; height: 16px; margin-top: 12px; background: var(--track); border-radius: 8px; overflow: hidden; }
+  .meter .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--ok); }
+  .meter .fill.hot { background: var(--warn); }
+  .meter .fill.clip { background: var(--bad); }
+  .meter .hold { position: absolute; top: 0; bottom: 0; left: 0; width: 3px; background: var(--text); display: none; }
+  .meter .zone { position: absolute; top: 0; bottom: 0; border-left: 1px dashed var(--muted); opacity: .6; }
+  .scale { position: relative; height: 16px; font-size: 11px; color: var(--muted); }
+  .scale span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+  .scale span:first-child { transform: none; }
+  .scale span:last-child { transform: translateX(-100%); }
+  .status { min-height: 1.6em; font-size: 15px; }
+  .ok { color: var(--ok); }
+  .warn { color: var(--warn); }
+  .bad { color: var(--bad); }
+  main { max-width: 860px; margin: 0 auto; padding: 8px 16px 64px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; margin-top: 16px; }
+  .head { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--muted); }
+  textarea { display: block; width: 100%; margin-top: 8px; font: 26px/1.75 system-ui, sans-serif; color: var(--text); background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; resize: none; overflow: hidden; }
+  .take { display: flex; gap: 12px; align-items: center; margin-top: 8px; }
+  .take canvas { flex: 1; min-width: 0; height: 80px; display: block; background: var(--track); border-radius: 8px; cursor: pointer; }
+  .play { width: 56px; height: 56px; border-radius: 50%; padding: 0; font-size: 20px; flex: none; }
+  .facts { margin-top: 8px; font-size: 15px; font-variant-numeric: tabular-nums; }
+  .empty { color: var(--muted); margin-top: 8px; }
+  ol { margin: 0; padding: 0; list-style: none; counter-reset: prompt; }
+  li { counter-increment: prompt; display: flex; gap: 10px; padding: 4px 6px; border-radius: 6px; cursor: pointer; }
+  li::before { content: counter(prompt); min-width: 2ch; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  li .mark { width: 1.2em; flex: none; color: var(--ok); }
+  li .line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  li.current { background: var(--track); font-weight: 600; }
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="inner">
+    <div class="top">
+      <h1>speech-bench recorder <span id="who" class="muted"></span></h1>
+      <span class="count"><strong id="done">0</strong> <span class="muted">of <span id="total">0</span> recorded</span></span>
+    </div>
+    <div id="steps" class="steps"></div>
+    <div class="controls">
+      <button id="record" class="record">Record<kbd>Space</kbd></button>
+      <button id="prev">Previous<kbd>←</kbd></button>
+      <span class="spacer"></span>
+      <button id="free">New free recording</button>
+      <button id="next" class="next">Next<kbd>→</kbd></button>
+    </div>
+    <div class="meter" aria-label="input level"><div id="fill" class="fill"></div><div id="hold" class="hold"></div></div>
+    <div id="scale" class="scale" aria-hidden="true"></div>
+    <div id="status" class="status muted"></div>
+  </div>
+</header>
+<main>
+  <section class="card">
+    <div class="head"><span id="kind"></span><span id="position"></span></div>
+    <textarea id="text" rows="1" spellcheck="false"></textarea>
+    <p class="muted">Press Record, wait half a second, read the text, wait half a second, and stop. Edit the text first if you will say it differently. The microphone is recorded as it is, without echo cancellation, noise suppression or automatic gain.</p>
+  </section>
+  <section class="card">
+    <div class="head"><span>Saved recording</span><span><kbd>P</kbd> plays it</span></div>
+    <div id="take" class="take">
+      <button id="play" class="play" aria-label="Play">▶</button>
+      <canvas id="wave"></canvas>
+    </div>
+    <div id="facts" class="facts"></div>
+    <div id="none" class="empty">Not recorded yet.</div>
+  </section>
+  <section class="card">
+    <ol id="list"></ol>
+  </section>
+</main>
+<script type="module">
+const RATE = 16000
+/** The meter spans this many decibels below full scale. */
+const FLOOR_DB = -60
+/** Speech whose loudest sample stays below this is too quiet to measure well. */
+const QUIET_DB = -35
+/** Above this the meter warns that the level is near clipping. */
+const HOT_DB = -3
+/** A sample this close to full scale is taken as clipped. */
+const CLIP = 0.99
+const $ = (id) => document.getElementById(id)
+let prompts = []
+let recorded = new Map()
+let index = 0
+let capture = null
+/** Decoded saved recordings by prompt id, so that moving between prompts does not fetch them again. */
+const takes = new Map()
+const player = new Audio()
+
+const worklet = `
+class Collector extends AudioWorkletProcessor {
+  process(inputs) {
+    const channel = inputs[0]?.[0]
+    if (channel) this.port.postMessage(channel.slice(0))
+    return true
+  }
+}
+registerProcessor('collector', Collector)
+`
+
+const decibels = (amplitude) => (amplitude > 0 ? 20 * Math.log10(amplitude) : -Infinity)
+const formatDb = (db) => (Number.isFinite(db) ? `${db.toFixed(0)} dBFS` : '−∞ dBFS')
+const meterShare = (db) => `${Math.max(0, Math.min(100, ((db - FLOOR_DB) / -FLOOR_DB) * 100))}%`
+
+function status(text, kind = 'muted') {
+  $('status').textContent = text
+  $('status').className = `status ${kind}`
+}
+
+function drawScale() {
+  $('scale').replaceChildren(...[FLOOR_DB, -45, -30, -15, 0].map((db) => {
+    const mark = document.createElement('span')
+    mark.style.left = meterShare(db)
+    mark.textContent = `${db} dB`
+    return mark
+  }))
+  for (const db of [QUIET_DB, HOT_DB]) {
+    const zone = document.createElement('div')
+    zone.className = 'zone'
+    zone.style.left = meterShare(db)
+    $('fill').parentElement.append(zone)
+  }
+}
+
+/**
+ * The loudest sample, the level of the quietest stretch (the room without the voice) and whether it clipped.
+ * Stretches of exact zeros are left out of the room: the microphone delivers them while it starts, for
+ * about 150 ms at the head of a recording.
+ */
+function levels(samples) {
+  let peak = 0
+  let clipped = false
+  for (const sample of samples) {
+    const size = Math.abs(sample)
+    if (size > peak) peak = size
+    if (size >= CLIP) clipped = true
+  }
+  const frame = RATE / 50
+  const frames = []
+  for (let from = 0; from + frame <= samples.length; from += frame) {
+    let sum = 0
+    for (let i = from; i < from + frame; i++) sum += samples[i] * samples[i]
+    if (sum > 0) frames.push(Math.sqrt(sum / frame))
+  }
+  frames.sort((a, b) => a - b)
+  const noise = frames[Math.floor(frames.length * 0.1)] ?? 0
+  return { peakDb: decibels(peak), noiseDb: decibels(noise), clipped }
+}
+
+function verdict({ peakDb, clipped }) {
+  if (clipped) return ['Clipped: lower the input level and record again.', 'bad']
+  if (peakDb < QUIET_DB) return ['Too quiet: move closer or raise the input level, and record again.', 'warn']
+  return ['Level is fine.', 'ok']
+}
+
+function drawWave() {
+  const canvas = $('wave')
+  const take = takes.get(prompts[index].id)
+  const scale = window.devicePixelRatio || 1
+  canvas.width = Math.round(canvas.clientWidth * scale)
+  canvas.height = Math.round(canvas.clientHeight * scale)
+  const context = canvas.getContext('2d')
+  context.clearRect(0, 0, canvas.width, canvas.height)
+  if (!take) return
+  const style = getComputedStyle(document.documentElement)
+  const played = player.src ? player.currentTime / take.seconds : 0
+  const { samples } = take
+  // The wave is drawn at the height of its own loudest sample, so that a quiet recording still shows its shape; the level is in the numbers below it.
+  const middle = canvas.height / 2
+  const gain = (middle * 0.95) / Math.max(10 ** (take.peakDb / 20), 1e-4)
+  for (let x = 0; x < canvas.width; x++) {
+    const from = Math.floor((x / canvas.width) * samples.length)
+    const to = Math.max(from + 1, Math.floor(((x + 1) / canvas.width) * samples.length))
+    let low = 0
+    let high = 0
+    for (let i = from; i < to; i++) {
+      if (samples[i] < low) low = samples[i]
+      if (samples[i] > high) high = samples[i]
+    }
+    context.fillStyle = x / canvas.width < played ? style.getPropertyValue('--played') : style.getPropertyValue('--wave')
+    context.fillRect(x, middle - high * gain, 1, Math.max(1, (high - low) * gain))
+  }
+}
+
+function showTake() {
+  const prompt = prompts[index]
+  const take = takes.get(prompt.id)
+  const saved = recorded.has(prompt.id)
+  $('take').hidden = !saved
+  $('none').hidden = saved
+  $('play').disabled = !take
+  if (!take) {
+    $('facts').replaceChildren()
+    drawWave()
+    return
+  }
+  const [message, kind] = verdict(take)
+  const facts = document.createElement('span')
+  facts.textContent = `${take.seconds.toFixed(1)} s · loudest ${formatDb(take.peakDb)} · room ${formatDb(take.noiseDb)} · `
+  const judged = document.createElement('span')
+  judged.className = kind
+  judged.textContent = message
+  $('facts').replaceChildren(facts, judged)
+  drawWave()
+}
+
+async function loadTake(id) {
+  if (takes.has(id) || !recorded.has(id)) return
+  const bytes = await (await fetch(`/recordings/${id}.wav?${Date.now()}`)).arrayBuffer()
+  const buffer = await new OfflineAudioContext(1, 1, RATE).decodeAudioData(bytes)
+  const samples = buffer.getChannelData(0)
+  takes.set(id, { samples, seconds: samples.length / RATE, ...levels(samples) })
+}
+
+function sizeText() {
+  const text = $('text')
+  text.style.height = 'auto'
+  text.style.height = `${text.scrollHeight + 2}px`
+}
+
+function render() {
+  const prompt = prompts[index]
+  const saved = recorded.has(prompt.id)
+  const done = prompts.filter((p) => recorded.has(p.id)).length
+  $('done').textContent = done
+  $('total').textContent = prompts.length
+  $('kind').textContent = `${prompt.kind} · ${prompt.id}`
+  $('position').textContent = `prompt ${index + 1} of ${prompts.length}`
+  $('text').value = recorded.get(prompt.id)?.text ?? prompt.text
+  sizeText()
+  $('record').firstChild.textContent = capture ? 'Stop' : saved ? 'Record again' : 'Record'
+  $('record').classList.toggle('on', Boolean(capture))
+  $('prev').disabled = Boolean(capture) || index === 0
+  $('next').disabled = Boolean(capture) || index === prompts.length - 1
+  $('next').classList.toggle('ready', saved && !capture && index < prompts.length - 1)
+  $('free').disabled = Boolean(capture)
+  $('steps').replaceChildren(...prompts.map((p, i) => {
+    const step = document.createElement('button')
+    step.className = `${recorded.has(p.id) ? 'done' : ''} ${i === index ? 'current' : ''}`
+    step.title = `${i + 1}. ${p.text}`
+    step.onclick = () => moveTo(i)
+    return step
+  }))
+  $('list').replaceChildren(...prompts.map((p, i) => {
+    const item = document.createElement('li')
+    const mark = document.createElement('span')
+    mark.className = 'mark'
+    mark.textContent = recorded.has(p.id) ? '✓' : ''
+    const line = document.createElement('span')
+    line.className = 'line'
+    line.textContent = recorded.get(p.id)?.text ?? p.text
+    item.append(mark, line)
+    item.className = i === index ? 'current' : ''
+    item.onclick = () => moveTo(i)
+    return item
+  }))
+  showTake()
+  const id = prompt.id
+  loadTake(id).then(() => { if (prompts[index].id === id) showTake() }).catch((error) => status(String(error), 'bad'))
+}
+
+/** Moves to a prompt and back to the top of the page, where its text is, from wherever the page was scrolled. */
+function moveTo(i) {
+  if (capture || i < 0 || i >= prompts.length) return
+  index = i
+  stopPlaying()
+  render()
+  status('')
+  window.scrollTo({ top: 0 })
+}
+
+async function load() {
+  const state = await (await fetch('/state')).json()
+  $('who').textContent = `${state.locale} · ${state.speaker}`
+  prompts = state.prompts
+  recorded = new Map(state.recorded.map((entry) => [entry.id, entry]))
+  for (const entry of state.recorded) if (!prompts.some((p) => p.id === entry.id)) prompts.push({ id: entry.id, kind: 'free', text: entry.text })
+  index = Math.max(0, prompts.findIndex((p) => !recorded.has(p.id)))
+  render()
+}
+
+function stopPlaying() {
+  player.pause()
+  player.removeAttribute('src')
+  player.load()
+  $('play').textContent = '▶'
+}
+
+function play(at) {
+  const take = takes.get(prompts[index].id)
+  if (!take || capture) return
+  if (!player.paused && at === undefined) return stopPlaying()
+  if (!player.src) player.src = `/recordings/${prompts[index].id}.wav?${Date.now()}`
+  if (at !== undefined) player.currentTime = at * take.seconds
+  player.play()
+  $('play').textContent = '■'
+  const follow = () => {
+    drawWave()
+    if (!player.paused) requestAnimationFrame(follow)
+  }
+  requestAnimationFrame(follow)
+}
+player.onended = () => { stopPlaying(); drawWave() }
+
+async function start() {
+  stopPlaying()
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false } })
+  const context = new AudioContext()
+  await context.audioWorklet.addModule(URL.createObjectURL(new Blob([worklet], { type: 'text/javascript' })))
+  const source = context.createMediaStreamSource(stream)
+  const node = new AudioWorkletNode(context, 'collector')
+  const chunks = []
+  const meter = { recent: 0, shown: 0, held: 0, clipped: false }
+  node.port.onmessage = (event) => {
+    chunks.push(event.data)
+    for (const sample of event.data) {
+      const size = Math.abs(sample)
+      if (size > meter.recent) meter.recent = size
+      if (size >= CLIP) meter.clipped = true
+    }
+  }
+  source.connect(node)
+  const startedAt = performance.now()
+  capture = { stream, context, chunks, meter }
+  const draw = () => {
+    if (capture?.meter !== meter) return
+    meter.shown = Math.max(meter.recent, meter.shown * 0.85)
+    meter.held = Math.max(meter.held, meter.recent)
+    meter.recent = 0
+    const db = decibels(meter.shown)
+    $('fill').style.width = meterShare(db)
+    $('fill').className = `fill ${meter.clipped ? 'clip' : db > HOT_DB ? 'hot' : ''}`
+    $('hold').style.display = 'block'
+    $('hold').style.left = `calc(${meterShare(decibels(meter.held))} - 3px)`
+    const seconds = ((performance.now() - startedAt) / 1000).toFixed(1)
+    status(`Recording ${seconds} s · now ${formatDb(db)} · loudest ${formatDb(decibels(meter.held))}${meter.clipped ? ' · clipped' : ''}`, meter.clipped ? 'bad' : 'muted')
+    requestAnimationFrame(draw)
+  }
+  requestAnimationFrame(draw)
+  render()
+}
+
+/** Joins the captured chunks and resamples them to 16 kHz with the browser's own resampler. */
+async function toSixteenKilohertz(chunks, rate) {
+  const length = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
+  const joined = new Float32Array(length)
+  let offset = 0
+  for (const chunk of chunks) { joined.set(chunk, offset); offset += chunk.length }
+  const offline = new OfflineAudioContext(1, Math.ceil((length * RATE) / rate), RATE)
+  const buffer = offline.createBuffer(1, length, rate)
+  buffer.copyToChannel(joined, 0)
+  const source = offline.createBufferSource()
+  source.buffer = buffer
+  source.connect(offline.destination)
+  source.start()
+  return (await offline.startRendering()).getChannelData(0)
+}
+
+function wav16(samples) {
+  const view = new DataView(new ArrayBuffer(44 + samples.length * 2))
+  const text = (offset, value) => { for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i)) }
+  text(0, 'RIFF'); view.setUint32(4, 36 + samples.length * 2, true); text(8, 'WAVE'); text(12, 'fmt ')
+  view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true)
+  view.setUint32(24, RATE, true); view.setUint32(28, RATE * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true)
+  text(36, 'data'); view.setUint32(40, samples.length * 2, true)
+  samples.forEach((sample, i) => view.setInt16(44 + i * 2, Math.round(Math.max(-1, Math.min(1, sample)) * 32767), true))
+  return new Blob([view.buffer], { type: 'audio/wav' })
+}
+
+async function stop() {
+  const { stream, context, chunks } = capture
+  capture = null
+  stream.getTracks().forEach((track) => track.stop())
+  await context.close()
+  $('fill').style.width = '0'
+  $('hold').style.display = 'none'
+  const prompt = prompts[index]
+  const text = $('text').value.trim()
+  const samples = await toSixteenKilohertz(chunks, context.sampleRate)
+  status(`Saving ${(samples.length / RATE).toFixed(1)} s…`)
+  render()
+  const response = await fetch('/recordings', {
+    method: 'POST',
+    headers: { 'content-type': 'audio/wav', 'x-recording-id': prompt.id, 'x-recording-text': encodeURIComponent(text) },
+    body: wav16(samples)
+  })
+  if (!response.ok) return status(`Not saved: ${await response.text()}`, 'bad')
+  recorded.set(prompt.id, await response.json())
+  prompt.text = text
+  const take = { samples, seconds: samples.length / RATE, ...levels(samples) }
+  takes.set(prompt.id, take)
+  render()
+  const [message, kind] = verdict(take)
+  const done = prompts.every((p) => recorded.has(p.id))
+  status(`Saved ${prompt.id}. ${message} ${done ? 'Every prompt is recorded.' : kind === 'ok' ? 'Listen back if you like, then go to the next one.' : ''}`, kind)
+}
+
+$('record').onclick = () => (capture ? stop() : start()).catch((error) => status(String(error), 'bad'))
+$('play').onclick = () => play()
+$('wave').onclick = (event) => play(event.offsetX / event.currentTarget.clientWidth)
+$('prev').onclick = () => moveTo(index - 1)
+$('next').onclick = () => moveTo(index + 1)
+$('free').onclick = () => {
+  if (capture) return
+  prompts.push({ id: `free-${Date.now()}`, kind: 'free', text: '' })
+  moveTo(prompts.length - 1)
+  $('text').focus()
+  status('Type what you will say, then record.')
+}
+$('text').oninput = sizeText
+window.onresize = () => { sizeText(); drawWave() }
+document.addEventListener('keydown', (event) => {
+  if (event.target === $('text')) return
+  if (event.code === 'Space') { event.preventDefault(); $('record').click() }
+  if (event.code === 'ArrowRight') $('next').click()
+  if (event.code === 'ArrowLeft') $('prev').click()
+  if (event.code === 'KeyP') play()
+})
+drawScale()
+load().catch((error) => status(String(error), 'bad'))
+</script>
+</body>
+</html>
