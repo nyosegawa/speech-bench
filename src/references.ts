@@ -91,31 +91,34 @@ export async function loadReference(name: string): Promise<ReferenceVoice> {
 }
 
 /**
- * Candidate references from one set: groups of its takes that each reach `seconds`, no take in two groups,
- * the most alike first. A group starts from the most alike pair of the takes left and grows by the take
- * most alike to all of it until it is long enough. One take can sound unlike the voice it clones into, so
- * several candidates are tried and compared by what they make.
+ * Candidate references from all the takes of one voice: groups that each reach `seconds`, in which every pair
+ * is at least `threshold` alike and no sentence is said twice, no take in two groups. A group starts from the
+ * most alike pair of the takes left and grows by the take most alike to all of it until it is long enough; a
+ * pair that cannot grow long enough is passed over. The groups are not taken from the voice's largest set:
+ * with ten lines from each of five seeds (2026-10-01), that set held two to four takes for most voices,
+ * too few for more than one candidate, while pairs that held were spread over the rest of the takes. One
+ * take can sound unlike the voice it clones into, so several candidates are tried and compared by what
+ * they make.
  */
-export function candidateGroups(members: readonly number[], similarity: (a: number, b: number) => number, secondsOf: (take: number) => number, seconds: number, count: number): number[][] {
-  const left = new Set(members)
-  const groups: number[][] = []
+export function candidateGroups(similarity: readonly (readonly number[])[], sentences: readonly string[], secondsOf: (take: number) => number, threshold: number, seconds: number, count: number): number[][] {
+  const used = new Set<number>()
   const length = (group: readonly number[]): number => group.reduce((sum, take) => sum + secondsOf(take), 0) + GAP_SECONDS * (group.length - 1)
-  while (groups.length < count && left.size >= 2) {
-    let best = { a: -1, b: -1, value: -Infinity }
-    for (const a of left) {
-      for (const b of left) {
-        if (a < b && similarity(a, b) > best.value) best = { a, b, value: similarity(a, b) }
-      }
-    }
-    const group = [best.a, best.b]
-    left.delete(best.a)
-    left.delete(best.b)
-    while (length(group) < seconds && left.size > 0) {
-      const next = [...left].sort((x, y) => Math.min(...group.map((member) => similarity(y, member))) - Math.min(...group.map((member) => similarity(x, member))))[0]!
+  const fits = (take: number, group: readonly number[]): boolean =>
+    !used.has(take) && group.every((member) => member !== take && sentences[member] !== sentences[take] && similarity[take]![member]! >= threshold)
+  const pairs = similarity.flatMap((row, a) => row.map((value, b) => ({ a, b, value }))).filter(({ a, b }) => a < b && fits(b, [a])).sort((x, y) => y.value - x.value)
+  const groups: number[][] = []
+  for (const { a, b } of pairs) {
+    if (groups.length === count) break
+    if (used.has(a) || used.has(b)) continue
+    const group = [a, b]
+    const weakestWith = (take: number): number => Math.min(...group.map((member) => similarity[take]![member]!))
+    while (length(group) < seconds) {
+      const next = similarity.map((_, take) => take).filter((take) => fits(take, group)).sort((x, y) => weakestWith(y) - weakestWith(x))[0]
+      if (next === undefined) break
       group.push(next)
-      left.delete(next)
     }
-    if (length(group) < seconds) break
+    if (length(group) < seconds) continue
+    for (const take of group) used.add(take)
     groups.push(group)
   }
   return groups

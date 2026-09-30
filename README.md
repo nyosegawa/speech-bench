@@ -200,8 +200,10 @@ node src/cli.ts neighbors --page irodori ~/speech-bench-data/results/tts-*-irodo
 threshold alike (0.8 by default, which sounds like one voice by ear), one take per sentence, joined in order of
 likeness to its center with 0.3 s of silence between, up to the length asked for (30 s by default, which
 Irodori-TTS's README says captures most of the gain; at most 120 s). It goes to `references/<name>.wav` with a
-manifest of its takes. `--candidates n` makes up to n references of the length from the set instead, no take in two, the most
-alike first, and `--takes sentence@seed,...` makes one from takes named by hand. `tts --reference name` then has
+manifest of its takes. `--candidates n` makes up to n references of the length instead, from all the takes rather
+than the largest set, which can be too small for more than one: groups in which every pair holds and no sentence
+is said twice, no take in two, the most alike first. `--takes sentence@seed,...` makes one from takes named by
+hand. `tts --reference name` then has
 the model speak like it; the listening page shows how much each run sounds like the reference it spoke like, or
 like the one `listen --reference name` names.
 

@@ -56,16 +56,31 @@ describe('candidateGroups', () => {
     [0.8, 0.8, 0.9, 1, 0.5],
     [0.5, 0.5, 0.5, 0.5, 1]
   ]
-  const similarity = (a: number, b: number): number => table[a]![b]!
+  const sentences = ['s0', 's1', 's2', 's3', 's4']
 
   it('pairs the most alike takes first, uses no take twice, and makes each group long enough', () => {
-    const groups = candidateGroups([0, 1, 2, 3, 4], similarity, () => 5, 10, 3)
+    const groups = candidateGroups(table, sentences, () => 5, 0.8, 10, 3)
     expect(groups).toEqual([[0, 1], [2, 3]])
   })
 
   it('grows a group of short takes until it reaches the length', () => {
-    const [first] = candidateGroups([0, 1, 2, 3, 4], similarity, () => 3, 10, 1)
+    const [first] = candidateGroups(table, sentences, () => 3, 0.8, 10, 1)
     expect(first).toHaveLength(4)
     expect(first!.slice(0, 2)).toEqual([0, 1])
+  })
+
+  it('keeps every pair of a group at the threshold and each sentence once, passing over a pair that cannot grow long enough', () => {
+    // Take 5 says take 0's sentence and is the most alike to it. At 0.85, takes 0 and 1 find no third take to
+    // reach 10 s, and takes 2 and 3 grow by take 5.
+    const withRepeat = [
+      [1, 0.95, 0.8, 0.8, 0.5, 0.99],
+      [0.95, 1, 0.8, 0.8, 0.5, 0.5],
+      [0.8, 0.8, 1, 0.9, 0.5, 0.87],
+      [0.8, 0.8, 0.9, 1, 0.5, 0.86],
+      [0.5, 0.5, 0.5, 0.5, 1, 0.5],
+      [0.99, 0.5, 0.87, 0.86, 0.5, 1]
+    ]
+    const groups = candidateGroups(withRepeat, ['a', 'b', 'c', 'd', 'e', 'a'], () => 4, 0.85, 10, 3)
+    expect(groups).toEqual([[2, 3, 5]])
   })
 })

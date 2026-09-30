@@ -286,15 +286,15 @@ async function reference(args: string[]): Promise<void> {
     write(values.name, chosen, true)
     return
   }
-  const { members } = largestSet(similarity, group!.takes.map((take) => take.sentence), threshold, true)
+  const sentences = group!.takes.map((take) => take.sentence)
   if (values.candidates === undefined) {
-    write(values.name, members)
+    write(values.name, largestSet(similarity, sentences, threshold, true).members)
     return
   }
   const count = Number(values.candidates)
   if (!Number.isInteger(count) || count < 1) throw new Error('--candidates is how many candidate references to make, a whole number')
-  const candidates = candidateGroups(members, (a, b) => similarity[a]![b]!, (take) => group!.takes[take]!.seconds, seconds, count)
-  if (candidates.length < count) console.log(`the set of ${members.length} takes makes ${candidates.length} candidates of ${seconds} s, not ${count}`)
+  const candidates = candidateGroups(similarity, sentences, (take) => group!.takes[take]!.seconds, threshold, seconds, count)
+  if (candidates.length < count) console.log(`the ${group!.takes.length} takes make ${candidates.length} candidates of ${seconds} s in which every pair is ${threshold} or more alike, not ${count}`)
   for (const [index, candidate] of candidates.entries()) write(`${values.name}-${index + 1}`, candidate)
 }
 
