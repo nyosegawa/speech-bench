@@ -83,6 +83,12 @@ export function referenceFile(name: string): string {
   return wav
 }
 
+/** What a reference voice was made of, from the manifest beside it on this machine. */
+export function referenceManifest(name: string): ReferenceManifest {
+  referenceFile(name)
+  return JSON.parse(fs.readFileSync(filesOf(name).manifest, 'utf8')) as ReferenceManifest
+}
+
 /** A reference voice by name, from this machine's references folder. */
 export async function loadReference(name: string): Promise<ReferenceVoice> {
   const wav = referenceFile(name)
