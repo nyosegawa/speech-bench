@@ -1,7 +1,8 @@
-import { ArrowLeft, Check, Copy, Play } from 'lucide-react'
-import { useState } from 'react'
+import { ArrowLeft, Check, Copy, Play, Rocket } from 'lucide-react'
+import { useCallback, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { Failure } from '@/components/failure.tsx'
+import { JobLog, useJobEnd, useJobs } from '@/components/jobs.tsx'
 import { PlayedBar, usePlayer, type Player } from '@/components/player.tsx'
 import { SimilarityMatrix } from '@/components/similarity-matrix.tsx'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog.tsx'
@@ -10,7 +11,7 @@ import { Button } from '@/components/ui/button.tsx'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.tsx'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.tsx'
 import { Skeleton } from '@/components/ui/skeleton.tsx'
-import { postJson, useApi, type ChooseAnswer, type VoiceDetail } from '@/lib/api.ts'
+import { postJson, useApi, type ChooseAnswer, type Job, type VoiceDetail, type VoiceStepRequest } from '@/lib/api.ts'
 import { LIMITS, runColor } from '@/lib/figures.ts'
 import { percent, seconds } from '@/lib/format.ts'
 import { cn } from '@/lib/utils.ts'
@@ -29,27 +30,45 @@ function CopyCommand({ command }: { command: string }) {
   )
 }
 
-/** The four steps of making the voice, how far each has gone, and the command that takes it. */
-function Steps({ detail }: { detail: VoiceDetail }) {
+const jobTitle = (step: VoiceStepRequest['step'], voice: string): string => `${step} ${voice}`
+
+/** The four steps of making the voice, how far each has gone, the command that takes it, and a button that runs it. */
+function Steps({ detail, onChanged }: { detail: VoiceDetail; onChanged: () => void }) {
   const { recipe, locale } = detail
+  const { jobs, running, start, error } = useJobs()
+  const ofVoice = useCallback((job: Job) => (['gather', 'candidates', 'try'] as const).some((step) => job.title === jobTitle(step, recipe.id)), [recipe.id])
+  useJobEnd(ofVoice, onChanged)
   const tried = detail.trySets.reduce((sum, set) => sum + set.runs, 0)
-  const steps = [
-    { title: 'Gather takes', done: `${detail.gathered.length} runs of its description saying its lines`, command: `node src/cli.ts voice gather ${recipe.id} --locale ${locale}`, link: detail.gathered.length > 0 ? { to: `/neighbors?runs=${detail.gathered.join(',')}`, label: 'How alike the takes are' } : null },
-    { title: 'Make candidates', done: `${detail.candidates.length} candidate references`, command: `node src/cli.ts voice candidates ${recipe.id} --locale ${locale}`, link: null },
-    { title: 'Try them', done: `${tried} runs that spoke like a candidate`, command: `node src/cli.ts voice try ${recipe.id} --locale ${locale}`, link: null },
-    { title: 'Choose', done: recipe.chosen ? `chose ${recipe.chosen.candidate}, kept as ${recipe.chosen.reference}` : 'not chosen yet; choose below', command: null, link: null }
+  const steps: Array<{ title: string; done: string; step: VoiceStepRequest['step'] | null; link: { to: string; label: string } | null }> = [
+    { title: 'Gather takes', done: `${detail.gathered.length} runs of its description saying its lines`, step: 'gather', link: detail.gathered.length > 0 ? { to: `/neighbors?runs=${detail.gathered.join(',')}`, label: 'How alike the takes are' } : null },
+    { title: 'Make candidates', done: `${detail.candidates.length} candidate references`, step: 'candidates', link: null },
+    { title: 'Try them', done: `${tried} runs that spoke like a candidate`, step: 'try', link: null },
+    { title: 'Choose', done: recipe.chosen ? `chose ${recipe.chosen.candidate}, kept as ${recipe.chosen.reference}` : 'not chosen yet; choose below', step: null, link: null }
   ]
   return (
     <Card>
-      <CardHeader><CardTitle>Steps</CardTitle></CardHeader>
-      <CardContent className="grid gap-3 md:grid-cols-2">
-        {steps.map((step, index) => (
-          <div key={step.title} className="space-y-1.5 rounded-lg border p-3">
-            <div className="text-sm font-medium">{index + 1}. {step.title}</div>
-            <div className="text-xs text-muted-foreground">{step.done}{step.link && <> · <Link className="underline underline-offset-2 hover:text-foreground" to={step.link.to}>{step.link.label}</Link></>}</div>
-            {step.command && <CopyCommand command={step.command} />}
-          </div>
-        ))}
+      <CardHeader>
+        <CardTitle>Steps</CardTitle>
+        <CardDescription>Run a step here, or with its command for other options. Steps run one at a time, since each holds the GPU.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        <div className="grid gap-3 md:grid-cols-2">
+          {steps.map((step, index) => {
+            const last = step.step ? jobs.find((job) => job.title === jobTitle(step.step!, recipe.id)) : undefined
+            return (
+              <div key={step.title} className="min-w-0 space-y-1.5 rounded-lg border p-3">
+                <div className="flex items-center gap-2">
+                  <div className="text-sm font-medium">{index + 1}. {step.title}</div>
+                  {step.step && <Button size="xs" className="ml-auto" disabled={running !== null} onClick={() => start({ step: step.step!, voice: recipe.id, locale })}><Rocket />Run</Button>}
+                </div>
+                <div className="text-xs text-muted-foreground">{step.done}{step.link && <> · <Link className="underline underline-offset-2 hover:text-foreground" to={step.link.to}>{step.link.label}</Link></>}</div>
+                {step.step && <CopyCommand command={`node src/cli.ts voice ${step.step} ${recipe.id} --locale ${locale}`} />}
+                {last && <JobLog job={last} lines={12} />}
+              </div>
+            )
+          })}
+        </div>
       </CardContent>
     </Card>
   )
@@ -235,7 +254,7 @@ export function VoicePage() {
       {detail.state === 'loading' && <Skeleton className="h-96 w-full" />}
       {detail.state === 'loaded' && (
         <>
-          <Steps detail={detail.data} />
+          <Steps detail={detail.data} onChanged={detail.reload} />
           {detail.data.recipe.lines.length > 0 && (
             <Card>
               <CardContent>

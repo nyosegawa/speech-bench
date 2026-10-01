@@ -7,13 +7,14 @@ import { SPEAKER_MODEL } from '../catalog/models.ts'
 import { dataDir } from '../core/paths.ts'
 import { readWav } from '../core/wav.ts'
 import { SpeakerEmbedder } from '../engines/speaker-embedding.ts'
-import { recipeLocales } from '../make/recipes.ts'
+import { recipeLocales, recipeOf } from '../make/recipes.ts'
 import { referenceFile, referenceNames } from '../make/references.ts'
 import { listCampaigns } from '../measure/campaigns.ts'
 import { summarize } from '../measure/report.ts'
 import { allRunFiles, runFile, runIdOf } from '../measure/runs.ts'
 import { listeningData, readTtsRuns, type UrlOf } from '../pages/listen.ts'
-import type { ApiError, CampaignRow, ChooseAnswer, ChosenVoices, ListenData, NeighborsData, RunRow, VoiceDetail, VoiceRow } from './api.ts'
+import type { ApiError, CampaignRow, ChooseAnswer, ChosenVoices, Job, ListenData, NeighborsData, RunRow, VoiceDetail, VoiceRow, VoiceStepRequest } from './api.ts'
+import { JobError, Jobs } from './jobs.ts'
 import { choose, chosenVoices, voiceDetail, voiceRows } from './voices.ts'
 
 /** The built web app, which `npm run web:build` writes. */
@@ -37,6 +38,8 @@ const json = (response: http.ServerResponse, status: number, body: unknown): voi
   response.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' })
   response.end(JSON.stringify(body))
 }
+
+const VOICE_STEPS: ReadonlyArray<VoiceStepRequest['step']> = ['gather', 'candidates', 'try']
 
 /** A request's JSON body, which the bench's own app sends. */
 async function bodyOf(request: http.IncomingMessage): Promise<Record<string, unknown>> {
@@ -89,6 +92,7 @@ export async function startWebServer(port: number): Promise<{ url: string; close
   let embedder: Promise<SpeakerEmbedder> | null = null
   const speakerEmbedder = (): Promise<SpeakerEmbedder> => (embedder ??= SpeakerEmbedder.open(SPEAKER_MODEL))
   const referenceEmbeddings = new Map<string, Float32Array>()
+  const jobs = new Jobs()
   const referenceEmbedding = (embedder: SpeakerEmbedder) => (name: string): Float32Array => {
     const known = referenceEmbeddings.get(name) ?? embedder.embed(readWav(fs.readFileSync(referenceFile(name))))
     referenceEmbeddings.set(name, known)
@@ -147,6 +151,20 @@ export async function startWebServer(port: number): Promise<{ url: string; close
         const embedder = await speakerEmbedder()
         return json(response, 200, chosenVoices(localeOf(url), embedder, referenceEmbedding(embedder), audioUrl) satisfies ChosenVoices)
       }
+      if (request.method === 'GET' && url.pathname === '/api/jobs') return json(response, 200, jobs.list() satisfies Job[])
+      if (request.method === 'POST' && url.pathname === '/api/jobs') {
+        const body = await bodyOf(request)
+        const step = textField(body, 'step')
+        if (!VOICE_STEPS.includes(step as VoiceStepRequest['step'])) throw new RequestError(`step is one of ${VOICE_STEPS.join(', ')}`)
+        const locale = textField(body, 'locale')
+        const voice = recipeOf(locale, textField(body, 'voice')).id
+        return json(response, 200, jobs.start(`${step} ${voice}`, ['voice', step, voice, '--locale', locale]) satisfies Job)
+      }
+      const stop = /^\/api\/jobs\/([0-9TZ-]+)\/stop$/.exec(url.pathname)
+      if (stop && request.method === 'POST') {
+        await bodyOf(request)
+        return json(response, 200, jobs.stop(stop[1]!) satisfies Job)
+      }
       const voice = /^\/api\/voices\/([a-z0-9_-]+)(\/choose)?$/.exec(url.pathname)
       if (voice && request.method === 'GET' && !voice[2]) {
         const embedder = await speakerEmbedder()
@@ -165,7 +183,7 @@ export async function startWebServer(port: number): Promise<{ url: string; close
       if (request.method === 'GET') return serveApp(response, url.pathname)
       throw new RequestError(`there is no route ${request.method} ${url.pathname}`)
     })().catch((error: unknown) => {
-      const status = error instanceof RequestError ? 400 : 500
+      const status = error instanceof RequestError || error instanceof JobError ? 400 : 500
       json(response, status, { error: error instanceof Error ? error.message : String(error) } satisfies ApiError)
     })
   })

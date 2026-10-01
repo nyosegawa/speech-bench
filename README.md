@@ -229,7 +229,8 @@ shows the recipes and their choices, and `voice choose <id> <candidate>` chooses
 The web app's Voices page lists the recipes and how far each voice has been made, and sets the chosen voices side
 by side on the sentences the most of them were tried with: their figures, the other voice each sounds most like,
 and how alike every two of them are, so that two voices that would sound like one person stand out. A voice's page
-shows the steps with their commands, and the candidates as the model spoke like them, on the sentences and length
+shows the steps with their commands and a button that runs each with the command's defaults (one at a time, since
+each holds the GPU; the Jobs page keeps their output and the header shows the one running), and the candidates as the model spoke like them, on the sentences and length
 factor chosen at the top: each candidate summed up over every sentence of every seed (how alike its takes are, how
 much they sound like its reference, what the recognizer heard and how many takes broke down), the one with the
 smallest share of broken takes and then the most alike takes marked, the references and every take to play, and

@@ -76,6 +76,28 @@ export type ChooseAnswer = Choice
  */
 export type NeighborsData = NeighborGroup[]
 
+/** A command of the bench the web app started, as GET /api/jobs lists it. */
+export interface Job {
+  id: string
+  title: string
+  command: string
+  startedAt: string
+  endedAt: string | null
+  state: 'running' | 'done' | 'failed' | 'stopped'
+  exitCode: number | null
+  /** The file that holds the whole output. */
+  log: string
+  /** The last lines of the output. */
+  lines: string[]
+}
+
+/** POST /api/jobs: a step of making a voice, run with the command's defaults. */
+export interface VoiceStepRequest {
+  step: 'gather' | 'candidates' | 'try'
+  voice: string
+  locale: string
+}
+
 /** Any route that fails answers this, with a status of 400 for a request the bench cannot serve. */
 export interface ApiError {
   error: string
