@@ -24,8 +24,9 @@ behavior.
 - `src/datasets/` turns a source (FLEURS, the user's recordings, the prompt lists) into utterances with
   references or sentences to speak. `src/record/` serves the recording page.
 - `src/scoring.ts` compares texts; `src/run-asr.ts` and `src/run-tts.ts` run a model over a set and write
-  the result file; `src/results.ts` owns the form of result files and their upgrades; `src/report.ts`
-  reads result files and summarizes them.
+  the result file; `src/results.ts` owns the form of result files and their upgrades; `src/runs.ts` owns
+  where a run is kept; `src/analysis.ts` reads the speech of a run once and keeps what it read;
+  `src/campaigns.ts` groups runs into experiments; `src/report.ts` reads result files and summarizes them.
 - `src/platform.ts` decides once what system the bench runs on and what the machine is; the rest of the
   code reads that and never checks the system itself.
 

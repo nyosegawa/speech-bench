@@ -1,11 +1,12 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { analyzeRun } from './analysis.ts'
 import type { SpeakerEmbedder } from './engines/speaker-embedding.ts'
-import { medianPitch, semitoneSpread } from './pitch.ts'
+import { semitoneSpread } from './pitch.ts'
 import { parseResultFile, type SentenceRecord, type TtsRunRecord } from './results.ts'
+import { takeFile } from './runs.ts'
 import { countHeardErrors } from './scoring.ts'
-import { cosine, likenessToTheRest, MIN_VOICED_SECONDS, voicedSeconds } from './speaker.ts'
-import { readWav } from './wav.ts'
+import { cosine, likenessToTheRest } from './speaker.ts'
 
 const PAGE = path.join(import.meta.dirname, 'listen-page.html')
 
@@ -26,11 +27,9 @@ export interface ListenedRun {
   likeReference: Readonly<Record<string, number | null>>
 }
 
-const audioFile = (file: string, record: SentenceRecord): string => path.join(path.dirname(file), path.basename(file, '.jsonl'), record.audio)
-
 /** Where a take's audio is, as a link relative to the folder of the page at `page`, so that it opens from the file system. */
 export const takeUrl = (page: string, entry: ListenedRun, record: SentenceRecord): string =>
-  path.relative(path.dirname(page), audioFile(entry.file, record)).split(path.sep).map(encodeURIComponent).join('/')
+  path.relative(path.dirname(page), takeFile(entry.file, record)).split(path.sep).map(encodeURIComponent).join('/')
 
 /** The characters the recognizer heard wrong in the sentences, each at most all of its own, as a share of the characters they have. */
 export function heardErrorRate(records: readonly SentenceRecord[], locale: string): number {
@@ -46,10 +45,13 @@ export function readTtsRuns(files: readonly string[], embedder: SpeakerEmbedder,
   return files.flatMap((file) => {
     const parsed = parseResultFile(fs.readFileSync(file, 'utf8').split('\n'))
     if (!('sentences' in parsed) || !keep(parsed.run)) return []
-    const audio = parsed.sentences.map((record) => readWav(fs.readFileSync(audioFile(file, record))))
-    const pitches = Object.fromEntries(parsed.sentences.map((record, index) => [record.id, medianPitch(audio[index]!)]))
-    const judged = parsed.sentences.flatMap((record, index) => (voicedSeconds(audio[index]!) >= MIN_VOICED_SECONDS ? [{ id: record.id, pcm: audio[index]! }] : []))
-    const embeddings = judged.map(({ pcm }) => embedder.embed(pcm))
+    const analysis = analyzeRun(file, embedder)
+    const pitches = Object.fromEntries(parsed.sentences.map((record) => [record.id, analysis[record.id]?.pitchHz ?? null]))
+    const judged = parsed.sentences.flatMap((record) => {
+      const embedding = analysis[record.id]?.embedding
+      return embedding ? [{ id: record.id, embedding }] : []
+    })
+    const embeddings = judged.map(({ embedding }) => embedding)
     const likenesses = likenessToTheRest(embeddings)
     const judgedAt = (id: string): number => judged.findIndex((take) => take.id === id)
     const likeness = Object.fromEntries(parsed.sentences.map((record) => [record.id, likenesses[judgedAt(record.id)] ?? null]))

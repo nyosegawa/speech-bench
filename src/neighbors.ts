@@ -1,9 +1,10 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { analyzeRun } from './analysis.ts'
 import type { SpeakerEmbedder } from './engines/speaker-embedding.ts'
 import { parseResultFile, type TtsRunRecord } from './results.ts'
-import { cosine, MIN_VOICED_SECONDS, voicedSeconds } from './speaker.ts'
-import { readWav } from './wav.ts'
+import { takeFile } from './runs.ts'
+import { cosine } from './speaker.ts'
 
 const PAGE = path.join(import.meta.dirname, 'neighbors-page.html')
 
@@ -95,15 +96,14 @@ export function embedGroups(files: readonly string[], embedder: SpeakerEmbedder)
     const { key, name, detail } = voiceGroup(parsed.run)
     const group = groups.get(key) ?? { name, detail, takes: [], tooShort: 0 }
     groups.set(key, group)
-    const folder = path.join(path.dirname(file), path.basename(file, '.jsonl'))
+    const analysis = analyzeRun(file, embedder)
     for (const record of parsed.sentences) {
-      const audio = path.join(folder, record.audio)
-      const pcm = readWav(fs.readFileSync(audio))
-      if (voicedSeconds(pcm) < MIN_VOICED_SECONDS) {
+      const embedding = analysis[record.id]?.embedding
+      if (!embedding) {
         group.tooShort++
         continue
       }
-      group.takes.push({ label: takeLabel(parsed.run, record.id), sentence: record.id, seed: parsed.run.seed, text: record.text, audio, seconds: record.audioSeconds, embedding: embedder.embed(pcm) })
+      group.takes.push({ label: takeLabel(parsed.run, record.id), sentence: record.id, seed: parsed.run.seed, text: record.text, audio: takeFile(file, record), seconds: record.audioSeconds, embedding })
     }
   }
   return [...groups.values()].filter((group) => group.takes.length >= 2)

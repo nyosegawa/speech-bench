@@ -47,7 +47,7 @@ node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-16steps --seeds
 
 # A page that plays the synthesized speech of one set of sentences; --blind hides and shuffles the names
 node src/cli.ts listen --blind
-node src/cli.ts listen --page irodori-voices ~/speech-bench-data/results/tts-*-woman-*-speak-ja-JP-10.jsonl
+node src/cli.ts listen --page irodori-voices ~/speech-bench-data/runs/tts-*-woman-*-speak-ja-JP-10/run.jsonl
 ```
 
 ## Data
@@ -65,8 +65,17 @@ folder `SPEECH_BENCH_DATA` names.
   references/  reference voices made from synthesized takes, <name>.wav and <name>.json
   voice-files/ Irodori-TTS voice files made from the references for speech.cpp, by reference and codec
   logs/        server output
-  results/     one JSON Lines file per run, and for synthesis a folder of the speech beside it
+  runs/        a folder per run: run.jsonl, the speech of each sentence and analysis.json
+  campaigns/   the runs of each experiment, <name>.json
+  pages/       the listening, neighbors and voices pages
 ```
+
+`run.jsonl` holds what was measured, one JSON line for the run and one per utterance or sentence.
+`analysis.json` holds what is read from the speech (its voice, pitch and speaker embedding), kept so that a
+page does not read the speech again, and made again when the speaker model changes. `--campaign name` on `asr`
+or `tts` adds the run to an experiment, which `report`, `listen`, `voices` and `neighbors` then take with
+`--campaign name`. Data of the earlier layout, a result file in `results/` with its speech in a folder beside
+it, is moved into `runs/` by `node src/cli.ts migrate`.
 
 ### Your own recordings
 
@@ -176,7 +185,7 @@ about 0.07 more alike than two different sentences (Qwen3-TTS's ono_anna, 0.82 a
 sentence said with many seeds would hold together for the wrong reason.
 
 ```sh
-node src/cli.ts neighbors --page irodori ~/speech-bench-data/results/tts-*-irodori-*.jsonl
+node src/cli.ts neighbors --page irodori ~/speech-bench-data/runs/tts-*-irodori-*/run.jsonl
 ```
 
 `reference` makes a reference voice out of such takes: the largest set in which every pair is at least the
@@ -192,7 +201,7 @@ multiplies the length Irodori-TTS predicts for each sentence, which it otherwise
 kept in the result file and tells runs apart on the listening page.
 
 ```sh
-node src/cli.ts reference --name bright-young-woman-30s --seconds 30 ~/speech-bench-data/results/tts-*-young-woman-words-*-speak-ja-JP-60.jsonl
+node src/cli.ts reference --name bright-young-woman-30s --seconds 30 ~/speech-bench-data/runs/tts-*-young-woman-words-*-speak-ja-JP-60/run.jsonl
 node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-16steps --reference bright-young-woman-30s --seeds 1
 ```
 
@@ -205,9 +214,9 @@ are to each other, so that two voices that would sound like one person stand out
 browser and can be copied.
 
 ```sh
-node src/cli.ts reference --name soft-young-woman-candidate --seconds 10 --candidates 3 ~/speech-bench-data/results/tts-*-soft-young-woman-seed*-speak-ja-JP-10.jsonl
+node src/cli.ts reference --name soft-young-woman-candidate --seconds 10 --candidates 3 ~/speech-bench-data/runs/tts-*-soft-young-woman-seed*-speak-ja-JP-10/run.jsonl
 node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-16steps --reference soft-young-woman-candidate-1 --seeds 1,2
-node src/cli.ts voices --page women ~/speech-bench-data/results/tts-*-ref-*-candidate-*-speak-ja-JP-20.jsonl
+node src/cli.ts voices --page women ~/speech-bench-data/runs/tts-*-ref-*-candidate-*-speak-ja-JP-20/run.jsonl
 ```
 
 ## Pinned inputs

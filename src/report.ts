@@ -1,7 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { scoredByCharacter } from './language.ts'
-import { resultsDir } from './paths.ts'
 import { isDropped, parseResultFile, type AsrRunRecord, type AudioPreparation, type HeardUtterance, type TtsRunRecord } from './results.ts'
 import { countErrors, countHeardErrors, heardAsSaid, type ErrorCount } from './scoring.ts'
 
@@ -86,10 +85,6 @@ export function readSummaries(files: readonly string[]): Summary[] {
   return files.map((file) => summarize(fs.readFileSync(file, 'utf8').split('\n')))
 }
 
-export function allResultFiles(): string[] {
-  if (!fs.existsSync(resultsDir())) return []
-  return fs.readdirSync(resultsDir()).filter((name) => name.endsWith('.jsonl')).sort().map((name) => path.join(resultsDir(), name))
-}
 
 function describeAudio(audio: AudioPreparation): string {
   if (audio.edges === 'voice') return `trimmed to the voice ${audio.detector} finds, with ${audio.marginSeconds} s around it`
