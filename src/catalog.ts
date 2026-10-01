@@ -125,6 +125,8 @@ export type TtsRuntime =
       options: Readonly<Record<string, unknown>>
       voiceDesign: boolean
       voiceReference: boolean
+      /** Whether the model predicts the length of the speech and takes a factor for it, `duration_scale`. */
+      durationScale: boolean
     }
 
 /** A speech synthesis model the bench can run, with the languages of its model card as BCP 47 tags. */
@@ -179,6 +181,7 @@ const irodori = (steps: number): TtsModel => ({
   options: { language: 'ja', no_ref: true, num_inference_steps: steps },
   voiceDesign: true,
   voiceReference: true,
+  durationScale: true,
   files: [IRODORI_V4_SMALL],
   languages: ['ja'],
   voices: [],

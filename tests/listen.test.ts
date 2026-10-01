@@ -6,13 +6,14 @@ import type { SentenceRecord, TtsRunRecord } from '../src/results.ts'
 const results = path.join(path.sep, 'data', 'results')
 const sentence: SentenceRecord = { type: 'sentence', id: 'aizuchi-hai', kind: 'aizuchi', text: 'はい。', audio: 'aizuchi-hai.wav', audioSeconds: 0.5, firstAudioSeconds: 0.05, totalSeconds: 0.2, transcript: 'はい。' }
 
-interface RunOptions { set?: string; seed?: number; design?: string; reference?: string; gpu?: string; transcript?: string; pitches?: number[]; likeness?: Array<number | null> }
+interface RunOptions { set?: string; seed?: number; design?: string; reference?: string; durationScale?: number; gpu?: string; transcript?: string; pitches?: number[]; likeness?: Array<number | null> }
 
 function run(model: string, startedAt: string, options: RunOptions = {}): ListenedRun {
   const record = {
     type: 'run', format: 7, task: 'tts', startedAt, set: { name: options.set ?? 'speak-ja-JP-20', locale: 'ja-JP', size: 1 }, voice: null, seed: options.seed ?? null,
     design: options.design === undefined ? null : { id: options.design, instruction: `${options.design} instruction` },
     reference: options.reference === undefined ? null : { name: options.reference, sha256: '0', seconds: 30 },
+    durationScale: options.durationScale ?? null,
     model: { id: model, label: `${model} label`, license: 'MIT', files: [] }, machine: { hostname: 'mac', gpus: [options.gpu ?? 'Apple M5'] },
     runtime: { id: 'audio.cpp', version: 'v1', options: {} }
   } as unknown as TtsRunRecord
@@ -52,6 +53,12 @@ describe('latestRuns', () => {
       run('a', '2026-09-30T04:00:00Z', { design: 'young-woman-words', reference: 'voice-30s', seed: 1 })
     ])
     expect(kept).toHaveLength(4)
+  })
+
+  it('keeps a run for every length factor of one reference, and names the runs by it', () => {
+    const runs = latestRuns([undefined, 0.5, 0.7].map((durationScale) => run('a', '2026-10-01T01:00:00Z', { reference: 'voice', seed: 1, ...(durationScale === undefined ? {} : { durationScale }) })))
+    expect(runs).toHaveLength(3)
+    expect(runNames(runs).names.slice(1)).toEqual(['length ×0.5', 'length ×0.7'])
   })
 })
 

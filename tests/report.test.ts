@@ -73,7 +73,8 @@ describe('summarize a speech recognition run', () => {
   it('reads runs before format 8 as loaded with the runtime defaults, and says the options a run was loaded with', () => {
     expect(asr(summarize(fixture('result-format-6-asr.jsonl'))).run.runtime.options).toEqual({})
     expect(asr(summarize(fixture('result-format-8-asr.jsonl'))).run.runtime.options).toEqual({})
-    expect(asr(summarize(fixture('result-format-9-asr.jsonl'))).run.format).toBe(9)
+    expect(asr(summarize(fixture('result-format-9-asr.jsonl'))).run.format).toBe(10)
+    expect(asr(summarize(fixture('result-format-10-asr.jsonl'))).run.format).toBe(10)
     const report = formatReport([summarize(fixture('result-format-8-tts.jsonl'))])
     expect(report).toContain('irodori_tts.codec_backend=cpu')
   })
@@ -101,6 +102,8 @@ describe('summarize a speech synthesis run', () => {
     expect(tts(summarize(fixture('result-format-8-tts.jsonl'))).sentences).toBe(3)
     expect(tts(summarize(fixture('result-format-9-tts.jsonl'))).run.reference?.name).toBe('bright-young-woman-30s')
     expect(tts(summarize(fixture('result-format-8-tts.jsonl'))).run.reference).toBeNull()
+    expect(tts(summarize(fixture('result-format-9-tts.jsonl'))).run.durationScale).toBeNull()
+    expect(tts(summarize(fixture('result-format-10-tts.jsonl'))).run.durationScale).toBe(0.5)
   })
 
   const ttsRun = { type: 'run', format: 4, task: 'tts', set: { name: 'speak', locale: 'ja-JP', size: 2 }, voice: 'ono_anna', recognizer: { id: 'r', label: 'R' }, loadSeconds: 1, warmupSeconds: 1 }

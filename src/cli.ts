@@ -30,7 +30,7 @@ const USAGE = `usage:
   node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b,parakeet-tdt_ctc-0.6b-ja [--set fleurs [--count 100] | --set recordings --speaker name]
       [--edges asist [--hangover 600] | --edges as-recorded [--trailing-silence 0]]
   node src/cli.ts tts --locale ja-JP --models qwen3-tts-0.6b,irodori-tts-v4-small [--voice ono_anna] [--seeds 1,2,3]
-      [--designs young-woman-caption,young-man-caption] [--reference name] [--sentences sentences.json] [--only aizuchi-hai,reply-weather]
+      [--designs young-woman-caption,young-man-caption] [--reference name] [--duration-scale 0.5] [--sentences sentences.json] [--only aizuchi-hai,reply-weather]
   node src/cli.ts record --locale ja-JP --speaker name [--prompts prompts.json]
   node src/cli.ts asist-input --locale ja-JP --speaker name --mic builtin --capture native|getusermedia [--port 9222] [--items items.json]
   node src/cli.ts input-report [--min-threshold 0.012] [--min-voiced-ms 250] [--min-utterance-ms 300] [--min-speech-ms 150] [session folder ...]
@@ -117,6 +117,7 @@ async function tts(args: string[]): Promise<void> {
       seeds: { type: 'string' },
       designs: { type: 'string' },
       reference: { type: 'string' },
+      'duration-scale': { type: 'string' },
       sentences: { type: 'string' },
       only: { type: 'string' }
     }
@@ -132,6 +133,8 @@ async function tts(args: string[]): Promise<void> {
   })
   const designs = values.designs === undefined ? [null] : loadDesigns(locale, values.designs.split(',').map((id) => id.trim()))
   const reference = values.reference === undefined ? null : await loadReference(values.reference)
+  const durationScale = values['duration-scale'] === undefined ? null : Number(values['duration-scale'])
+  if (durationScale !== null && !(durationScale > 0 && durationScale <= 4)) throw new Error(`--duration-scale multiplies the predicted length of each sentence, a number above 0 and up to 4, not ${JSON.stringify(values['duration-scale'])}`)
   const all = loadPrompts('speak', locale, values.sentences)
   const only = values.only?.split(',').map((id) => id.trim())
   const unknown = only?.filter((id) => !all.some((prompt) => prompt.id === id)) ?? []
@@ -143,7 +146,7 @@ async function tts(args: string[]): Promise<void> {
       for (const seed of seeds) {
         const how = [design === null ? '' : ` as ${design.id}`, seed === null ? '' : ` with seed ${seed}`].join('')
         process.stderr.write(`${model.id}${how} speaking ${sentences.length} sentences\n`)
-        files.push(await runTts(model, locale, sentences, { voice: values.voice, seed, design, reference }))
+        files.push(await runTts(model, locale, sentences, { voice: values.voice, seed, design, reference, durationScale }))
       }
     }
   }

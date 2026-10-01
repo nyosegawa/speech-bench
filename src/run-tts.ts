@@ -18,18 +18,23 @@ import { durationSeconds, encodeWav16, peakNormalize, resample } from './wav.ts'
 /** The model the synthesized speech is transcribed with: the one ASIST recommends where it has the memory. */
 const RECOGNIZER = 'qwen3-asr-1.7b'
 
-/** How a run picks the voice a model speaks with: a built-in voice, the seed it samples from, a voice described in words. */
+/**
+ * How a run picks the voice a model speaks with, a built-in voice, the seed it samples from, a voice described
+ * in words or a reference, and what the predicted length of each sentence is multiplied by.
+ */
 export interface VoiceChoice {
   voice: string | undefined
   seed: number | null
   design: VoiceDesign | null
   reference: ReferenceVoice | null
+  durationScale: number | null
 }
 
-async function prepareTts(model: TtsModel, { seed, design, reference }: VoiceChoice): Promise<{ engine: TtsEngine; runtime: RuntimeSpec; loadOptions: Readonly<Record<string, string>> }> {
+async function prepareTts(model: TtsModel, { seed, design, reference, durationScale }: VoiceChoice): Promise<{ engine: TtsEngine; runtime: RuntimeSpec; loadOptions: Readonly<Record<string, string>> }> {
   if (model.runtime === 'qwen3-tts-worker' && seed !== null) throw new Error(`${model.id} runs in the Qwen3-TTS worker, which takes no seed`)
   if (design !== null && !(model.runtime === 'audio.cpp' && model.voiceDesign)) throw new Error(`${model.id} takes no voice described in words`)
   if (reference !== null && !(model.runtime === 'audio.cpp' && model.voiceReference)) throw new Error(`${model.id} takes no reference voice`)
+  if (durationScale !== null && !(model.runtime === 'audio.cpp' && model.durationScale)) throw new Error(`${model.id} takes no factor for the length of its speech`)
   const files: string[] = []
   for (const file of model.files) files.push(await ensurePinned(file))
   if (model.runtime === 'qwen3-tts-worker') {
@@ -37,7 +42,7 @@ async function prepareTts(model: TtsModel, { seed, design, reference }: VoiceCho
   }
   const [gguf] = files
   if (!gguf) throw new Error(`${model.id} has no GGUF`)
-  const runOptions = { ...(seed === null ? {} : { seed }), ...(design === null ? {} : { instruction: design.instruction }) }
+  const runOptions = { ...(seed === null ? {} : { seed }), ...(design === null ? {} : { instruction: design.instruction }), ...(durationScale === null ? {} : { duration_scale: durationScale }) }
   return { engine: new AudioCppTts(await ensureRuntime(AUDIO_CPP), model, gguf, gpuBackend(), runOptions, reference?.file ?? null), runtime: AUDIO_CPP, loadOptions: model.loadOptions[gpuBackend()] ?? {} }
 }
 
@@ -55,7 +60,7 @@ interface Spoken {
  * share the GPU while the synthesis is timed. Returns the path of the result file.
  */
 export async function runTts(model: TtsModel, locale: string, sentences: readonly Prompt[], choice: VoiceChoice): Promise<string> {
-  const { seed, design, reference } = choice
+  const { seed, design, reference, durationScale } = choice
   if (!modelCovers(model, locale)) throw new Error(`${model.id} does not list ${locale} among its languages`)
   const first = sentences[0]
   if (!first) throw new Error('there are no sentences to speak')
@@ -65,7 +70,7 @@ export async function runTts(model: TtsModel, locale: string, sentences: readonl
   const startedAt = new Date()
   const machine = machineInfo()
   const setName = `speak-${locale}-${sentences.length}`
-  const stem = `tts-${stamp(startedAt)}-${machine.hostname}-${model.id}${voice ? `-${voice}` : ''}${design === null ? '' : `-${design.id}`}${reference === null ? '' : `-ref-${reference.name}`}${seed === null ? '' : `-seed${seed}`}-${setName}`
+  const stem = `tts-${stamp(startedAt)}-${machine.hostname}-${model.id}${voice ? `-${voice}` : ''}${design === null ? '' : `-${design.id}`}${reference === null ? '' : `-ref-${reference.name}`}${durationScale === null ? '' : `-duration${durationScale}`}${seed === null ? '' : `-seed${seed}`}-${setName}`
   const audioFolder = path.join(resultsDir(), stem)
   fs.mkdirSync(audioFolder, { recursive: true })
 
@@ -128,6 +133,7 @@ export async function runTts(model: TtsModel, locale: string, sentences: readonl
     seed,
     design: design === null ? null : { id: design.id, instruction: design.instruction },
     reference: reference === null ? null : { name: reference.name, sha256: reference.sha256, seconds: reference.seconds },
+    durationScale,
     recognizer: { id: recognizer.id, label: recognizer.label },
     loadSeconds,
     warmupSeconds

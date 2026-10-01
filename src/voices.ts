@@ -83,6 +83,9 @@ export function voicesData(runs: readonly ListenedRun[], reference: (name: strin
   if (setNames.size !== 1) throw new Error(`the runs that spoke like a reference spoke ${setNames.size === 0 ? 'no set' : `different sets of sentences (${[...setNames].join(', ')})`}; name the result files of one set`)
   const byReference = new Map<string, ListenedRun[]>()
   for (const entry of spoken) byReference.set(entry.run.reference!.name, [...(byReference.get(entry.run.reference!.name) ?? []), entry])
+  for (const [name, entries] of byReference) {
+    if (new Set(entries.map((entry) => entry.run.durationScale)).size > 1) throw new Error(`the runs that spoke like ${name} had their lengths scaled differently; name the result files of one length factor`)
+  }
   const names = [...byReference.keys()].sort()
   const groups = [...new Set(names.map((name) => reference(name).manifest.group))].sort()
   const candidateRuns = names.map((name) => byReference.get(name)!.sort((a, b) => (a.run.seed ?? 0) - (b.run.seed ?? 0)))
