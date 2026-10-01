@@ -111,13 +111,14 @@ export interface TtsVoice {
 }
 
 /**
- * Where a synthesis model runs: speech.cpp's worker, with the sampler's steps when not the model's own and
- * whether it speaks like a reference voice, or audio.cpp's server with the family it loads as, the options it
+ * Where a synthesis model runs: speech.cpp's worker or an adapter of the model's official implementation, with the
+ * sampler's steps when not the model's own and whether it speaks like a reference voice, or audio.cpp's server with the family it loads as, the options it
  * is loaded with on each GPU interface, the request options every sentence is sent with, and whether it takes
  * a voice described in words (`instruction`) and a reference voice to speak like.
  */
 export type TtsRuntime =
   | { runtime: 'speech-worker'; steps: number | null; voiceReference: boolean }
+  | { runtime: 'adapter'; adapter: 'irodori-tts'; steps: number | null; voiceReference: boolean }
   | {
       runtime: 'audio.cpp'
       family: string
@@ -169,6 +170,33 @@ const irodoriV41 = (id: string, label: string, file: PinnedFile, steps: number |
 })
 const IRODORI_V4_1_MF = model(...IRODORI_V4_1, 'irodori-tts-v4.1-small-mf-f16.gguf', 1_514_765_472, '30b230256ce19a08b8769c582ca1afad0954a7c1f5d37b47c47e520b21d06262')
 const IRODORI_V4_1_RF = model(...IRODORI_V4_1, 'irodori-tts-v4.1-small-f16.gguf', 1_500_347_520, '4a1d3e68e3647e48a8ba001a54caa7c6cc221fd3b8a2492a3087c93af4bbee74')
+
+/** The tokenizer Irodori-TTS v4.1's checkpoints carry beside them, the same file in both repositories. */
+const officialIrodori = (repo: string, revision: string, size: number, sha256: string): PinnedFile[] => [
+  model(repo, revision, 'model.safetensors', size, sha256),
+  model(repo, revision, 'tokenizer/tokenizer.json', 6_718_495, '6a0734cf21c802169defaffe719bc2ef12bb9d0be37e54b61ed27aa89394723d'),
+  model(repo, revision, 'tokenizer/tokenizer_config.json', 668, 'd229a271c64de1a7939d20d3665498e873fa91d5ee2edf135d73ec752cb9c9d3'),
+  model('Aratako/Semantic-DACVAE-Japanese-32dim', '47376ee24834d7a05a48ebabfe3cde29b3c5e214', 'weights.pth', 429_620_065, 'db120339c5ee7eca1912cdf29bc612b947a0808e69c3cebfb4936b45a762c1d5')
+]
+const OFFICIAL_IRODORI_MF = officialIrodori('Aratako/Irodori-TTS-v4.1-Small-MF', 'ccc78f5d480b6e51b69b2d5042a14c4da04fea6e', 3_093_131_788, 'a3f204b3ee06058f4e639a1af38408e7e3af5b6c75176897ecb8bfaaebb4fd54')
+const OFFICIAL_IRODORI_RF = officialIrodori('Aratako/Irodori-TTS-v4.1-Small', '2b28324dc263ed5e6638b3cf3dd94c82ead07b4b', 3_064_295_596, 'c85de88c01700cb53538e706f128ebcb1b8513ad21d7d0e75f58bc82cdbf89f6')
+
+/**
+ * Irodori-TTS v4.1 Small in its official PyTorch runtime, at FP32 as released, to check speech.cpp's port
+ * against: the same checkpoints, sampled with the runtime's own defaults unless steps are asked for.
+ */
+const officialIrodoriV41 = (id: string, label: string, files: PinnedFile[], steps: number | null): TtsModel => ({
+  id,
+  label,
+  runtime: 'adapter',
+  adapter: 'irodori-tts',
+  steps,
+  voiceReference: true,
+  files,
+  languages: ['ja'],
+  voices: [],
+  license: 'MIT'
+})
 
 /** The CustomVoice speakers; each speaks every language of the model, most naturally its own. */
 const QWEN3_TTS_VOICES: readonly TtsVoice[] = [
@@ -236,6 +264,9 @@ export const TTS_MODELS: readonly TtsModel[] = [
   irodoriV41('irodori-tts-v4.1-small-mf', 'Irodori-TTS v4.1 Small MF F16', IRODORI_V4_1_MF, null),
   irodoriV41('irodori-tts-v4.1-small-16steps', 'Irodori-TTS v4.1 Small F16, 16 steps', IRODORI_V4_1_RF, 16),
   irodoriV41('irodori-tts-v4.1-small', 'Irodori-TTS v4.1 Small F16, 40 steps', IRODORI_V4_1_RF, null),
+  officialIrodoriV41('irodori-tts-v4.1-small-mf-official', 'Irodori-TTS v4.1 Small MF, official FP32', OFFICIAL_IRODORI_MF, null),
+  officialIrodoriV41('irodori-tts-v4.1-small-16steps-official', 'Irodori-TTS v4.1 Small, official FP32, 16 steps', OFFICIAL_IRODORI_RF, 16),
+  officialIrodoriV41('irodori-tts-v4.1-small-official', 'Irodori-TTS v4.1 Small, official FP32, 40 steps', OFFICIAL_IRODORI_RF, null),
   irodori(40),
   irodori(16),
   irodori(8)

@@ -10,11 +10,12 @@ import { AudioCppTts } from '../engines/audiocpp.ts'
 import { irodoriVoiceFile } from '../engines/irodori-voice.ts'
 import { WorkerTts } from '../engines/worker.ts'
 import type { Synthesis, TtsEngine } from '../engines/tts-engine.ts'
-import { gpuBackend, gpuDevice, machineInfo } from '../core/platform.ts'
+import { gpuBackend, gpuDevice, machineInfo, platformKey } from '../core/platform.ts'
 import { RESULT_FORMAT, type SentenceRecord, type TtsRunRecord } from './results.ts'
 import { prepareAsr } from './run-asr.ts'
 import { runFile, runFolder } from './runs.ts'
-import { AUDIO_CPP, ensureRuntime, SPEECH_CPP, SPEECH_CPP_TOOLS, type RuntimeSpec } from '../catalog/runtimes.ts'
+import { AUDIO_CPP, ensureRuntime, SPEECH_CPP, SPEECH_CPP_TOOLS } from '../catalog/runtimes.ts'
+import { adapterCommand, adapterVersion, IRODORI_TTS_ADAPTER, syncAdapter } from '../engines/adapter.ts'
 import { ensurePinned } from '../catalog/store.ts'
 import { durationSeconds, encodeWav16, peakNormalize, resample } from '../core/wav.ts'
 
@@ -50,7 +51,7 @@ export function speechWorkerArgs(files: readonly string[], device: string, seed:
   ]
 }
 
-async function prepareTts(model: TtsModel, { seed, design, reference, durationScale }: VoiceChoice): Promise<{ engine: TtsEngine; runtime: RuntimeSpec; loadOptions: Readonly<Record<string, string>> }> {
+async function prepareTts(model: TtsModel, { seed, design, reference, durationScale }: VoiceChoice): Promise<{ engine: TtsEngine; runtime: { id: string; version: string }; loadOptions: Readonly<Record<string, string>> }> {
   if (design !== null && !(model.runtime === 'audio.cpp' && model.voiceDesign)) throw new Error(`${model.id} takes no voice described in words`)
   if (reference !== null && !model.voiceReference) throw new Error(`${model.id} takes no reference voice`)
   if (durationScale !== null && !(model.runtime === 'audio.cpp' && model.durationScale)) throw new Error(`${model.id} takes no factor for the length of its speech`)
@@ -64,6 +65,16 @@ async function prepareTts(model: TtsModel, { seed, design, reference, durationSc
     const voiceFile = reference === null ? null : await irodoriVoiceFile(await ensureRuntime(SPEECH_CPP_TOOLS), weights, codec, codecFile.sha256, reference)
     const engine = new WorkerTts({ name: model.id, executable: await ensureRuntime(SPEECH_CPP), args: speechWorkerArgs(files, gpuDevice(), seed, model.steps, voiceFile), voice: voiceFile === null ? null : REFERENCE_VOICE })
     return { engine, runtime: SPEECH_CPP, loadOptions: voiceFile === null ? {} : { voice: 'voice file made on the CPU' } }
+  }
+  if (model.runtime === 'adapter') {
+    if (reference === null) throw new Error(`${model.id} has no voice of its own; give it one with --reference`)
+    // PyTorch from PyPI runs on the CPU only on Windows; a CUDA build is not what the adapter's lock file installs.
+    if (platformKey() !== 'darwin-arm64') throw new Error(`${model.id} runs on a Mac here, on the GPU through PyTorch's MPS backend`)
+    const fileOf = (name: string): string => files[model.files.findIndex((file) => file.file === name)]!
+    syncAdapter(IRODORI_TTS_ADAPTER)
+    const args = ['--checkpoint', fileOf('model.safetensors'), '--codec', fileOf('weights.pth'), '--device', 'mps', ...(seed === null ? [] : ['--seed', String(seed)]), ...(model.steps === null ? [] : ['--steps', String(model.steps)]), '--voice', `${REFERENCE_VOICE}=${reference.file}`]
+    const engine = new WorkerTts(adapterCommand(IRODORI_TTS_ADAPTER, model.id, args, REFERENCE_VOICE))
+    return { engine, runtime: { id: IRODORI_TTS_ADAPTER.id, version: adapterVersion(IRODORI_TTS_ADAPTER) }, loadOptions: { device: 'mps', precision: 'fp32' } }
   }
   const [gguf] = files
   if (!gguf) throw new Error(`${model.id} has no GGUF`)
