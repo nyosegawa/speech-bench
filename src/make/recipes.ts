@@ -30,8 +30,13 @@ export interface Recipe {
   chosen: Choice | null
 }
 
+const PROMPTS = path.join(import.meta.dirname, '..', '..', 'prompts')
+
 /** The recipes that ship with the bench, `prompts/voices-<locale>.json`. */
-export const recipesFile = (locale: string): string => path.join(import.meta.dirname, '..', '..', 'prompts', `voices-${locale}.json`)
+export const recipesFile = (locale: string): string => path.join(PROMPTS, `voices-${locale}.json`)
+
+/** The locales the bench has recipes for. */
+export const recipeLocales = (): string[] => fs.readdirSync(PROMPTS).flatMap((file) => /^voices-(.+)\.json$/.exec(file)?.[1] ?? []).sort()
 
 const isString = (value: unknown): value is string => typeof value === 'string' && value.trim() !== ''
 

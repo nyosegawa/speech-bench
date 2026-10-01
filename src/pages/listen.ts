@@ -107,7 +107,7 @@ export function runNames(runs: readonly ListenedRun[]): { names: string[]; share
   }
 }
 
-/** What the page's script reads: the runs and, for each sentence, the take of each run. */
+/** What the listening page reads: the runs and, for each sentence, the take of each run. */
 export interface PageData {
   title: string
   /** The one reference voice every run is compared with, by name, or null when each is compared with its own. */

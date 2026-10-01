@@ -1,6 +1,8 @@
+import type { Choice, Recipe } from '../make/recipes.ts'
 import type { Campaign } from '../measure/campaigns.ts'
 import type { AsrSummary, TtsSummary } from '../measure/report.ts'
 import type { PageData } from '../pages/listen.ts'
+import type { VoicesPageData } from '../pages/voices.ts'
 
 /**
  * What the web server answers, shared with the web app, which imports these types only. A route and the
@@ -15,6 +17,56 @@ export type CampaignRow = Campaign
 
 /** GET /api/listen?runs=a,b[&reference=name][&blind=1]: the synthesis runs named, sentence by sentence. */
 export type ListenData = PageData
+
+/** GET /api/voice-locales: the locales the bench has voice recipes for. */
+export type VoiceLocales = string[]
+
+/** GET /api/voices?locale=ja-JP: each voice's recipe and how far it has been made. */
+export interface VoiceRow {
+  id: string
+  description: string
+  lines: number
+  chosen: Choice | null
+  /** Runs of takes gathered from the description. */
+  gathered: number
+  candidates: string[]
+  /** Runs in which a candidate was tried. */
+  tried: number
+}
+
+/** The sentences and length factor a set of tries spoke, by which tries are compared. */
+export interface TrySet {
+  key: string
+  set: string
+  durationScale: number | null
+  runs: number
+  /** How many reference voices the runs spoke like. */
+  references: number
+}
+
+/** GET /api/voices/<id>?locale=ja-JP[&tries=key]: a voice, its candidates and how they were heard in one set of tries. */
+export interface VoiceDetail {
+  locale: string
+  recipe: Recipe
+  gathered: number
+  candidates: Array<{ name: string; url: string; seconds: number; takes: number; meanSimilarity: number; weakestPair: number }>
+  trySets: TrySet[]
+  trySet: string | null
+  tries: VoicesPageData | null
+}
+
+/** GET /api/voice-similarity?locale=ja-JP: the chosen voices, heard on the sentences the most of them were tried with. */
+export interface ChosenVoices {
+  trySet: string | null
+  /** The voice each chosen reference belongs to, by the reference's name. */
+  voiceOf: Record<string, string>
+  /** Chosen voices with no tries in that set. */
+  missing: string[]
+  voices: VoicesPageData | null
+}
+
+/** POST /api/voices/<id>/choose with { locale, candidate }: the choice now recorded in the recipe. */
+export type ChooseAnswer = Choice
 
 /** Any route that fails answers this, with a status of 400 for a request the bench cannot serve. */
 export interface ApiError {

@@ -29,6 +29,9 @@ export function joinCampaign(name: string, run: string): void {
   fs.writeFileSync(file, `${JSON.stringify(campaign, null, 2)}\n`)
 }
 
+/** The runs of a campaign, none for one no run has joined yet. */
+export const campaignRuns = (name: string): string[] => (fs.existsSync(campaignFile(name)) ? readCampaign(name).runs : [])
+
 export function listCampaigns(): Campaign[] {
   if (!fs.existsSync(campaignsDir())) return []
   return fs.readdirSync(campaignsDir()).filter((name) => name.endsWith('.json')).sort().map((name) => readCampaign(path.basename(name, '.json')))

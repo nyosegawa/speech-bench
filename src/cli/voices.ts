@@ -92,7 +92,7 @@ export async function voice(args: string[]): Promise<void> {
     printCandidates(await makeCandidates(recipe, threshold, seconds, count), count, threshold, seconds)
   } else if (step === 'try') {
     const files = await tryCandidates(recipe, locale, ttsModel(values.model ?? 'irodori-tts-v4.1-small-mf'), loadPrompts('speak', locale), seedList(values.seeds ?? '1,2'))
-    console.log(`${files.length} runs joined campaign ${voiceCampaign(id)}; compare them with "node src/cli.ts voices --campaign ${voiceCampaign(id)}"`)
+    console.log(`${files.length} runs joined campaign ${voiceCampaign(id)}; compare them under Voices in the web app, "node src/cli.ts web"`)
   } else if (step === 'choose') {
     if (!candidate) throw new Error('voice choose needs the voice and the candidate chosen')
     await chooseCandidate(recipe, locale, candidate)

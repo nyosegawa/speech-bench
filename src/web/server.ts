@@ -1,16 +1,19 @@
 import fs from 'node:fs'
 import http from 'node:http'
+import type { AddressInfo } from 'node:net'
 import path from 'node:path'
 import { SPEAKER_MODEL } from '../catalog/models.ts'
 import { dataDir } from '../core/paths.ts'
 import { readWav } from '../core/wav.ts'
 import { SpeakerEmbedder } from '../engines/speaker-embedding.ts'
+import { recipeLocales } from '../make/recipes.ts'
 import { referenceFile, referenceNames } from '../make/references.ts'
 import { listCampaigns } from '../measure/campaigns.ts'
 import { summarize } from '../measure/report.ts'
 import { allRunFiles, runFile, runIdOf } from '../measure/runs.ts'
 import { listeningData, readTtsRuns, type UrlOf } from '../pages/listen.ts'
-import type { ApiError, CampaignRow, ListenData, RunRow } from './api.ts'
+import type { ApiError, CampaignRow, ChooseAnswer, ChosenVoices, ListenData, RunRow, VoiceDetail, VoiceRow } from './api.ts'
+import { choose, chosenVoices, voiceDetail, voiceRows } from './voices.ts'
 
 /** The built web app, which `npm run web:build` writes. */
 const APP = path.join(import.meta.dirname, '..', '..', 'web', 'dist')
@@ -34,6 +37,33 @@ const json = (response: http.ServerResponse, status: number, body: unknown): voi
   response.end(JSON.stringify(body))
 }
 
+/** A request's JSON body, which the bench's own app sends. */
+async function bodyOf(request: http.IncomingMessage): Promise<Record<string, unknown>> {
+  // A page of another site can send a form or plain text here without asking; JSON it cannot send unasked.
+  if (request.headers['content-type'] !== 'application/json') throw new RequestError('the request body must be sent as application/json')
+  const chunks: Buffer[] = []
+  for await (const chunk of request) chunks.push(chunk as Buffer)
+  try {
+    const body: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+    if (typeof body === 'object' && body !== null && !Array.isArray(body)) return body as Record<string, unknown>
+  } catch {
+    // An unreadable body is answered as one that is not an object.
+  }
+  throw new RequestError('the request body is not a JSON object')
+}
+
+const textField = (body: Record<string, unknown>, name: string): string => {
+  const value = body[name]
+  if (typeof value !== 'string' || value === '') throw new RequestError(`the request body needs the string ${name}`)
+  return value
+}
+
+const localeOf = (url: URL): string => {
+  const locale = url.searchParams.get('locale')
+  if (!locale) throw new RequestError('name the locale with locale=ja-JP')
+  return locale
+}
+
 function runRows(): RunRow[] {
   const campaignsOf = new Map<string, string[]>()
   for (const campaign of listCampaigns()) for (const run of campaign.runs) campaignsOf.set(run, [...(campaignsOf.get(run) ?? []), campaign.name])
@@ -48,6 +78,11 @@ export async function startWebServer(port: number): Promise<{ url: string; close
   let embedder: Promise<SpeakerEmbedder> | null = null
   const speakerEmbedder = (): Promise<SpeakerEmbedder> => (embedder ??= SpeakerEmbedder.open(SPEAKER_MODEL))
   const referenceEmbeddings = new Map<string, Float32Array>()
+  const referenceEmbedding = (embedder: SpeakerEmbedder) => (name: string): Float32Array => {
+    const known = referenceEmbeddings.get(name) ?? embedder.embed(readWav(fs.readFileSync(referenceFile(name))))
+    referenceEmbeddings.set(name, known)
+    return known
+  }
 
   async function listen(url: URL): Promise<ListenData> {
     const ids = (url.searchParams.get('runs') ?? '').split(',').filter(Boolean)
@@ -57,11 +92,7 @@ export async function startWebServer(port: number): Promise<{ url: string; close
     if (missing.length > 0) throw new RequestError(`there are no runs ${missing.map(runIdOf).join(', ')}`)
     const shared = await speakerEmbedder()
     const reference = url.searchParams.get('reference')
-    const embeddingOf = (name: string): Float32Array => {
-      const known = referenceEmbeddings.get(name) ?? shared.embed(readWav(fs.readFileSync(referenceFile(name))))
-      referenceEmbeddings.set(name, known)
-      return known
-    }
+    const embeddingOf = referenceEmbedding(shared)
     const runs = readTtsRuns(files, shared, () => true, (run) => {
       const name = reference ?? run.reference?.name
       return name === undefined ? undefined : embeddingOf(name)
@@ -89,10 +120,30 @@ export async function startWebServer(port: number): Promise<{ url: string; close
   const server = http.createServer((request, response) => {
     const url = new URL(request.url ?? '/', 'http://127.0.0.1')
     void (async () => {
+      // A site whose name is made to point at this computer would otherwise read the data folder from the browser.
+      const { port: listening } = server.address() as AddressInfo
+      if (request.headers.host !== `127.0.0.1:${listening}` && request.headers.host !== `localhost:${listening}`) {
+        throw new RequestError(`the bench answers only requests to 127.0.0.1:${listening}, not ${String(request.headers.host)}`)
+      }
       if (request.method === 'GET' && url.pathname === '/api/runs') return json(response, 200, runRows())
       if (request.method === 'GET' && url.pathname === '/api/campaigns') return json(response, 200, listCampaigns() satisfies CampaignRow[])
       if (request.method === 'GET' && url.pathname === '/api/listen') return json(response, 200, await listen(url))
       if (request.method === 'GET' && url.pathname === '/api/references') return json(response, 200, referenceNames(''))
+      if (request.method === 'GET' && url.pathname === '/api/voice-locales') return json(response, 200, recipeLocales())
+      if (request.method === 'GET' && url.pathname === '/api/voices') return json(response, 200, voiceRows(localeOf(url)) satisfies VoiceRow[])
+      if (request.method === 'GET' && url.pathname === '/api/voice-similarity') {
+        const embedder = await speakerEmbedder()
+        return json(response, 200, chosenVoices(localeOf(url), embedder, referenceEmbedding(embedder), audioUrl) satisfies ChosenVoices)
+      }
+      const voice = /^\/api\/voices\/([a-z0-9_-]+)(\/choose)?$/.exec(url.pathname)
+      if (voice && request.method === 'GET' && !voice[2]) {
+        const embedder = await speakerEmbedder()
+        return json(response, 200, voiceDetail(localeOf(url), voice[1]!, url.searchParams.get('tries'), embedder, referenceEmbedding(embedder), audioUrl) satisfies VoiceDetail)
+      }
+      if (voice && request.method === 'POST' && voice[2]) {
+        const body = await bodyOf(request)
+        return json(response, 200, (await choose(textField(body, 'locale'), voice[1]!, textField(body, 'candidate'))) satisfies ChooseAnswer)
+      }
       if (url.pathname.startsWith('/api/')) throw new RequestError(`there is no route ${request.method} ${url.pathname}`)
       if (request.method === 'GET' && url.pathname.startsWith('/audio/')) {
         const file = audioFileOf(url.pathname)
@@ -109,7 +160,7 @@ export async function startWebServer(port: number): Promise<{ url: string; close
   return new Promise((resolve, reject) => {
     server.once('error', reject)
     server.listen(port, '127.0.0.1', () => {
-      const address = server.address() as { port: number }
+      const address = server.address() as AddressInfo
       resolve({ url: `http://127.0.0.1:${address.port}/`, close: () => server.close() })
     })
   })

@@ -1,5 +1,5 @@
 import fs from 'node:fs'
-import { joinCampaign, readCampaign } from '../measure/campaigns.ts'
+import { campaignRuns, joinCampaign } from '../measure/campaigns.ts'
 import { SPEAKER_MODEL, type TtsModel } from '../catalog/models.ts'
 import type { Prompt } from '../datasets/prompts.ts'
 import { SpeakerEmbedder } from '../engines/speaker-embedding.ts'
@@ -21,6 +21,26 @@ export const candidateBase = (id: string): string => `${id}-candidate`
 /** The reference a chosen voice is kept under, apart from its candidates, which can be made again. */
 export const voiceReference = (id: string): string => `voice-${id}`
 
+/**
+ * The runs of a voice's campaign, as result files: the takes gathered from its description, which spoke like
+ * no reference, and the tries of its candidates, which did.
+ */
+export function voiceRuns(id: string): { gathered: string[]; tried: string[] } {
+  const runs = { gathered: [] as string[], tried: [] as string[] }
+  for (const file of campaignRuns(voiceCampaign(id)).map(runFile)) {
+    const { run } = parseResultFile(fs.readFileSync(file, 'utf8').split('\n'))
+    if (run.task !== 'tts') throw new Error(`${runIdOf(file)} in campaign ${voiceCampaign(id)} is not a speech synthesis run`)
+    runs[run.reference === null ? 'gathered' : 'tried'].push(file)
+  }
+  return runs
+}
+
+/** The candidate references made for a voice, `<id>-candidate-1` and on. */
+export function candidatesOf(id: string): string[] {
+  const base = candidateBase(id)
+  return referenceNames(`${base}-`).filter((name) => /^\d+$/.test(name.slice(base.length + 1))).sort((a, b) => Number(a.slice(base.length + 1)) - Number(b.slice(base.length + 1)))
+}
+
 /** Takes of the voice's description saying its lines, one run for each seed. */
 export async function gatherTakes(recipe: Recipe, locale: string, model: TtsModel, seeds: readonly number[]): Promise<string[]> {
   if (recipe.lines.length === 0) throw new Error(`${recipe.id} has no lines to say; give it lines in character before gathering takes`)
@@ -36,10 +56,7 @@ export async function gatherTakes(recipe: Recipe, locale: string, model: TtsMode
 
 /** Candidate references from the takes the voice's campaign gathered with its description. */
 export async function makeCandidates(recipe: Recipe, threshold: number, seconds: number, count: number): Promise<ReferenceManifest[]> {
-  const files = readCampaign(voiceCampaign(recipe.id)).runs.map(runFile).filter((file) => {
-    const parsed = parseResultFile(fs.readFileSync(file, 'utf8').split('\n'))
-    return parsed.run.task === 'tts' && parsed.run.design?.id === recipe.id && parsed.run.reference === null
-  })
+  const files = voiceRuns(recipe.id).gathered
   if (files.length === 0) throw new Error(`${recipe.id} has no takes gathered yet; run "node src/cli.ts voice gather ${recipe.id}" first`)
   const groups = embedGroups(files, await SpeakerEmbedder.open(SPEAKER_MODEL))
   if (groups.length !== 1) throw new Error(`the takes of ${recipe.id} fall into ${groups.length} groups (${groups.map((group) => group.name).join('; ')}); they were made with different models or options`)
@@ -48,8 +65,7 @@ export async function makeCandidates(recipe: Recipe, threshold: number, seconds:
 
 /** The model speaks the sentences like each candidate of the voice, one run for each seed. */
 export async function tryCandidates(recipe: Recipe, locale: string, model: TtsModel, sentences: readonly Prompt[], seeds: readonly number[]): Promise<string[]> {
-  const base = candidateBase(recipe.id)
-  const candidates = referenceNames(`${base}-`).filter((name) => /^\d+$/.test(name.slice(base.length + 1)))
+  const candidates = candidatesOf(recipe.id)
   if (candidates.length === 0) throw new Error(`${recipe.id} has no candidates yet; run "node src/cli.ts voice candidates ${recipe.id}" first`)
   const files: string[] = []
   for (const name of candidates) {

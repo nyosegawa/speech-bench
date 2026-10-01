@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -23,6 +24,20 @@ afterEach(() => {
 
 const take = encodeWav16({ sampleRate: 16_000, samples: new Float32Array(1_600) })
 
+/** A request with headers fetch would not send, such as another Host. */
+function rawRequest(route: string, options: { method?: string; headers: Record<string, string>; body?: string }): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const request = http.request(`${server.url}${route}`, { method: options.method ?? 'GET', headers: options.headers }, (response) => {
+      let body = ''
+      response.setEncoding('utf8')
+      response.on('data', (chunk: string) => { body += chunk })
+      response.on('end', () => resolve({ status: response.statusCode!, body }))
+    })
+    request.on('error', reject)
+    request.end(options.body)
+  })
+}
+
 function writeRun(id: string): void {
   fs.mkdirSync(path.dirname(runFile(id)), { recursive: true })
   fs.copyFileSync(path.join(import.meta.dirname, 'fixtures', 'result-format-11-tts.jsonl'), runFile(id))
@@ -46,5 +61,17 @@ describe('the web server', () => {
     expect(Buffer.from(await inside.arrayBuffer())).toEqual(take)
     expect((await fetch(`${server.url}audio/..%2Foutside.wav`)).status).toBe(400)
     expect((await fetch(`${server.url}audio/runs/tts-a/run.jsonl`)).status).toBe(400)
+  })
+
+  it('refuses requests addressed to another host, which a site pointed at this computer would send', async () => {
+    writeRun('tts-a')
+    const answer = await rawRequest('api/runs', { headers: { host: 'attacker.example:5280' } })
+    expect(answer.status).toBe(400)
+    expect(answer.body).not.toContain('tts-a')
+  })
+
+  it('refuses a choice sent as plain text, which a page of another site can send unasked', async () => {
+    const answer = await rawRequest('api/voices/calm/choose', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ locale: 'ja-JP', candidate: 'calm-candidate-1' }) })
+    expect(answer.status).toBe(400)
   })
 })

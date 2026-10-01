@@ -1,8 +1,8 @@
 import { CartesianGrid, Scatter, ScatterChart, Tooltip, XAxis, YAxis, type YAxisTickContentProps } from 'recharts'
 import { ChartContainer, type ChartConfig } from '@/components/ui/chart.tsx'
 import type { ListenData } from '@/lib/api.ts'
-import type { Take } from './figures.ts'
-import type { TakeRef } from './player.ts'
+import type { Take } from './listen-data.ts'
+import type { TakeRef } from './listen-data.ts'
 
 interface Point {
   value: number
