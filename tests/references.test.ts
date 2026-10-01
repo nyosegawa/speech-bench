@@ -2,9 +2,9 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { EmbeddedTake } from '../src/neighbors.ts'
-import { candidateGroups, copyReference, loadReference, writeCandidates, writeReference } from '../src/references.ts'
-import { encodeWav16, readWav } from '../src/wav.ts'
+import type { EmbeddedTake } from '../src/analysis/neighbors.ts'
+import { candidateGroups, copyReference, loadReference, writeCandidates, writeReference } from '../src/make/references.ts'
+import { encodeWav16, readWav } from '../src/core/wav.ts'
 
 describe('reference voices', () => {
   let data: string

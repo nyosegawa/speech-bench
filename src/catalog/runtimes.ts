@@ -1,8 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { downloadVerified, extractArchive } from './download.ts'
-import { runtimesDir } from './paths.ts'
-import { platformKey, type PlatformKey } from './platform.ts'
+import { runtimesDir } from '../core/paths.ts'
+import { platformKey, type PlatformKey } from '../core/platform.ts'
 
 /** One release archive of a runtime and the executable inside it, as a path relative to the unpacked folder. */
 interface RuntimeAsset {

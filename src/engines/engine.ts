@@ -1,4 +1,4 @@
-import type { Pcm } from '../wav.ts'
+import type { Pcm } from '../core/wav.ts'
 
 /** One transcription and the wall time from sending the whole utterance to receiving the text. */
 export interface Transcription {

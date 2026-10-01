@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import fs from 'node:fs'
 import net from 'node:net'
 import path from 'node:path'
-import { logsDir } from '../paths.ts'
+import { logsDir } from '../core/paths.ts'
 
 const HEALTH_POLL_MS = 250
 

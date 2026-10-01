@@ -1,12 +1,12 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { analyzeRun } from './analysis.ts'
-import type { SpeakerEmbedder } from './engines/speaker-embedding.ts'
-import { semitoneSpread } from './pitch.ts'
-import { parseResultFile, type SentenceRecord, type TtsRunRecord } from './results.ts'
-import { takeFile } from './runs.ts'
-import { countHeardErrors } from './scoring.ts'
-import { cosine, likenessToTheRest } from './speaker.ts'
+import { analyzeRun } from '../analysis/run-analysis.ts'
+import type { SpeakerEmbedder } from '../engines/speaker-embedding.ts'
+import { semitoneSpread } from '../analysis/pitch.ts'
+import { parseResultFile, type SentenceRecord, type TtsRunRecord } from '../measure/results.ts'
+import { takeFile } from '../measure/runs.ts'
+import { countHeardErrors } from '../measure/scoring.ts'
+import { cosine, likenessToTheRest } from '../analysis/speaker.ts'
 
 const PAGE = path.join(import.meta.dirname, 'listen-page.html')
 

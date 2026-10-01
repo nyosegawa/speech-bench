@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { readManifest, recordingSet, saveRecording } from '../src/datasets/recordings.ts'
-import { encodeWav16 } from '../src/wav.ts'
+import { encodeWav16 } from '../src/core/wav.ts'
 
 const wav = (sampleRate: number): Buffer => encodeWav16({ sampleRate, samples: new Float32Array(sampleRate / 10) })
 const guest = { locale: 'ja-JP', speaker: 'guest' }

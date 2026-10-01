@@ -1,4 +1,4 @@
-import { resample, type Pcm } from './wav.ts'
+import { resample, type Pcm } from '../core/wav.ts'
 
 const RATE = 16_000
 const FRAME = 640

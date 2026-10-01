@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module'
-import { ensureRuntime, SHERPA_ONNX } from '../runtimes.ts'
+import { ensureRuntime, SHERPA_ONNX } from '../catalog/runtimes.ts'
 
 /** The functions of sherpa-onnx's addon the bench calls, as its JavaScript wrapper calls them (v1.13.8). */
 export interface SherpaAddon {

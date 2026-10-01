@@ -1,9 +1,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { analyzeRun } from './analysis.ts'
-import type { SpeakerEmbedder } from './engines/speaker-embedding.ts'
-import { parseResultFile, type TtsRunRecord } from './results.ts'
-import { takeFile } from './runs.ts'
+import { analyzeRun } from './run-analysis.ts'
+import type { SpeakerEmbedder } from '../engines/speaker-embedding.ts'
+import { parseResultFile, type TtsRunRecord } from '../measure/results.ts'
+import { takeFile } from '../measure/runs.ts'
 import { cosine } from './speaker.ts'
 
 const PAGE = path.join(import.meta.dirname, 'neighbors-page.html')

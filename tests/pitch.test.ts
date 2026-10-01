@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { medianPitch, semitoneSpread } from '../src/pitch.ts'
+import { medianPitch, semitoneSpread } from '../src/analysis/pitch.ts'
 
 const RATE = 24_000
 

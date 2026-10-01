@@ -1,9 +1,9 @@
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import type { ListenedRun } from '../src/listen.ts'
-import type { ReferenceManifest } from '../src/references.ts'
-import type { SentenceRecord, TtsRunRecord } from '../src/results.ts'
-import { splitShared, voicesData } from '../src/voices.ts'
+import type { ListenedRun } from '../src/pages/listen.ts'
+import type { ReferenceManifest } from '../src/make/references.ts'
+import type { SentenceRecord, TtsRunRecord } from '../src/measure/results.ts'
+import { splitShared, voicesData } from '../src/pages/voices.ts'
 
 const runs = path.join(path.sep, 'data', 'runs')
 const page = path.join(path.sep, 'data', 'pages', 'voices-voices.html')

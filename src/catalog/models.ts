@@ -1,5 +1,5 @@
 import type { PinnedFile } from './store.ts'
-import { tagCovers } from './language.ts'
+import { tagCovers } from '../core/language.ts'
 
 /**
  * Where a model runs: llama-server with the language model and its audio projector, or CrispASR with one

@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { dataDir } from './paths.ts'
+import { dataDir } from '../core/paths.ts'
 import { downloadVerified } from './download.ts'
 
 /** A file on Hugging Face pinned to one revision and verified by its size and sha256. */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { clusteredOrder, largestSet, voiceGroup } from '../src/neighbors.ts'
-import type { TtsRunRecord } from '../src/results.ts'
+import { clusteredOrder, largestSet, voiceGroup } from '../src/analysis/neighbors.ts'
+import type { TtsRunRecord } from '../src/measure/results.ts'
 
 describe('clusteredOrder', () => {
   it('puts the takes of one voice next to each other', () => {

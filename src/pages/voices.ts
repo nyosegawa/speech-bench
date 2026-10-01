@@ -1,10 +1,10 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { heardErrorRate, takeUrl, type ListenedRun } from './listen.ts'
-import { semitoneSpread } from './pitch.ts'
-import type { ReferenceManifest } from './references.ts'
-import type { SentenceRecord } from './results.ts'
-import { across, pairwise } from './speaker.ts'
+import { semitoneSpread } from '../analysis/pitch.ts'
+import type { ReferenceManifest } from '../make/references.ts'
+import type { SentenceRecord } from '../measure/results.ts'
+import { across, pairwise } from '../analysis/speaker.ts'
 
 const PAGE = path.join(import.meta.dirname, 'voices-page.html')
 

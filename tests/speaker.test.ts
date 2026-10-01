@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { across, cosine, likenessToTheRest, pairwise, voicedSeconds } from '../src/speaker.ts'
+import { across, cosine, likenessToTheRest, pairwise, voicedSeconds } from '../src/analysis/speaker.ts'
 
 const vector = (...values: number[]): Float32Array => Float32Array.from(values)
 

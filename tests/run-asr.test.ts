@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { prepareAudio } from '../src/run-asr.ts'
+import { prepareAudio } from '../src/measure/run-asr.ts'
 
 const recording = { sampleRate: 100, samples: Float32Array.from({ length: 300 }, (_, index) => (index >= 100 && index < 200 ? 0.3 : 0.001)) }
 const trim = { edges: 'voice', detector: 'silero-vad-v4', marginSeconds: 0.2 } as const

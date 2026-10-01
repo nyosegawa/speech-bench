@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { resultsDir, runsDir } from './paths.ts'
+import { resultsDir, runsDir } from '../core/paths.ts'
 import type { SentenceRecord } from './results.ts'
 
 /**

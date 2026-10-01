@@ -1,10 +1,10 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { medianPitch } from './pitch.ts'
-import { parseResultFile } from './results.ts'
-import { takeFile } from './runs.ts'
+import { parseResultFile } from '../measure/results.ts'
+import { takeFile } from '../measure/runs.ts'
 import { MIN_VOICED_SECONDS, voicedSeconds } from './speaker.ts'
-import { readWav, type Pcm } from './wav.ts'
+import { readWav, type Pcm } from '../core/wav.ts'
 
 /** What is read from one synthesized sentence: its voice, its median pitch and, with voice enough, its speaker embedding. */
 export interface TakeAnalysis {

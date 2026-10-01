@@ -1,6 +1,6 @@
-import type { AsrModel } from '../catalog.ts'
-import { languageOf } from '../language.ts'
-import { encodeWav16, type Pcm } from '../wav.ts'
+import type { AsrModel } from '../catalog/models.ts'
+import { languageOf } from '../core/language.ts'
+import { encodeWav16, type Pcm } from '../core/wav.ts'
 import type { AsrEngine, Transcription } from './engine.ts'
 import { startServer, stopServer, waitUntilHealthy, type RunningServer } from './server.ts'
 

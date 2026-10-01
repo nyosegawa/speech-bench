@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { windowsName } from '../src/platform.ts'
+import { windowsName } from '../src/core/platform.ts'
 
 describe('windowsName', () => {
   it('tells Windows 11 from Windows 10 by the build, since both report version 10.0', () => {
