@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import readline from 'node:readline'
-import { logsDir } from '../paths.ts'
+import { logsDir } from '../core/paths.ts'
 import type { Synthesis, TtsEngine } from './tts-engine.ts'
 
 const PROTOCOL_PREFIX = 'ASIST_JSON:'

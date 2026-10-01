@@ -2,10 +2,10 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { analyzeRun } from '../src/analysis.ts'
-import { joinCampaign, readCampaign } from '../src/campaigns.ts'
-import { allRunFiles, migrateResults, runFile } from '../src/runs.ts'
-import { encodeWav16 } from '../src/wav.ts'
+import { analyzeRun } from '../src/analysis/run-analysis.ts'
+import { joinCampaign, readCampaign } from '../src/measure/campaigns.ts'
+import { allRunFiles, migrateResults, runFile } from '../src/measure/runs.ts'
+import { encodeWav16 } from '../src/core/wav.ts'
 
 let data: string
 beforeEach(() => {

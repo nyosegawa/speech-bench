@@ -1,4 +1,4 @@
-import { languageOf, scoredByCharacter } from './language.ts'
+import { languageOf, scoredByCharacter } from '../core/language.ts'
 
 const KANJI_DIGITS: Readonly<Record<string, number>> = { 〇: 0, 零: 0, 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 }
 const KANJI_SMALL_UNITS: Readonly<Record<string, number>> = { 十: 10, 百: 100, 千: 1000 }

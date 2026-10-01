@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { tagCovers } from '../src/language.ts'
+import { tagCovers } from '../src/core/language.ts'
 
 describe('tagCovers', () => {
   it('lets a tag without a region cover every region of the language', () => {

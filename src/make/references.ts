@@ -1,10 +1,10 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { isSafeName } from './datasets/recordings.ts'
-import { sha256Of } from './download.ts'
-import { similarityOf, type EmbeddedGroup, type EmbeddedTake } from './neighbors.ts'
-import { referencesDir } from './paths.ts'
-import { encodeWav16, readWav, resample } from './wav.ts'
+import { isSafeName } from '../datasets/recordings.ts'
+import { sha256Of } from '../catalog/download.ts'
+import { similarityOf, type EmbeddedGroup, type EmbeddedTake } from '../analysis/neighbors.ts'
+import { referencesDir } from '../core/paths.ts'
+import { encodeWav16, readWav, resample } from '../core/wav.ts'
 
 /** The silence between two takes of a reference, which keeps one take's end from running into the next. */
 const GAP_SECONDS = 0.3

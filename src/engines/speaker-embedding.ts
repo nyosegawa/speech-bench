@@ -1,6 +1,6 @@
-import type { OnnxModel } from '../catalog.ts'
-import { ensurePinned } from '../store.ts'
-import { resample, type Pcm } from '../wav.ts'
+import type { OnnxModel } from '../catalog/models.ts'
+import { ensurePinned } from '../catalog/store.ts'
+import { resample, type Pcm } from '../core/wav.ts'
 import { loadSherpa, type SherpaAddon } from './sherpa-onnx.ts'
 
 /**

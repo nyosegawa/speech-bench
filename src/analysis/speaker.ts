@@ -1,4 +1,4 @@
-import type { Pcm } from './wav.ts'
+import type { Pcm } from '../core/wav.ts'
 
 /**
  * The voice an utterance needs before its speaker embedding says who speaks. Qwen3-TTS's one voice

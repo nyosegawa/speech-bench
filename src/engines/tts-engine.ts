@@ -1,4 +1,4 @@
-import type { Pcm } from '../wav.ts'
+import type { Pcm } from '../core/wav.ts'
 
 /** One synthesized sentence and its timing: from sending the text to the first audio, and to the last. */
 export interface Synthesis {

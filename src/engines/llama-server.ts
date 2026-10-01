@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
-import type { AsrModel } from '../catalog.ts'
-import { ENGLISH_LANGUAGE_NAMES, languageOf } from '../language.ts'
-import { encodeWav16, type Pcm } from '../wav.ts'
+import type { AsrModel } from '../catalog/models.ts'
+import { ENGLISH_LANGUAGE_NAMES, languageOf } from '../core/language.ts'
+import { encodeWav16, type Pcm } from '../core/wav.ts'
 import type { AsrEngine, Transcription } from './engine.ts'
 import { startServer, stopServer, waitUntilHealthy, type RunningServer } from './server.ts'
 

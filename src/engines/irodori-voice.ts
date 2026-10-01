@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
-import { voiceFilesDir } from '../paths.ts'
+import { voiceFilesDir } from '../core/paths.ts'
 
 const run = promisify(execFile)
 

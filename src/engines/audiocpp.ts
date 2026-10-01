@@ -1,8 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import type { TtsModel } from '../catalog.ts'
-import { logsDir } from '../paths.ts'
-import { readWav } from '../wav.ts'
+import type { TtsModel } from '../catalog/models.ts'
+import { logsDir } from '../core/paths.ts'
+import { readWav } from '../core/wav.ts'
 import { startServer, stopServer, waitUntilHealthy, type RunningServer } from './server.ts'
 import type { Synthesis, TtsEngine } from './tts-engine.ts'
 

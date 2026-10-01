@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { isSafeName } from './datasets/recordings.ts'
-import { campaignsDir } from './paths.ts'
+import { isSafeName } from '../datasets/recordings.ts'
+import { campaignsDir } from '../core/paths.ts'
 
 /** A named experiment and the runs made for it, in the order they were made. */
 export interface Campaign {

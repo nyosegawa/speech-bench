@@ -1,8 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { extractArchive } from '../download.ts'
-import { dataDir } from '../paths.ts'
-import { ensurePinned, type PinnedFile } from '../store.ts'
+import { extractArchive } from '../catalog/download.ts'
+import { dataDir } from '../core/paths.ts'
+import { ensurePinned, type PinnedFile } from '../catalog/store.ts'
 import type { UtteranceSet } from './item.ts'
 
 /**

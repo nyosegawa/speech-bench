@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countErrors, countHeardErrors, editDistance, heardAsSaid, readJapaneseNumerals, readLongVowels } from '../src/scoring.ts'
+import { countErrors, countHeardErrors, editDistance, heardAsSaid, readJapaneseNumerals, readLongVowels } from '../src/measure/scoring.ts'
 
 describe('countErrors', () => {
   it('ignores punctuation, spaces and full-width forms in Japanese', () => {

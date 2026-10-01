@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { encodeWav16, peakNormalize, readWav, resample, trimAround, withTrailingSilence } from '../src/wav.ts'
+import { encodeWav16, peakNormalize, readWav, resample, trimAround, withTrailingSilence } from '../src/core/wav.ts'
 
 /** A WAVE file of 32-bit float samples with a fact chunk, laid out like the files of FLEURS. */
 function floatWav(channels: number, sampleRate: number, samples: number[]): Buffer {

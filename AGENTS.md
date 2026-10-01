@@ -13,22 +13,27 @@ behavior.
 
 ## Architecture
 
-- `src/cli.ts` parses the commands and nothing else.
-- `src/catalog.ts` lists the models: their pinned files, the runtime they run in, the languages of their
-  model cards and, for synthesis, their built-in voices.
-- `src/runtimes.ts` pins the releases of the runtimes; `src/store.ts` and `src/download.ts` fetch and
-  verify pinned files.
+- `src/cli.ts` is the entry; it and `src/cli/` parse the commands and nothing else, one file for each group
+  of commands (measuring, pages, voices, recording).
+- `src/core/` holds what every part reads: WAVE files and resampling (`wav.ts`), the data folder
+  (`paths.ts`), the system and machine (`platform.ts`, decided once, so the rest never checks the system
+  itself) and BCP 47 tags (`language.ts`).
+- `src/catalog/` lists the models with their pinned files, their runtimes and the languages of their model
+  cards (`models.ts`), pins the releases of the runtimes (`runtimes.ts`), and fetches and verifies pinned
+  files (`store.ts`, `download.ts`).
 - `src/engines/` holds one engine per runtime. An engine starts its process, transcribes an utterance or
   speaks a sentence, and stops; it knows nothing about datasets or scoring. The models run in this process
   through sherpa-onnx (speaker embeddings, Silero VAD) are engines too.
 - `src/datasets/` turns a source (FLEURS, the user's recordings, the prompt lists) into utterances with
-  references or sentences to speak. `src/make/` makes voices from the recipes in `prompts/voices-<locale>.json`. `src/record/` serves the recording page.
-- `src/scoring.ts` compares texts; `src/run-asr.ts` and `src/run-tts.ts` run a model over a set and write
-  the result file; `src/results.ts` owns the form of result files and their upgrades; `src/runs.ts` owns
-  where a run is kept; `src/analysis.ts` reads the speech of a run once and keeps what it read;
-  `src/campaigns.ts` groups runs into experiments; `src/report.ts` reads result files and summarizes them.
-- `src/platform.ts` decides once what system the bench runs on and what the machine is; the rest of the
-  code reads that and never checks the system itself.
+  references or sentences to speak. `src/record/` serves the recording page.
+- `src/measure/` runs a model over a set and writes the result (`run-asr.ts`, `run-tts.ts`), owns the form of
+  result files and their upgrades (`results.ts`), where a run is kept (`runs.ts`), the campaigns
+  (`campaigns.ts`), the scoring of texts (`scoring.ts`) and the report (`report.ts`).
+- `src/analysis/` reads speech: speaker embeddings and their comparisons (`speaker.ts`), pitch (`pitch.ts`),
+  sets of takes of one voice (`neighbors.ts`), and the analysis kept beside a run (`run-analysis.ts`).
+- `src/make/` makes voices: the recipes in `prompts/voices-<locale>.json` (`recipes.ts`), the steps from
+  takes to a chosen reference (`voice.ts`) and the reference voices (`references.ts`).
+- `src/pages/` builds the listening, voices and neighbors pages.
 
 Keep these boundaries explicit: code does not reach past its module for an operation that belongs to
 another one.

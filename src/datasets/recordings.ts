@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { recordingsDir } from '../paths.ts'
-import { readWav } from '../wav.ts'
+import { recordingsDir } from '../core/paths.ts'
+import { readWav } from '../core/wav.ts'
 import type { UtteranceSet } from './item.ts'
 
 /**

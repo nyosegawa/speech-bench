@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { formatReport, summarize, type AsrSummary, type Summary, type TtsSummary } from '../src/report.ts'
+import { formatReport, summarize, type AsrSummary, type Summary, type TtsSummary } from '../src/measure/report.ts'
 
 const asrRun = { type: 'run', format: 4, task: 'asr', set: { name: 'set', locale: 'ja-JP', size: 3 }, audio: { edges: 'asist', hangoverMs: 600 }, loadSeconds: 1, warmupSeconds: 1 }
 const utterance = (reference: string, text: string, seconds: number, audioSeconds: number) =>

@@ -1,4 +1,4 @@
-import type { MachineInfo } from './platform.ts'
+import type { MachineInfo } from '../core/platform.ts'
 
 /**
  * The version of the form of a result file, written in its run line. Raising it needs an upgrade in

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { ttsModel, ttsVoiceFor } from '../src/catalog.ts'
+import { ttsModel, ttsVoiceFor } from '../src/catalog/models.ts'
 import { audioCppConfig } from '../src/engines/audiocpp.ts'
 import { decodeChunk, parseWorkerLine } from '../src/engines/worker.ts'
-import { speechWorkerArgs } from '../src/run-tts.ts'
+import { speechWorkerArgs } from '../src/measure/run-tts.ts'
 
 describe('the worker protocol', () => {
   it('reads a message after the prefix and ignores other output', () => {

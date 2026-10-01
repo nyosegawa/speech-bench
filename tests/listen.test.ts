@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { latestRuns, listeningData, listeningPage, runNames, type ListenedRun } from '../src/listen.ts'
-import type { SentenceRecord, TtsRunRecord } from '../src/results.ts'
+import { latestRuns, listeningData, listeningPage, runNames, type ListenedRun } from '../src/pages/listen.ts'
+import type { SentenceRecord, TtsRunRecord } from '../src/measure/results.ts'
 
 const runs = path.join(path.sep, 'data', 'runs')
 const pages = path.join(path.sep, 'data', 'pages')
