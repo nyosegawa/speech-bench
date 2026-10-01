@@ -85,7 +85,8 @@ export function readSummaries(files: readonly string[]): Summary[] {
 }
 
 
-function describeAudio(audio: AudioPreparation): string {
+/** How the audio of a recognition run was prepared, in words. */
+export function describeAudio(audio: AudioPreparation): string {
   if (audio.edges === 'voice') return `trimmed to the voice ${audio.detector} finds, with ${audio.marginSeconds} s around it`
   if (audio.edges === 'as-recorded') return `as recorded, ${audio.trailingSilence} s of silence added`
   return `cut like ASIST's VAD, hangover ${audio.hangoverMs} ms`

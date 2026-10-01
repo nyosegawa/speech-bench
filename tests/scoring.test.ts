@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countErrors, countHeardErrors, editDistance, heardAsSaid, readJapaneseNumerals, readLongVowels } from '../src/measure/scoring.ts'
+import { align, countErrors, countHeardErrors, editDistance, heardAsSaid, readJapaneseNumerals, readLongVowels } from '../src/measure/scoring.ts'
 
 describe('countErrors', () => {
   it('ignores punctuation, spaces and full-width forms in Japanese', () => {
@@ -92,5 +92,31 @@ describe('heardAsSaid', () => {
   it('compares other languages as scoring normalizes them', () => {
     expect(heardAsSaid('Yes.', 'yes', 'en-US')).toBe(true)
     expect(heardAsSaid('Yes.', 'yes yes', 'en-US')).toBe(false)
+  })
+})
+
+describe('align', () => {
+  const pairs: Array<[string, string, string]> = [
+    ['こんにちは、田中さん。', 'こんばんは田中さん', 'ja-JP'],
+    ['明日の三時に会議です。', 'あしたの3時、会議ですね', 'ja-JP'],
+    ['The meeting is at three.', 'the meeting at three o clock', 'en-US'],
+    ['', 'えーと', 'ja-JP']
+  ]
+
+  it('makes as many edits as the errors counted, and keeps both texts in order', () => {
+    for (const [reference, hypothesis, locale] of pairs) {
+      const steps = align(reference, hypothesis, locale)
+      expect(steps.filter((step) => step.reference !== step.hypothesis).length).toBe(countErrors(reference, hypothesis, locale).errors)
+      const side = (pick: 'reference' | 'hypothesis'): string => steps.flatMap((step) => step[pick] ?? []).join(locale === 'en-US' ? ' ' : '')
+      expect(side('reference')).toBe(align(reference, reference, locale).map((step) => step.reference).join(locale === 'en-US' ? ' ' : ''))
+      expect(side('hypothesis')).toBe(align(hypothesis, hypothesis, locale).map((step) => step.reference).join(locale === 'en-US' ? ' ' : ''))
+    }
+  })
+
+  it('lines up the characters that differ against each other', () => {
+    expect(align('こんにちは', 'こんばんは', 'ja-JP').filter((step) => step.reference !== step.hypothesis)).toEqual([
+      { reference: 'に', hypothesis: 'ば' },
+      { reference: 'ち', hypothesis: 'ん' }
+    ])
   })
 })

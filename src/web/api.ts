@@ -5,6 +5,7 @@ import type { Choice, Recipe } from '../make/recipes.ts'
 import type { Campaign } from '../measure/campaigns.ts'
 import type { AsrSummary, TtsSummary } from '../measure/report.ts'
 import type { PageData } from '../pages/listen.ts'
+import type { TranscriptsData } from '../pages/transcripts.ts'
 import type { VoicesPageData } from '../pages/voices.ts'
 
 /**
@@ -120,6 +121,9 @@ export interface RecordingSession {
   prompts: Prompt[]
   recorded: SavedRecording[]
 }
+
+/** GET /api/transcripts?runs=a,b: recognition runs of one set, utterance by utterance. */
+export type Transcripts = TranscriptsData
 
 /** Any route that fails answers this, with a status of 400 for a request the bench cannot serve. */
 export interface ApiError {
