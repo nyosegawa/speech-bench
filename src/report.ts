@@ -3,7 +3,7 @@ import path from 'node:path'
 import { scoredByCharacter } from './language.ts'
 import { resultsDir } from './paths.ts'
 import { isDropped, parseResultFile, type AsrRunRecord, type AudioPreparation, type HeardUtterance, type TtsRunRecord } from './results.ts'
-import { countErrors, type ErrorCount } from './scoring.ts'
+import { countErrors, countHeardErrors, type ErrorCount } from './scoring.ts'
 
 /** What one speech recognition result file adds up to. */
 export interface AsrSummary {
@@ -24,7 +24,7 @@ export interface AsrSummary {
 export interface TtsSummary {
   run: TtsRunRecord
   sentences: number
-  /** What the recognizer misheard in the synthesized speech, over the whole set, as for recognition. */
+  /** What the recognizer misheard in the synthesized speech, over the whole set, each sentence counting at most all of its characters. */
   errorRate: number
   medianFirstAudioSeconds: number
   p90FirstAudioSeconds: number
@@ -71,7 +71,7 @@ export function summarize(lines: readonly string[]): Summary {
   return {
     run,
     sentences: sentences.length,
-    errorRate: corpusErrorRate(sentences.map((record) => countErrors(record.text, record.transcript, run.set.locale))),
+    errorRate: corpusErrorRate(sentences.map((record) => countHeardErrors(record.text, record.transcript, run.set.locale))),
     medianFirstAudioSeconds: quantile(firstAudio, 0.5),
     p90FirstAudioSeconds: quantile(firstAudio, 0.9),
     realTimeFactor: sum(sentences, (record) => record.totalSeconds) / sum(sentences, (record) => record.audioSeconds),

@@ -138,7 +138,7 @@ after it.
 
 - **Error rate**: characters (CER) for Japanese, Korean and Chinese, words (WER) for the other languages,
   after NFKC and with punctuation and symbols removed; Japanese numbers are compared as Arabic digits, so
-  that 一ドル and 1ドル are equal. The errors of the whole set are divided by the length of its references,
+  that 一ドル and 1ドル are equal, and a long vowel mark as the vowel it lengthens, so that あー and ああ are equal. The errors of the whole set are divided by the length of its references,
   rather than averaging the rates of single utterances. Errors are counted when a report is made, from the
   texts the result files keep, so that every result is scored by the same rules.
 - **Time**: from sending the whole utterance to receiving its text, which is what the user waits for after
@@ -153,8 +153,9 @@ after it.
   arrives with the last.
 - **Real-time factor**: the synthesis time over the length of the speech.
 - **Heard error rate**: the speech is transcribed by Qwen3-ASR 1.7B, after the synthesis model has
-  stopped, and compared with the sentence as for recognition. It counts misreadings, dropped or repeated
-  words, and speech that runs on past the sentence.
+  stopped, and compared with the sentence as for recognition, except that a sentence counts at most all of
+  its characters as errors, so that one take that runs on cannot decide the rate of a voice. It counts
+  misreadings, dropped or repeated words, and speech that runs on past the sentence.
 - **Seconds per character**: the pace of the speech, which shows a model that rushes or runs on.
 - The speech of every sentence is saved as a WAVE file in the folder named after the result file, for
   listening.

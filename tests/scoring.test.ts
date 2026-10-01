@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countErrors, editDistance, readJapaneseNumerals } from '../src/scoring.ts'
+import { countErrors, countHeardErrors, editDistance, readJapaneseNumerals, readLongVowels } from '../src/scoring.ts'
 
 describe('countErrors', () => {
   it('ignores punctuation, spaces and full-width forms in Japanese', () => {
@@ -44,5 +44,32 @@ describe('readJapaneseNumerals', () => {
     expect(readJapaneseNumerals('三百五十万円')).toBe('350万円')
     expect(readJapaneseNumerals('一万二千三百四十五')).toBe('1万2345')
     expect(readJapaneseNumerals('350万円')).toBe('350万円')
+  })
+})
+
+describe('readLongVowels', () => {
+  it('writes a long vowel mark as the vowel of the kana before it, in that kana\'s script', () => {
+    expect(readLongVowels('あー')).toBe('ああ')
+    expect(readLongVowels('コーヒー')).toBe('コオヒイ')
+    expect(readLongVowels('きゃーー')).toBe('きゃああ')
+    expect(readLongVowels('ゲーム')).toBe('ゲエム')
+  })
+
+  it('keeps a mark after a kana without a vowel of its own, or at the start', () => {
+    expect(readLongVowels('んー')).toBe('んー')
+    expect(readLongVowels('ーあ')).toBe('ーあ')
+  })
+})
+
+describe('long vowels in Japanese scoring', () => {
+  it('takes a drawn-out vowel written with the mark and with the vowel as the same', () => {
+    expect(countErrors('あー。', 'ああ。', 'ja-JP')).toEqual({ errors: 0, referenceLength: 2 })
+  })
+})
+
+describe('countHeardErrors', () => {
+  it('counts a synthesized sentence that runs on as all wrong, and no more', () => {
+    expect(countHeardErrors('あー。', 'あ'.repeat(500), 'ja-JP')).toEqual({ errors: 2, referenceLength: 2 })
+    expect(countHeardErrors('はい。', 'はい、うん。', 'ja-JP')).toEqual({ errors: 2, referenceLength: 2 })
   })
 })
