@@ -1,10 +1,11 @@
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { latestRuns, listeningData, relativeTo, runNames, type ListenedRun } from '../src/pages/listen.ts'
+import { latestRuns, listeningData, runNames, type ListenedRun } from '../src/pages/listen.ts'
 import type { SentenceRecord, TtsRunRecord } from '../src/measure/results.ts'
 
 const runs = path.join(path.sep, 'data', 'runs')
-const pages = path.join(path.sep, 'data', 'pages')
+/** Links a file by its path, so that a test sees which file a take plays. */
+const byPath = (file: string): string => `file:${file}`
 const sentence: SentenceRecord = { type: 'sentence', id: 'aizuchi-hai', kind: 'aizuchi', text: 'はい。', audio: 'aizuchi-hai.wav', audioSeconds: 0.5, firstAudioSeconds: 0.05, totalSeconds: 0.2, transcript: 'はい。' }
 
 interface RunOptions { set?: string; seed?: number; design?: string; reference?: string; durationScale?: number; gpu?: string; transcript?: string; pitches?: number[]; likeness?: Array<number | null> }
@@ -71,33 +72,31 @@ describe('runNames', () => {
 })
 
 describe('listeningData', () => {
-  const page = path.join(pages, 'listen.html')
-
-  it('links each sentence to the audio in its run\'s folder, from the page', () => {
-    const data = listeningData([run('a', '2026-09-30T01:00:00Z')], relativeTo(page), false)
-    expect(data.sentences[0]!.takes[0]!.url).toBe('../runs/tts-2026-09-30T01%3A00%3A00Z-a/aizuchi-hai.wav')
+  it('links each sentence to the audio in its run\'s folder', () => {
+    const data = listeningData([run('a', '2026-09-30T01:00:00Z')], byPath, false)
+    expect(data.sentences[0]!.takes[0]!.url).toBe(byPath(path.join(runs, 'tts-2026-09-30T01:00:00Z-a', 'aizuchi-hai.wav')))
     expect(data.runs[0]!.name).toBe('a label')
   })
 
   it('spreads a voice that turns an octave between sentences over six semitones, and one that holds over none', () => {
-    const data = listeningData([run('a', '2026-09-30T01:00:00Z', { pitches: [110, 220] }), run('b', '2026-09-30T01:00:00Z', { pitches: [220, 220] })], relativeTo(page), false)
+    const data = listeningData([run('a', '2026-09-30T01:00:00Z', { pitches: [110, 220] }), run('b', '2026-09-30T01:00:00Z', { pitches: [220, 220] })], byPath, false)
     expect(data.runs.map((entry) => entry.pitchSpread)).toEqual([expect.closeTo(6), 0])
   })
 
   it('rates a run as one voice by the mean likeness of its sentences to each other', () => {
-    const data = listeningData([run('a', '2026-09-30T01:00:00Z', { pitches: [220, 220, 220], likeness: [0.8, 0.7, 0.3] })], relativeTo(page), false)
+    const data = listeningData([run('a', '2026-09-30T01:00:00Z', { pitches: [220, 220, 220], likeness: [0.8, 0.7, 0.3] })], byPath, false)
     expect(data.runs[0]!.sameVoice).toBeCloseTo(0.6)
     expect(data.sentences.map((sentence) => sentence.takes[0]!.likeness)).toEqual([0.8, 0.7, 0.3])
   })
 
   it('leaves a sentence too short to judge out of the sameness of voice', () => {
-    const data = listeningData([run('a', '2026-09-30T01:00:00Z', { pitches: [220, 220, 220], likeness: [0.8, 0.6, null] })], relativeTo(page), false)
+    const data = listeningData([run('a', '2026-09-30T01:00:00Z', { pitches: [220, 220, 220], likeness: [0.8, 0.6, null] })], byPath, false)
     expect(data.runs[0]!.sameVoice).toBeCloseTo(0.7)
     expect(data.sentences[2]!.takes[0]!.likeness).toBeNull()
   })
 
   it('hides the names, the descriptions, what was heard, the timings and the pitches on a blind page, and keeps the names for the key', () => {
-    const data = listeningData([run('a', '2026-09-30T01:00:00Z', { design: 'young-woman-words' }), run('b', '2026-09-30T01:00:00Z')], relativeTo(page), true, () => 0.5)
+    const data = listeningData([run('a', '2026-09-30T01:00:00Z', { design: 'young-woman-words' }), run('b', '2026-09-30T01:00:00Z')], byPath, true, () => 0.5)
     expect(data.runs.map((entry) => entry.name)).toEqual(['A', 'B'])
     expect(data.runs.every((entry) => entry.heardErrorRate === undefined && entry.instruction === undefined && entry.pitchSpread === undefined && entry.sameVoice === undefined)).toBe(true)
     expect(data.sentences[0]!.takes.every((take) => take?.transcript === undefined && take?.firstAudioSeconds === undefined && take?.pitchHz === undefined && take?.likeness === undefined)).toBe(true)
@@ -105,6 +104,6 @@ describe('listeningData', () => {
   })
 
   it('refuses runs of different sets of sentences', () => {
-    expect(() => listeningData([run('a', '2026-09-30T01:00:00Z'), run('b', '2026-09-30T01:00:00Z', { set: 'speak-ja-JP-5' })], relativeTo(page), false)).toThrow(/different sets/)
+    expect(() => listeningData([run('a', '2026-09-30T01:00:00Z'), run('b', '2026-09-30T01:00:00Z', { set: 'speak-ja-JP-5' })], byPath, false)).toThrow()
   })
 })

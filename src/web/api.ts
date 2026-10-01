@@ -1,3 +1,4 @@
+import type { NeighborGroup } from '../analysis/neighbors.ts'
 import type { Choice, Recipe } from '../make/recipes.ts'
 import type { Campaign } from '../measure/campaigns.ts'
 import type { AsrSummary, TtsSummary } from '../measure/report.ts'
@@ -48,7 +49,8 @@ export interface TrySet {
 export interface VoiceDetail {
   locale: string
   recipe: Recipe
-  gathered: number
+  /** The runs of takes gathered from the description, by id. */
+  gathered: string[]
   candidates: Array<{ name: string; url: string; seconds: number; takes: number; meanSimilarity: number; weakestPair: number }>
   trySets: TrySet[]
   trySet: string | null
@@ -67,6 +69,12 @@ export interface ChosenVoices {
 
 /** POST /api/voices/<id>/choose with { locale, candidate }: the choice now recorded in the recipe. */
 export type ChooseAnswer = Choice
+
+/**
+ * GET /api/neighbors?runs=a,b: the takes of the runs, grouped by the voice they were meant to be, with how alike every
+ * two are and the largest sets that hold together.
+ */
+export type NeighborsData = NeighborGroup[]
 
 /** Any route that fails answers this, with a status of 400 for a request the bench cannot serve. */
 export interface ApiError {

@@ -68,17 +68,16 @@ folder `SPEECH_BENCH_DATA` names.
   logs/        server output
   runs/        a folder per run: run.jsonl, the speech of each sentence and analysis.json
   campaigns/   the runs of each experiment, <name>.json
-  pages/       the neighbors page
 ```
 
 `run.jsonl` holds what was measured, one JSON line for the run and one per utterance or sentence.
 `analysis.json` holds what is read from the speech (its voice, pitch and speaker embedding). A synthesis run makes it
 as it ends, so that a page does not read the speech again, and it is made again when the speaker model changes.
 `node src/cli.ts analyze` makes it for the runs made before, which a page would otherwise analyze while it loads
-(640 takes took 225 s on an Apple M5). `--campaign name` on `asr`
-or `tts` adds the run to an experiment, which `report` and `neighbors` then take with
-`--campaign name` and the web app's runs page filters by. Data of the earlier layout, a result file in `results/` with its speech in a folder beside
-it, is moved into `runs/` by `node src/cli.ts migrate`.
+(640 takes took 225 s on an Apple M5). `--campaign name` on `asr` or `tts` adds the run to an experiment, which
+`report` and `analyze` then take with `--campaign name` and the web app's runs page filters by. Data of the earlier
+layout, a result file in `results/` with its speech in a folder beside it, is moved into `runs/` by
+`node src/cli.ts migrate`.
 
 ### Your own recordings
 
@@ -181,16 +180,13 @@ sentence of each voice, which plays it. For each voice it gives:
 - What the recognizer heard, the sentences that broke down (more than 30% of their characters heard wrong),
   and the time to the first audio.
 
-`neighbors` writes a page for the takes meant to be one voice (one model with one voice or description, loaded
-the same way on the same GPU, whatever the seed or sentence): a table of how alike every pair is, ordered so that
-one voice shows as a block, each take's nearest and farthest takes, and the largest set of takes at least a chosen
-similarity to one center, one take per sentence, to be heard in a row. One voice rates a sentence it says twice
-about 0.07 more alike than two different sentences (Qwen3-TTS's ono_anna, 0.82 against 0.74), so a set of one
-sentence said with many seeds would hold together for the wrong reason.
-
-```sh
-node src/cli.ts neighbors --page irodori ~/speech-bench-data/runs/tts-*-irodori-*/run.jsonl
-```
+The web app's Neighbors page takes the synthesis runs chosen on the runs page, or a voice's gathered takes, groups
+the takes meant to be one voice (one model with one voice or description, loaded the same way on the same GPU,
+whatever the seed or sentence) and shows a map of how alike every pair is, ordered so that one voice shows as a block, each take's
+nearest and farthest takes, and the largest set of takes at least a chosen similarity to one center, one take per
+sentence, to be heard in a row. One voice rates a sentence it says twice about 0.07 more alike than two different
+sentences (Qwen3-TTS's ono_anna, 0.82 against 0.74), so a set of one sentence said with many seeds would hold
+together for the wrong reason.
 
 `reference` makes a reference voice out of such takes: the largest set in which every pair is at least the
 threshold alike (0.8 by default, which sounds like one voice by ear), one take per sentence, joined in order of

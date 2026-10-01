@@ -1,12 +1,9 @@
 import fs from 'node:fs'
-import path from 'node:path'
 import { analyzeRun } from './run-analysis.ts'
 import type { SpeakerEmbedder } from '../engines/speaker-embedding.ts'
 import { parseResultFile, type TtsRunRecord } from '../measure/results.ts'
 import { takeFile } from '../measure/runs.ts'
 import { cosine } from './speaker.ts'
-
-const PAGE = path.join(import.meta.dirname, 'neighbors-page.html')
 
 /**
  * The synthesized speech that is meant to be one voice: one model asked for one voice, with the same built-in
@@ -166,9 +163,4 @@ export function neighborGroups(groups: readonly EmbeddedGroup[], urlOf: (file: s
       tooShort: group.tooShort
     }
   })
-}
-
-/** The page, with the groups embedded in a script element safely. */
-export function neighborsPage(groups: readonly NeighborGroup[]): string {
-  return fs.readFileSync(PAGE, 'utf8').replace('__DATA__', () => JSON.stringify(groups).replace(/</g, '\\u003c'))
 }
