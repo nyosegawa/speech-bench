@@ -14,7 +14,7 @@ behavior.
 ## Architecture
 
 - `src/cli.ts` is the entry; it and `src/cli/` parse the commands and nothing else, one file for each group
-  of commands (measuring, pages, voices, recording, the web app).
+  of commands (measuring, voices, the web app).
 - `src/core/` holds what every part reads: WAVE files and resampling (`wav.ts`), the data folder
   (`paths.ts`), the system and machine (`platform.ts`, decided once, so the rest never checks the system
   itself) and BCP 47 tags (`language.ts`).
@@ -25,7 +25,7 @@ behavior.
   speaks a sentence, and stops; it knows nothing about datasets or scoring. The models run in this process
   through sherpa-onnx (speaker embeddings, Silero VAD) are engines too.
 - `src/datasets/` turns a source (FLEURS, the user's recordings, the prompt lists) into utterances with
-  references or sentences to speak. `src/record/` serves the recording page.
+  references or sentences to speak.
 - `src/measure/` runs a model over a set and writes the result (`run-asr.ts`, `run-tts.ts`), owns the form of
   result files and their upgrades (`results.ts`), where a run is kept (`runs.ts`), the campaigns
   (`campaigns.ts`), the scoring of texts (`scoring.ts`) and the report (`report.ts`).
@@ -34,8 +34,8 @@ behavior.
 - `src/make/` makes voices: the recipes in `prompts/voices-<locale>.json` (`recipes.ts`), the steps from
   takes to a chosen reference (`voice.ts`) and the reference voices (`references.ts`).
 - `src/pages/` builds the data of the listening and voices pages.
-- `src/web/` is the web app's server: its JSON API (`api.ts` holds the types the app reads) and the audio of
-  the data folder. `web/` is the app itself, in React with Tailwind CSS 4 and shadcn/ui, built with Vite; it
+- `src/web/` is the web app's server: its JSON API (`api.ts` holds the types the app reads), the audio of
+  the data folder, saving recordings, and the jobs it runs. `web/` is the app itself, in React with Tailwind CSS 4 and shadcn/ui, built with Vite; it
   imports only types from `src/`, through `@bench/`.
 
 Keep these boundaries explicit: code does not reach past its module for an operation that belongs to

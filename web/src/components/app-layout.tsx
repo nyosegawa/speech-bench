@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet } from 'react-router'
 import { JobsProvider, useJobs } from '@/components/jobs.tsx'
 import { cn } from '@/lib/utils.ts'
 
-const LINKS = [{ to: '/', label: 'Runs', end: true }, { to: '/voices', label: 'Voices', end: false }, { to: '/jobs', label: 'Jobs', end: false }]
+const LINKS = [{ to: '/', label: 'Runs', end: true }, { to: '/voices', label: 'Voices', end: false }, { to: '/record', label: 'Record', end: false }, { to: '/jobs', label: 'Jobs', end: false }]
 
 /** The job that runs, if one does, on every page. */
 function RunningJob() {

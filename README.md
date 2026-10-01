@@ -36,8 +36,7 @@ node src/cli.ts tts --locale ja-JP --models irodori-tts-v4.1-small-mf,irodori-tt
 node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-16steps --seeds 1,2,3,4,5 \
   --only aizuchi-hai,aizuchi-naruhodo,reply-weather,reply-meeting,reply-sorry,number-date,mixed-github,question-which,long-plan,long-cause
 
-# Record your own utterances, then measure on them (see below)
-node src/cli.ts record --locale ja-JP --speaker guest
+# Measure on your own utterances, recorded under Record in the web app (see below)
 node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b --set recordings --speaker guest
 
 # One table of every result so far
@@ -81,21 +80,16 @@ layout, a result file in `results/` with its speech in a folder beside it, is mo
 
 ### Your own recordings
 
-```sh
-node src/cli.ts record --locale ja-JP --speaker guest
-```
-
-This serves a recording page on the loopback interface. It shows the prompts of `prompts/record-<locale>.json`
-one by one (short answers, requests with names and technical words, numbers, mixed English, fillers and
+The web app's Record page starts a speaker, named in lower-case letters, digits, - and _, or continues one. It
+shows the prompts of `prompts/record-<locale>.json` one by one (short answers, requests with names and technical words, numbers, mixed English, fillers and
 long utterances, the kinds of speech an assistant hears), records the microphone without echo cancellation, noise
 suppression or automatic gain, and saves 16 kHz WAVE files with the text that was said. The controls, the
 progress and an input level meter stay at the top while a long prompt is read; each saved recording shows its
 waveform, its loudest sample and the level of the room around the voice, and says when it is too quiet or
-clipped. A prompt's text can
-be edited before recording when it will be said differently, and free recordings can be added.
-`--prompts` reads another prompts file.
+clipped. A prompt's text can be edited before recording when it will be said differently, and free recordings can
+be added. Space records and stops, the arrow keys move between prompts and P plays the saved recording.
 
-Each speaker's recordings are kept apart under the name given with `--speaker`, and each speaker is measured
+Each speaker's recordings are kept apart under the speaker's name, and each speaker is measured
 as a set of their own (`--set recordings --speaker guest`), so that a model that hears one voice well and
 another badly shows it. The recordings are listed in `recordings/<locale>/<speaker>/manifest.jsonl`, one
 object per line, with `audio` relative to the manifest:

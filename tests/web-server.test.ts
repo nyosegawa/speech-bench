@@ -74,4 +74,17 @@ describe('the web server', () => {
     const answer = await rawRequest('api/voices/calm/choose', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ locale: 'ja-JP', candidate: 'calm-candidate-1' }) })
     expect(answer.status).toBe(400)
   })
+
+  it('saves a recording sent as a WAVE file, and lists the speaker with it', async () => {
+    const saved = await fetch(`${server.url}api/recordings/ja-JP/guest/greeting`, { method: 'POST', headers: { 'content-type': 'audio/wav', 'x-recording-text': encodeURIComponent('こんにちは。') }, body: take })
+    expect(saved.status).toBe(200)
+    const rows = (await (await fetch(`${server.url}api/recordings`)).json()) as Array<{ locale: string; speaker: string; recordings: number }>
+    expect(rows).toEqual([{ locale: 'ja-JP', speaker: 'guest', recordings: 1 }])
+  })
+
+  it('refuses a recording sent as plain text, which a page of another site can send unasked', async () => {
+    const answer = await rawRequest('api/recordings/ja-JP/guest/greeting', { method: 'POST', headers: { 'content-type': 'text/plain', 'x-recording-text': 'x' }, body: 'RIFF' })
+    expect(answer.status).toBe(400)
+    expect(fs.existsSync(path.join(root, 'data', 'recordings'))).toBe(false)
+  })
 })

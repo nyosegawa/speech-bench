@@ -16,8 +16,14 @@ export interface Prompt {
 /** What a list of prompts is for: the recording page, or the sentences a synthesis model speaks. */
 export type PromptUse = 'record' | 'speak'
 
+const PROMPTS = path.join(import.meta.dirname, '..', '..', 'prompts')
+
 /** The prompts that ship with the bench, `prompts/<use>-<locale>.json`. */
-export const promptsFile = (use: PromptUse, locale: string): string => path.join(import.meta.dirname, '..', '..', 'prompts', `${use}-${locale}.json`)
+export const promptsFile = (use: PromptUse, locale: string): string => path.join(PROMPTS, `${use}-${locale}.json`)
+
+/** The locales the bench has prompts of one use for. */
+export const promptLocales = (use: PromptUse): string[] =>
+  fs.readdirSync(PROMPTS).flatMap((file) => (file.startsWith(`${use}-`) && file.endsWith('.json') ? [file.slice(use.length + 1, -'.json'.length)] : [])).sort()
 
 export function parsePrompts(text: string, locale: string): Prompt[] {
   const parsed = JSON.parse(text) as { locale?: unknown; prompts?: unknown }
