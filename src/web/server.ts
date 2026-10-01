@@ -14,7 +14,8 @@ import { summarize } from '../measure/report.ts'
 import { allRunFiles, runFile, runIdOf } from '../measure/runs.ts'
 import { listeningData, readTtsRuns, type UrlOf } from '../pages/listen.ts'
 import { promptLocales } from '../datasets/prompts.ts'
-import type { ApiError, CampaignRow, ChooseAnswer, ChosenVoices, Job, ListenData, NeighborsData, RecordingSession, RecordLocales, RunRow, SavedRecording, SpeakerRow, VoiceDetail, VoiceRow, VoiceStepRequest } from './api.ts'
+import { transcriptsData } from '../pages/transcripts.ts'
+import type { ApiError, CampaignRow, ChooseAnswer, ChosenVoices, Job, ListenData, NeighborsData, RecordingSession, RecordLocales, RunRow, SavedRecording, SpeakerRow, Transcripts, VoiceDetail, VoiceRow, VoiceStepRequest } from './api.ts'
 import { folderOf, recordingSession, saveFrom, speakerRows } from './recordings.ts'
 import { RequestError } from './request-error.ts'
 import { Jobs } from './jobs.ts'
@@ -140,6 +141,7 @@ export async function startWebServer(port: number): Promise<{ url: string; close
       if (request.method === 'GET' && url.pathname === '/api/runs') return json(response, 200, runRows())
       if (request.method === 'GET' && url.pathname === '/api/campaigns') return json(response, 200, listCampaigns() satisfies CampaignRow[])
       if (request.method === 'GET' && url.pathname === '/api/listen') return json(response, 200, await listen(url))
+      if (request.method === 'GET' && url.pathname === '/api/transcripts') return json(response, 200, transcriptsData(namedRuns(url)) satisfies Transcripts)
       if (request.method === 'GET' && url.pathname === '/api/neighbors') {
         const groups = neighborGroups(embedGroups(namedRuns(url), await speakerEmbedder()), audioUrl)
         if (groups.length === 0) throw new RequestError('the runs hold no voice with two or more takes long enough to compare')

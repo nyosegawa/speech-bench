@@ -22,6 +22,7 @@ const router = createBrowserRouter([
       { path: 'record', lazy: async () => ({ Component: (await import('@/pages/record/speakers-page.tsx')).SpeakersPage }) },
       { path: 'record/:locale/:speaker', lazy: async () => ({ Component: (await import('@/pages/record/recorder-page.tsx')).RecorderPage }) },
       { path: 'jobs', lazy: async () => ({ Component: (await import('@/pages/jobs-page.tsx')).JobsPage }) },
+      { path: 'transcripts', lazy: async () => ({ Component: (await import('@/pages/transcripts-page.tsx')).TranscriptsPage }) },
       { path: 'neighbors', lazy: async () => ({ Component: (await import('@/pages/neighbors/neighbors-page.tsx')).NeighborsPage }) },
       { path: 'voices', lazy: async () => ({ Component: (await import('@/pages/voices/voices-page.tsx')).VoicesPage }) },
       { path: 'voices/:id', lazy: async () => ({ Component: (await import('@/pages/voices/voice-page.tsx')).VoicePage }) }

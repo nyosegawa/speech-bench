@@ -1,4 +1,4 @@
-import { Grid3x3, Headphones, Search, X } from 'lucide-react'
+import { FileText, Grid3x3, Headphones, Search, X } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { compareValues, SortHeader, type Sort } from '@/components/sort-header.tsx'
@@ -125,6 +125,7 @@ export function RunsPage() {
   }, [ofTask, set, campaign, query, sort, columns])
 
   const chosen = all.filter((row) => selected.has(row.id))
+  const chosenIds = chosen.map((row) => row.id).join(',')
   const chosenSets = new Set(chosen.map((row) => row.run.set.name))
   const toggle = (id: string, on: boolean): void => setSelected((current) => {
     const next = new Set(current)
@@ -139,7 +140,7 @@ export function RunsPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold">Runs</h1>
-          <p className="text-sm text-muted-foreground">Every measurement in the data folder. Choose synthesis runs of one set to listen to them side by side.</p>
+          <p className="text-sm text-muted-foreground">Every measurement in the data folder. Choose runs of one set to hear or read them side by side.</p>
         </div>
         <Tabs value={task} onValueChange={(value) => { setSelected(new Set()); update({ task: value === 'tts' ? null : value, set: null }) }}>
           <TabsList>
@@ -171,17 +172,16 @@ export function RunsPage() {
         <span className="text-sm text-muted-foreground">{runs.state === 'loaded' && `${shown.length} of ${ofTask.length} runs`}</span>
       </div>
 
-      {task === 'tts' && (
-        <div className="sticky top-2 z-10 flex flex-wrap items-center gap-3 rounded-lg border bg-background/95 px-3 py-2 shadow-sm backdrop-blur">
-          <span className="text-sm text-muted-foreground">{chosen.length === 0 ? 'Choose runs to listen to.' : `${chosen.length} chosen`}</span>
-          {chosenSets.size > 1 && <span className="text-sm text-destructive">Choose runs of one set: these spoke {[...chosenSets].join(', ')}.</span>}
-          <div className="ml-auto flex gap-2">
-            <Button variant="ghost" size="sm" disabled={chosen.length === 0} onClick={() => setSelected(new Set())}><X />Clear</Button>
-            <Button variant="outline" size="sm" disabled={chosen.length === 0} onClick={() => navigate(`/neighbors?runs=${chosen.map((row) => row.id).join(',')}`)}><Grid3x3 />Neighbors</Button>
-            <Button size="sm" disabled={chosen.length === 0 || chosenSets.size > 1} onClick={() => navigate(`/listen?runs=${chosen.map((row) => row.id).join(',')}`)}><Headphones />Listen</Button>
-          </div>
+      <div className="sticky top-2 z-10 flex flex-wrap items-center gap-3 rounded-lg border bg-background/95 px-3 py-2 shadow-sm backdrop-blur">
+        <span className="text-sm text-muted-foreground">{chosen.length === 0 ? (task === 'tts' ? 'Choose runs to listen to.' : 'Choose runs to read their transcripts side by side.') : `${chosen.length} chosen`}</span>
+        {chosenSets.size > 1 && <span className="text-sm text-destructive">Choose runs of one set: these are of {[...chosenSets].join(', ')}.</span>}
+        <div className="ml-auto flex gap-2">
+          <Button variant="ghost" size="sm" disabled={chosen.length === 0} onClick={() => setSelected(new Set())}><X />Clear</Button>
+          {task === 'tts' && <Button variant="outline" size="sm" disabled={chosen.length === 0} onClick={() => navigate(`/neighbors?runs=${chosenIds}`)}><Grid3x3 />Neighbors</Button>}
+          {task === 'tts' && <Button size="sm" disabled={chosen.length === 0 || chosenSets.size > 1} onClick={() => navigate(`/listen?runs=${chosenIds}`)}><Headphones />Listen</Button>}
+          {task === 'asr' && <Button size="sm" disabled={chosen.length === 0 || chosenSets.size > 1} onClick={() => navigate(`/transcripts?runs=${chosenIds}`)}><FileText />Transcripts</Button>}
         </div>
-      )}
+      </div>
 
       {runs.state === 'failed' && <Failure error={runs.error} />}
       {runs.state !== 'failed' && (
@@ -190,22 +190,20 @@ export function RunsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {task === 'tts' && (
-                    <TableHead className="w-10 pl-4">
-                      <Checkbox
-                        aria-label="Choose every run shown"
-                        checked={everyShownChosen}
-                        onCheckedChange={(on) => setSelected((current) => {
-                          const next = new Set(current)
-                          for (const row of shown) {
-                            if (on === true) next.add(row.id)
-                            else next.delete(row.id)
-                          }
-                          return next
-                        })}
-                      />
-                    </TableHead>
-                  )}
+                  <TableHead className="w-10 pl-4">
+                    <Checkbox
+                      aria-label="Choose every run shown"
+                      checked={everyShownChosen}
+                      onCheckedChange={(on) => setSelected((current) => {
+                        const next = new Set(current)
+                        for (const row of shown) {
+                          if (on === true) next.add(row.id)
+                          else next.delete(row.id)
+                        }
+                        return next
+                      })}
+                    />
+                  </TableHead>
                   {columns.map((column) => (
                     <SortHeader key={column.key} column={column.key} sort={sort} onSort={setSort} numeric={column.numeric} firstDescending={column.firstDescending}>
                       {column.hint ? (
@@ -224,11 +222,9 @@ export function RunsPage() {
                 ))}
                 {shown.map((row) => (
                   <TableRow key={row.id} data-state={selected.has(row.id) ? 'selected' : undefined}>
-                    {task === 'tts' && (
-                      <TableCell className="pl-4">
-                        <Checkbox aria-label={`Choose ${row.id}`} checked={selected.has(row.id)} onCheckedChange={(on) => toggle(row.id, on === true)} />
-                      </TableCell>
-                    )}
+                    <TableCell className="pl-4">
+                      <Checkbox aria-label={`Choose ${row.id}`} checked={selected.has(row.id)} onCheckedChange={(on) => toggle(row.id, on === true)} />
+                    </TableCell>
                     {columns.map((column) => (
                       <TableCell key={column.key} className={column.numeric ? 'text-right' : undefined}>
                         {column.cell(row)}

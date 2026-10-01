@@ -126,6 +126,42 @@ export function countErrors(reference: string, hypothesis: string, locale: strin
   return { errors: editDistance(expected, units(hypothesis, locale)), referenceLength: expected.length }
 }
 
+/** One step of an alignment: a unit of each side, or of one side where the other has none. */
+export interface Aligned {
+  reference: string | null
+  hypothesis: string | null
+}
+
+/**
+ * The units of a reference and a transcription, as they are scored, lined up by the fewest edits, so that a page
+ * can show where they differ. The steps that are not a unit matched with itself are the errors countErrors counts.
+ */
+export function align(reference: string, hypothesis: string, locale: string): Aligned[] {
+  const expected = units(reference, locale)
+  const heard = units(hypothesis, locale)
+  const cost = Array.from({ length: expected.length + 1 }, (_, row) => Array.from({ length: heard.length + 1 }, (_, column) => (row === 0 ? column : column === 0 ? row : 0)))
+  for (let row = 1; row <= expected.length; row++) {
+    for (let column = 1; column <= heard.length; column++) {
+      const substitution = cost[row - 1]![column - 1]! + (expected[row - 1] === heard[column - 1] ? 0 : 1)
+      cost[row]![column] = Math.min(cost[row - 1]![column]! + 1, cost[row]![column - 1]! + 1, substitution)
+    }
+  }
+  const steps: Aligned[] = []
+  let row = expected.length
+  let column = heard.length
+  while (row > 0 || column > 0) {
+    const here = cost[row]![column]!
+    if (row > 0 && column > 0 && here === cost[row - 1]![column - 1]! + (expected[row - 1] === heard[column - 1] ? 0 : 1)) {
+      steps.push({ reference: expected[--row]!, hypothesis: heard[--column]! })
+    } else if (row > 0 && here === cost[row - 1]![column]! + 1) {
+      steps.push({ reference: expected[--row]!, hypothesis: null })
+    } else {
+      steps.push({ reference: null, hypothesis: heard[--column]! })
+    }
+  }
+  return steps.reverse()
+}
+
 /**
  * The errors the recognizer made in hearing one synthesized sentence, at most as many as the sentence has. A
  * take that runs on is broken whatever its length, and counted in full one take decided a voice's rate: on

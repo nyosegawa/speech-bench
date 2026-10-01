@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { ApiError } from '@bench/web/api.ts'
 
-export type { CampaignRow, ChooseAnswer, ChosenVoices, Job, ListenData, NeighborsData, RecordingSession, RecordLocales, RunRow, SavedRecording, SpeakerRow, TrySet, VoiceDetail, VoiceLocales, VoiceRow, VoiceStepRequest } from '@bench/web/api.ts'
+export type { CampaignRow, ChooseAnswer, ChosenVoices, Job, ListenData, NeighborsData, RecordingSession, RecordLocales, RunRow, SavedRecording, SpeakerRow, Transcripts, TrySet, VoiceDetail, VoiceLocales, VoiceRow, VoiceStepRequest } from '@bench/web/api.ts'
 
 /** Reads a route of the bench's API, failing with the message its server gives. */
 export const getJson = <T>(route: string, signal?: AbortSignal): Promise<T> => answerOf<T>(route, fetch(route, { signal }))

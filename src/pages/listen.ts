@@ -5,6 +5,7 @@ import { semitoneSpread } from '../analysis/pitch.ts'
 import { parseResultFile, type SentenceRecord, type TtsRunRecord } from '../measure/results.ts'
 import { takeFile } from '../measure/runs.ts'
 import { countHeardErrors } from '../measure/scoring.ts'
+import { namesApart } from './naming.ts'
 import { cosine, likenessToTheRest } from '../analysis/speaker.ts'
 
 /**
@@ -88,20 +89,8 @@ const describe: Array<(entry: ListenedRun) => string | null> = [
   (entry) => Object.entries(entry.run.runtime.options).map(([name, value]) => `${name}=${value}`).join(', ') || null
 ]
 
-/**
- * The names of the runs and what they share. A run is named by the model, voice, design, seed and GPU it differs
- * from the others in, so that five seeds of one model read as "seed 1" to "seed 5" and one model on two
- * machines is told apart; what every run shares is said once.
- */
-export function runNames(runs: readonly ListenedRun[]): { names: string[]; shared: string } {
-  const varies = (part: (entry: ListenedRun) => string | null): boolean => new Set(runs.map(part)).size > 1
-  const naming = describe.some(varies) ? describe.filter(varies) : describe.slice(0, 1)
-  const join = (parts: ReadonlyArray<string | null>): string => parts.filter((part) => part !== null).join(', ')
-  return {
-    names: runs.map((entry) => join(naming.map((part) => part(entry)))),
-    shared: join(describe.filter((part) => !naming.includes(part)).map((part) => part(runs[0]!)))
-  }
-}
+/** The names of the runs, by the model, voice, design, seed and GPU they differ in, and what they share. */
+export const runNames = (runs: readonly ListenedRun[]): { names: string[]; shared: string } => namesApart(runs, describe)
 
 /** What the listening page reads: the runs and, for each sentence, the take of each run. */
 export interface PageData {

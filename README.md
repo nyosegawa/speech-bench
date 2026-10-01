@@ -122,6 +122,11 @@ which shows how a model takes long silences.
   for the GPU's first use.
 - **Empty results**: utterances that came back without text.
 
+Recognition runs of one set, chosen on the web app's runs page, open the transcripts page: what every run heard of
+each utterance, as it was scored, with what it heard for another unit, heard but was not said, and did not hear
+marked against the reference, its errors beside it. It shows the utterances some run heard wrong, or those the runs
+heard differently, in the set's order or the most errors first.
+
 ### Speech synthesis
 
 - **First audio**: from sending a sentence to receiving its first audio. speech.cpp's Qwen3-TTS streams audio
