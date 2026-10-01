@@ -76,6 +76,39 @@ more than 30% wrong and the median length:
 - The bright young woman's aizuchi were the longest, 3.3 to 3.8 s, and broke in 7 of 8. At × 0.3 to × 0.7,
   はい。, なるほど。 and うんうん。 were heard right in 29 of 30 takes; five of ten あー。 were heard as a single あ.
 
+## Keeping the aizuchi heard right
+
+ASIST makes its aizuchi ahead of time, so it can make several takes and keep those the recognizer heard as
+written, apart from how it spells them (`heardAsSaid`: はい or ハイ, あー or ああ, but not あ for あー or うん for
+うんうん). Ten seeds of each aizuchi at × 0.7, the takes kept:
+
+| Voice | はい。 | あー。 | なるほど。 | うんうん。 |
+|---|---|---|---|---|
+| bright young woman | 10 | 7 | 10 | 10 |
+| soft young woman | 10 | 0 | 10 | 10 |
+| calm young woman | 10 | 10 | 10 | 10 |
+| bright adult woman | 10 | 9 | 10 | 4 |
+| announcer woman | 9 | 2 | 10 | 4 |
+| low adult woman | 1 | 2 | 10 | 6 |
+| calm adult woman | 7 | 5 | 9 | 3 |
+| gentle older woman | 9 | 3 | 10 | 0 |
+| energetic young man | 10 | 3 | 10 | 7 |
+| fresh young man | 10 | 6 | 10 | 10 |
+| calm young man | 6 | 4 | 9 | 7 |
+| bright adult man | 9 | 9 | 10 | 3 |
+| announcer man | 8 | 7 | 10 | 4 |
+| calm adult man | 1 | 0 | 7 | 4 |
+| deep adult man | 4 | 5 | 10 | 4 |
+| gentle older man | 8 | 5 | 10 | 7 |
+
+- 61 of the 64 voices and aizuchi had a take kept within ten. Of the other three, the gentle older woman's
+  うんうん。 had two in seeds 11 to 30; the calm adult man's あー。 had none in 30 at × 0.7 and none in 10 as
+  predicted, which ran into sentences of other words, but six in 10 at × 0.5; the soft young woman's あー。 had
+  none at × 0.7 or × 0.5, each heard as a short あ, but eight in 10 as predicted.
+- What failed was what the takes said, not how they were heard: the takes heard as あ had 0.70 s of voice at
+  the median against 1.12 s for those heard as ああ, and those heard as うん were one drawn-out うーん.
+- Trying × 0.7, then as predicted and × 0.5, with ten seeds each, gave every voice a take of every aizuchi.
+
 ## The voice files
 
 The references are kept in `references/` of the data folder.
