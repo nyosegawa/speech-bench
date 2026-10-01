@@ -3,7 +3,7 @@
 Measures local speech recognition and speech synthesis models under one set of conditions, across the runtimes
 they run in and the machines they run on, so that [speech.cpp](https://github.com/nyosegawa/speech.cpp) takes up
 a model on numbers, and a port can be checked against the model it was ported from. It runs pinned releases
-(llama.cpp, CrispASR, qwen3-tts-ggml, audio.cpp) on macOS with Metal and on Windows with Vulkan. It also makes
+(llama.cpp, CrispASR, speech.cpp, audio.cpp) on macOS with Metal and on Windows with Vulkan. It also makes
 voices for models that have none built in, from a description and lines in character.
 
 ## Requirements
@@ -25,7 +25,10 @@ node src/cli.ts models
 node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b,parakeet-tdt_ctc-0.6b-ja,reazonspeech-nemo-v2 --count 100
 
 # Speech synthesis: the Japanese sentences of prompts/speak-ja-JP.json, spoken and then transcribed
-node src/cli.ts tts --locale ja-JP --models qwen3-tts-0.6b,qwen3-tts-1.7b,irodori-tts-v4-small-8steps
+node src/cli.ts tts --locale ja-JP --models qwen3-tts-0.6b,qwen3-tts-1.7b
+
+# Irodori-TTS v4.1 in speech.cpp, which speaks like a reference voice
+node src/cli.ts tts --locale ja-JP --models irodori-tts-v4.1-small-mf,irodori-tts-v4.1-small-16steps --reference voice-bright-young-woman --seeds 1
 
 # Ten of those sentences from each of five seeds, to hear which seed gives a voice worth keeping
 node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-16steps --seeds 1,2,3,4,5 \
@@ -57,9 +60,10 @@ folder `SPEECH_BENCH_DATA` names.
   models/      model files from Hugging Face, by repository and revision
   datasets/    FLEURS transcriptions and audio archives
   fleurs/      the FLEURS recordings unpacked for measuring
-  runtimes/    llama.cpp, CrispASR, qwen3-tts-ggml and audio.cpp releases
+  runtimes/    llama.cpp, CrispASR, speech.cpp and audio.cpp releases
   recordings/  your recordings, <locale>/<speaker>/manifest.jsonl
   references/  reference voices made from synthesized takes, <name>.wav and <name>.json
+  voice-files/ Irodori-TTS voice files made from the references for speech.cpp, by reference and codec
   logs/        server output
   results/     one JSON Lines file per run, and for synthesis a folder of the speech beside it
 ```
@@ -115,9 +119,10 @@ which shows how a model takes long silences.
 
 ### Speech synthesis
 
-- **First audio**: from sending a sentence to receiving its first audio. The Qwen3-TTS worker streams
-  audio while it generates; audio.cpp's Irodori-TTS answers with the whole sentence, so its first audio
-  arrives with the last.
+- **First audio**: from sending a sentence to receiving its first audio. speech.cpp's Qwen3-TTS streams audio
+  frame by frame while it generates, and its Irodori-TTS makes a sentence at once and streams it as the codec
+  decodes it; audio.cpp's Irodori-TTS answers with the whole sentence, so its first audio arrives with the
+  last.
 - **Real-time factor**: the synthesis time over the length of the speech.
 - **Heard error rate**: the speech is transcribed by Qwen3-ASR 1.7B, after the synthesis model has
   stopped, and compared with the sentence as for recognition, except that a sentence counts at most all of
@@ -132,12 +137,18 @@ which shows how a model takes long silences.
   listening.
 
 A model without built-in voices (Irodori-TTS here) makes a voice up for every sentence from the seed it is
-sampled with, which audio.cpp picks at random for each request. `--seeds` samples every sentence of a run from
-one seed, with one run for each seed; only the models in audio.cpp take a seed. A seed does not keep the voice:
+sampled with, which audio.cpp picks at random for each request. `--seeds` gives one run for each seed: audio.cpp
+samples every sentence of a run from it, and speech.cpp's worker the first request, each later one the next
+seed. A seed does not keep the voice:
 Irodori-TTS follows the sentence more than the seed. `--designs` describes the voice in words instead, with the
 descriptions of `prompts/designs-<locale>.json` (Irodori-TTS's `instruction`), one run for each.
 
-On a Mac, Irodori-TTS's codec runs on the CPU. audio.cpp's Metal codec (v0.8.2) adds a distorted copy of the
+Runtimes run as a process, speech.cpp's worker among them, are reached through speech.cpp's worker protocol
+(docs/adr/0008): JSON lines, a request per line, the speech streamed back in base64 16-bit chunks. Irodori-TTS
+v4.1 in speech.cpp has no voice of its own and needs `--reference`; the reference goes to the worker as a voice
+file, which speech.cpp's `irodori-tts --make-voice` makes once on the CPU and `voice-files/` keeps.
+
+On a Mac, audio.cpp's Irodori-TTS v4 Small runs its codec on the CPU. audio.cpp's Metal codec (v0.8.2) adds a distorted copy of the
 voice, heard as a doubled voice with a low hum, which its CPU and Vulkan codecs do not; the CPU codec takes 4 to
 7 times as long, which the Mac's times to the first audio include. The options a runtime was loaded with are
 recorded with each result and shown in the report. A model with built-in voices
@@ -210,8 +221,9 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 | Qwen3-ASR 1.7B and 0.6B | ggml-org Q8_0 |
 | parakeet-tdt-0.6b-v3, parakeet-tdt_ctc-0.6b-ja, ReazonSpeech NeMo v2 | cstr Q8_0 |
 | FLEURS | google/fleurs at revision 70bb2e84: ja-JP, en-US, fr-FR, de-DE, hi-IN, id-ID, it-IT, ko-KR, pt-BR and es-419 (it has no Spanish of Spain) |
-| qwen3-tts-ggml | v0.1.1 |
-| Qwen3-TTS 0.6B and 1.7B CustomVoice | sakasegawa/qwen3-tts-ggml Q8_0 and the F16 codec |
+| speech.cpp | v0.3.0, the worker and, to make voice files, the tools |
+| Qwen3-TTS 0.6B and 1.7B CustomVoice | sakasegawa/qwen3-tts-ggml Q8_0 and the F16 codec, converted with BCP 47 language tags |
+| Irodori-TTS v4.1 Small, MF and RF | sakasegawa/irodori-tts-ggml F16 and the F32 codec |
 | audio.cpp | v0.8.2-audio8-perf-hotfix |
 | Irodori-TTS v4 Small | audio-cpp/audio.cpp-gguf Q8_0 |
 | sherpa-onnx | 1.13.8, the Node addon of its npm packages for macOS arm64 and Windows x64, for speaker embeddings and the VAD |

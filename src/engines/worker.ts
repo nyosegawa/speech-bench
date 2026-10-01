@@ -3,8 +3,6 @@ import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import readline from 'node:readline'
-import type { TtsModel } from '../catalog.ts'
-import { languageOf } from '../language.ts'
 import { logsDir } from '../paths.ts'
 import type { Synthesis, TtsEngine } from './tts-engine.ts'
 
@@ -12,7 +10,8 @@ const PROTOCOL_PREFIX = 'ASIST_JSON:'
 
 /**
  * Loading the model and compiling GPU kernels comes before `ready`. After a GPU driver update the Vulkan
- * shaders took 12.6 s to compile on an RTX 2080 (2026-09-29).
+ * shaders took 12.6 s to compile on an RTX 2080 (2026-09-29), and an Irodori-TTS worker's first start
+ * compiled Metal kernels for 16 s on an Apple M5 (2026-10-01).
  */
 const READY_TIMEOUT_MS = 180_000
 
@@ -31,8 +30,6 @@ export function decodeChunk(base64: string): Float32Array {
   return samples
 }
 
-type Model = Extract<TtsModel, { runtime: 'qwen3-tts-worker' }>
-
 interface Pending {
   started: number
   first: number | null
@@ -41,34 +38,37 @@ interface Pending {
   reject: (error: Error) => void
 }
 
+/** How to start a worker: its executable and arguments, and the voice a request names when the run has no built-in one. */
+export interface WorkerCommand {
+  name: string
+  executable: string
+  args: readonly string[]
+  voice: string | null
+}
+
 /**
- * Qwen3-TTS in qwen3-tts-ggml's worker, spoken to over JSON lines: a request per line on stdin, and on
- * stdout `ready`, then `chunk` messages with audio while the sentence is generated and `end` when it is done.
+ * A synthesis model in a process that speaks speech.cpp's worker protocol over JSON lines, each line it writes
+ * prefixed with `ASIST_JSON:`: a request per line on stdin (`id`, `text`, `voice`, `language` as a BCP 47 tag),
+ * and on stdout `ready`, then `chunk` messages with base64 16-bit PCM and `end` for each request, `error` for
+ * a request that failed and `fatal` for a worker that could not start. speech.cpp's `speech-worker` speaks it,
+ * and so does any adapter written for a runtime that does not.
  */
-export class Qwen3TtsWorker implements TtsEngine {
+export class WorkerTts implements TtsEngine {
   private child: ChildProcessWithoutNullStreams | null = null
   private sampleRate = 0
   private readonly pending = new Map<string, Pending>()
-  private readonly executable: string
-  private readonly model: Model
-  private readonly files: readonly string[]
-  private readonly device: string
+  private readonly command: WorkerCommand
   log: string | null = null
 
-  constructor(executable: string, model: Model, files: readonly string[], device: string) {
-    this.executable = executable
-    this.model = model
-    this.files = files
-    this.device = device
+  constructor(command: WorkerCommand) {
+    this.command = command
   }
 
   start(): Promise<void> {
-    const [talker, codec] = this.files
-    if (!talker || !codec) return Promise.reject(new Error(`${this.model.id} needs a talker and a codec`))
     fs.mkdirSync(logsDir(), { recursive: true })
-    const log = path.join(logsDir(), `${this.model.id}-${new Date().toISOString().replace(/[:.]/g, '-')}.log`)
+    const log = path.join(logsDir(), `${this.command.name}-${new Date().toISOString().replace(/[:.]/g, '-')}.log`)
     this.log = log
-    const child = spawn(this.executable, [talker, codec, '--device', this.device], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
+    const child = spawn(this.command.executable, [...this.command.args], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
     this.child = child
     child.stderr.pipe(fs.createWriteStream(log))
     return new Promise((resolve, reject) => {
@@ -125,13 +125,12 @@ export class Qwen3TtsWorker implements TtsEngine {
   synthesize(text: string, locale: string, voice: string | null): Promise<Synthesis> {
     const child = this.child
     if (!child) return Promise.reject(new Error('the worker is not started'))
-    const language = this.model.languageNames[languageOf(locale)]
-    if (!language) return Promise.reject(new Error(`${this.model.id} cannot speak ${locale}`))
-    if (!voice) return Promise.reject(new Error(`${this.model.id} needs a voice`))
+    const named = voice ?? this.command.voice
+    if (!named) return Promise.reject(new Error(`${this.command.name} needs a voice`))
     const id = randomUUID()
     return new Promise((resolve, reject) => {
       this.pending.set(id, { started: performance.now(), first: null, chunks: [], resolve, reject })
-      child.stdin.write(`${JSON.stringify({ id, text, voice, language, speed: 1 })}\n`)
+      child.stdin.write(`${JSON.stringify({ id, text, voice: named, language: locale })}\n`)
     })
   }
 

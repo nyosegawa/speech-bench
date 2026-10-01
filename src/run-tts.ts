@@ -5,13 +5,14 @@ import type { VoiceDesign } from './datasets/designs.ts'
 import type { Prompt } from './datasets/prompts.ts'
 import type { ReferenceVoice } from './references.ts'
 import { AudioCppTts } from './engines/audiocpp.ts'
-import { Qwen3TtsWorker } from './engines/qwen3-tts-worker.ts'
+import { irodoriVoiceFile } from './engines/irodori-voice.ts'
+import { WorkerTts } from './engines/worker.ts'
 import type { Synthesis, TtsEngine } from './engines/tts-engine.ts'
 import { resultsDir } from './paths.ts'
 import { gpuBackend, gpuDevice, machineInfo } from './platform.ts'
 import { RESULT_FORMAT, type SentenceRecord, type TtsRunRecord } from './results.ts'
 import { prepareAsr } from './run-asr.ts'
-import { AUDIO_CPP, ensureRuntime, QWEN3_TTS_GGML, type RuntimeSpec } from './runtimes.ts'
+import { AUDIO_CPP, ensureRuntime, SPEECH_CPP, SPEECH_CPP_TOOLS, type RuntimeSpec } from './runtimes.ts'
 import { ensurePinned } from './store.ts'
 import { durationSeconds, encodeWav16, peakNormalize, resample } from './wav.ts'
 
@@ -30,15 +31,37 @@ export interface VoiceChoice {
   durationScale: number | null
 }
 
+/** The name a run's reference voice is given in speech.cpp's worker, which every request then names. */
+const REFERENCE_VOICE = 'reference'
+
+/**
+ * The arguments of speech.cpp's worker for a run: the model and its codec, the device, the seed of the first
+ * request (the worker gives each later request the next seed), the sampler's steps and the reference voice.
+ */
+export function speechWorkerArgs(files: readonly string[], device: string, seed: number | null, steps: number | null, voiceFile: string | null): string[] {
+  return [
+    ...files,
+    '--device', device,
+    ...(seed === null ? [] : ['--seed', String(seed)]),
+    ...(steps === null ? [] : ['--steps', String(steps)]),
+    ...(voiceFile === null ? [] : ['--voice', `${REFERENCE_VOICE}=${voiceFile}`])
+  ]
+}
+
 async function prepareTts(model: TtsModel, { seed, design, reference, durationScale }: VoiceChoice): Promise<{ engine: TtsEngine; runtime: RuntimeSpec; loadOptions: Readonly<Record<string, string>> }> {
-  if (model.runtime === 'qwen3-tts-worker' && seed !== null) throw new Error(`${model.id} runs in the Qwen3-TTS worker, which takes no seed`)
   if (design !== null && !(model.runtime === 'audio.cpp' && model.voiceDesign)) throw new Error(`${model.id} takes no voice described in words`)
-  if (reference !== null && !(model.runtime === 'audio.cpp' && model.voiceReference)) throw new Error(`${model.id} takes no reference voice`)
+  if (reference !== null && !model.voiceReference) throw new Error(`${model.id} takes no reference voice`)
   if (durationScale !== null && !(model.runtime === 'audio.cpp' && model.durationScale)) throw new Error(`${model.id} takes no factor for the length of its speech`)
   const files: string[] = []
   for (const file of model.files) files.push(await ensurePinned(file))
-  if (model.runtime === 'qwen3-tts-worker') {
-    return { engine: new Qwen3TtsWorker(await ensureRuntime(QWEN3_TTS_GGML), model, files, gpuDevice()), runtime: QWEN3_TTS_GGML, loadOptions: {} }
+  if (model.runtime === 'speech-worker') {
+    if (model.voiceReference && reference === null) throw new Error(`${model.id} has no voice of its own; give it one with --reference`)
+    const [weights, codec] = files
+    const codecFile = model.files[1]
+    if (!weights || !codec || !codecFile) throw new Error(`${model.id} needs a model and a codec`)
+    const voiceFile = reference === null ? null : await irodoriVoiceFile(await ensureRuntime(SPEECH_CPP_TOOLS), weights, codec, codecFile.sha256, reference)
+    const engine = new WorkerTts({ name: model.id, executable: await ensureRuntime(SPEECH_CPP), args: speechWorkerArgs(files, gpuDevice(), seed, model.steps, voiceFile), voice: voiceFile === null ? null : REFERENCE_VOICE })
+    return { engine, runtime: SPEECH_CPP, loadOptions: voiceFile === null ? {} : { voice: 'voice file made on the CPU' } }
   }
   const [gguf] = files
   if (!gguf) throw new Error(`${model.id} has no GGUF`)

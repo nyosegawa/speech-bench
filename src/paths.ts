@@ -16,3 +16,5 @@ export const logsDir = (): string => path.join(dataDir(), 'logs')
 export const resultsDir = (): string => path.join(dataDir(), 'results')
 /** Reference voices made from sets of synthesized takes, a WAVE file and its manifest each. */
 export const referencesDir = (): string => path.join(dataDir(), 'references')
+/** Irodori-TTS voice files made from reference voices, kept by the reference and the codec they encode. */
+export const voiceFilesDir = (): string => path.join(dataDir(), 'voice-files')

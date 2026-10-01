@@ -55,20 +55,40 @@ export const CRISPASR: RuntimeSpec = {
   }
 }
 
-/** qwen3-tts-ggml's Qwen3-TTS worker, the release before the project became speech.cpp. */
-export const QWEN3_TTS_GGML: RuntimeSpec = {
-  id: 'qwen3-tts-ggml',
-  version: 'v0.1.1',
+const SPEECH_CPP_RELEASE = 'https://github.com/nyosegawa/speech.cpp/releases/download/v0.3.0'
+
+/** speech.cpp's worker, which runs Qwen3-TTS and Irodori-TTS and speaks the worker protocol. */
+export const SPEECH_CPP: RuntimeSpec = {
+  id: 'speech.cpp',
+  version: 'v0.3.0',
   assets: {
     'darwin-arm64': {
-      url: 'https://github.com/nyosegawa/qwen3-tts-ggml/releases/download/v0.1.1/qwen3-tts-ggml-v0.1.1-macos-arm64-metal.zip',
-      sha256: '2a1703b5b6b0125ebcddd37cbeffcad3384bc8c386e0e57bf838029687053d81',
-      executable: 'qwen3-tts-worker'
+      url: `${SPEECH_CPP_RELEASE}/speech-worker-v0.3.0-macos-arm64-metal.zip`,
+      sha256: '004a7f6ffc0f07ee273b75e622eb082df62ac3fb9df3c3dcd24f20a57c4f62e9',
+      executable: 'speech-worker'
     },
     'win32-x64': {
-      url: 'https://github.com/nyosegawa/qwen3-tts-ggml/releases/download/v0.1.1/qwen3-tts-ggml-v0.1.1-windows-x64-vulkan.zip',
-      sha256: 'c33a4a62572b99159ee7faf1b5b56b4f1d5268e7b0512987bd6605c1001a3724',
-      executable: 'qwen3-tts-worker.exe'
+      url: `${SPEECH_CPP_RELEASE}/speech-worker-v0.3.0-windows-x64-vulkan.zip`,
+      sha256: 'f8d868eeb12b08e8ddc8e06d3823da58d63d9f12afd1ac300a852b3a7b62ada7',
+      executable: 'speech-worker.exe'
+    }
+  }
+}
+
+/** speech.cpp's command-line tools, of which the bench uses `irodori-tts` to make Irodori-TTS voice files. */
+export const SPEECH_CPP_TOOLS: RuntimeSpec = {
+  id: 'speech.cpp-tools',
+  version: 'v0.3.0',
+  assets: {
+    'darwin-arm64': {
+      url: `${SPEECH_CPP_RELEASE}/speech-cpp-tools-v0.3.0-macos-arm64-metal.zip`,
+      sha256: '067e01bb6fe10b0ead1c04982da9fdc0ffed27fae9f245d77d5e9e057030ba0d',
+      executable: 'irodori-tts'
+    },
+    'win32-x64': {
+      url: `${SPEECH_CPP_RELEASE}/speech-cpp-tools-v0.3.0-windows-x64-vulkan.zip`,
+      sha256: '0ad6efebd29cec9daacbfda4b0d99e3bd1eac777737b558478cbfed77be7a544',
+      executable: 'irodori-tts.exe'
     }
   }
 }
