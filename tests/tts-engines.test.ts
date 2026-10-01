@@ -35,7 +35,7 @@ describe('audioCppConfig', () => {
     if (model.runtime !== 'audio.cpp') throw new Error('expected an audio.cpp model')
     const config = audioCppConfig(model, '/models/irodori.gguf', 'metal', {}, null)
     expect(config).toMatchObject({ backend: 'metal', models: [{ id: model.id, family: 'irodori_tts', path: '/models/irodori.gguf', task: 'tts', mode: 'offline' }] })
-    expect((config.models as Array<{ default_request_options: unknown }>)[0]!.default_request_options).toEqual({ language: 'ja', no_ref: true, num_inference_steps: 8 })
+    expect((config.models as Array<{ default_request_options: unknown }>)[0]!.default_request_options).toEqual(model.options)
   })
 
   it('runs the codec of Irodori-TTS on the CPU on Metal, whose codec doubles the voice, and not on Vulkan', () => {
@@ -58,26 +58,27 @@ describe('audioCppConfig', () => {
     const model = ttsModel('irodori-tts-v4-small-8steps')
     if (model.runtime !== 'audio.cpp') throw new Error('expected an audio.cpp model')
     const config = audioCppConfig(model, '/models/irodori.gguf', 'metal', { seed: 3, instruction: '若い女性の声。' }, null)
-    expect((config.models as Array<{ default_request_options: unknown }>)[0]!.default_request_options).toEqual({ language: 'ja', no_ref: true, num_inference_steps: 8, seed: 3, instruction: '若い女性の声。' })
+    expect((config.models as Array<{ default_request_options: unknown }>)[0]!.default_request_options).toEqual({ ...model.options, seed: 3, instruction: '若い女性の声。' })
   })
 })
 
 describe('ttsVoiceFor', () => {
-  const qwen = ttsModel('qwen3-tts-0.6b')
+  const withVoices = { ...ttsModel('qwen3-tts-0.6b'), voices: [{ id: 'hana', native: 'ja' }, { id: 'jun', native: 'ko' }, { id: 'tom', native: 'en' }] }
+  const withoutVoices = { ...withVoices, voices: [] }
 
   it('takes the voice native to the language when none is named', () => {
-    expect(ttsVoiceFor(qwen, 'ja-JP', undefined)).toBe('ono_anna')
-    expect(ttsVoiceFor(qwen, 'ko-KR', undefined)).toBe('sohee')
+    expect(ttsVoiceFor(withVoices, 'ja-JP', undefined)).toBe('hana')
+    expect(ttsVoiceFor(withVoices, 'ko-KR', undefined)).toBe('jun')
   })
 
   it('needs a voice named where no built-in voice is native to the language', () => {
-    expect(() => ttsVoiceFor(qwen, 'fr-FR', undefined)).toThrow(/--voice/)
-    expect(ttsVoiceFor(qwen, 'fr-FR', 'ryan')).toBe('ryan')
+    expect(() => ttsVoiceFor(withVoices, 'fr-FR', undefined)).toThrow(/--voice/)
+    expect(ttsVoiceFor(withVoices, 'fr-FR', 'tom')).toBe('tom')
   })
 
   it('refuses a voice the model does not have, and any voice for a model without voices', () => {
-    expect(() => ttsVoiceFor(qwen, 'ja-JP', 'nobody')).toThrow()
-    expect(() => ttsVoiceFor(ttsModel('irodori-tts-v4-small'), 'ja-JP', 'ono_anna')).toThrow()
-    expect(ttsVoiceFor(ttsModel('irodori-tts-v4-small'), 'ja-JP', undefined)).toBeNull()
+    expect(() => ttsVoiceFor(withVoices, 'ja-JP', 'nobody')).toThrow()
+    expect(() => ttsVoiceFor(withoutVoices, 'ja-JP', 'hana')).toThrow()
+    expect(ttsVoiceFor(withoutVoices, 'ja-JP', undefined)).toBeNull()
   })
 })

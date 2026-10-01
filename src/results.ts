@@ -11,10 +11,12 @@ export const RESULT_FORMAT = 11
  * a VAD finds with a margin of the recording around it, or as recorded with silence added after it. Runs of
  * formats 2 to 10 were cut the way ASIST's energy VAD cuts a capture, keeping a hangover after it.
  */
-export type AudioPreparation =
+export type AudioPreparation = NewPreparation | { edges: 'asist'; hangoverMs: number }
+
+/** The preparations a run can be made with now. */
+export type NewPreparation =
   | { edges: 'voice'; detector: string; marginSeconds: number }
   | { edges: 'as-recorded'; trailingSilence: number }
-  | { edges: 'asist'; hangoverMs: number }
 
 /** The pinned files a run used, so that a result names exactly what it measured. */
 export interface ModelRecord {
