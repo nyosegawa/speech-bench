@@ -1,7 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ttsModel, ttsVoiceFor } from '../src/catalog/models.ts'
 import { audioCppConfig } from '../src/engines/audiocpp.ts'
-import { decodeChunk, parseWorkerLine } from '../src/engines/worker.ts'
+import { decodeChunk, parseWorkerLine, WorkerTts } from '../src/engines/worker.ts'
 import { speechWorkerArgs } from '../src/measure/run-tts.ts'
 
 describe('the worker protocol', () => {
@@ -15,6 +18,48 @@ describe('the worker protocol', () => {
     bytes.writeInt16LE(16384, 0)
     bytes.writeInt16LE(-32768, 2)
     expect([...decodeChunk(bytes.toString('base64'))]).toEqual([0.5, -1])
+  })
+})
+
+describe('WorkerTts', () => {
+  let data: string
+  beforeEach(() => {
+    data = fs.mkdtempSync(path.join(os.tmpdir(), 'speech-bench-test-'))
+    process.env.SPEECH_BENCH_DATA = data
+  })
+  afterEach(() => {
+    delete process.env.SPEECH_BENCH_DATA
+    fs.rmSync(data, { recursive: true, force: true })
+  })
+
+  const fakeWorker = (): WorkerTts => new WorkerTts({
+    name: 'fake',
+    executable: process.execPath,
+    args: [path.join(import.meta.dirname, 'fixtures', 'fake-worker.mjs')],
+    env: { FAKE_WORKER_RATE: '24000' },
+    voice: 'reference'
+  })
+
+  it('starts the worker with the variables its command sets, and joins the chunks of a sentence', async () => {
+    const worker = fakeWorker()
+    await worker.start()
+    try {
+      const synthesis = await worker.synthesize('はい。', 'ja-JP', null)
+      expect(synthesis.pcm.sampleRate).toBe(24_000)
+      expect([...synthesis.pcm.samples].map((value) => Math.round(value * 32768))).toEqual([3, 'reference'.length])
+    } finally {
+      await worker.stop()
+    }
+  })
+
+  it('fails the sentence the worker reports an error for', async () => {
+    const worker = fakeWorker()
+    await worker.start()
+    try {
+      await expect(worker.synthesize('Hello.', 'en-US', null)).rejects.toThrow()
+    } finally {
+      await worker.stop()
+    }
   })
 })
 

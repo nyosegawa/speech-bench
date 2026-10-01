@@ -43,6 +43,8 @@ export interface WorkerCommand {
   name: string
   executable: string
   args: readonly string[]
+  /** Variables set for the worker on top of the bench's own environment. */
+  env?: Readonly<Record<string, string>>
   voice: string | null
 }
 
@@ -68,7 +70,7 @@ export class WorkerTts implements TtsEngine {
     fs.mkdirSync(logsDir(), { recursive: true })
     const log = path.join(logsDir(), `${this.command.name}-${new Date().toISOString().replace(/[:.]/g, '-')}.log`)
     this.log = log
-    const child = spawn(this.command.executable, [...this.command.args], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
+    const child = spawn(this.command.executable, [...this.command.args], { env: { ...process.env, ...this.command.env }, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
     this.child = child
     child.stderr.pipe(fs.createWriteStream(log))
     return new Promise((resolve, reject) => {

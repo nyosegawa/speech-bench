@@ -10,6 +10,7 @@ voices for models that have none built in, from a description and lines in chara
 
 - macOS on Apple Silicon, or Windows x64 with a discrete GPU
 - Node.js 22.18 or later (TypeScript runs directly through type stripping)
+- [uv](https://docs.astral.sh/uv/), only for the official implementations the adapters run (Irodori-TTS's)
 
 ```sh
 npm install
@@ -31,6 +32,9 @@ node src/cli.ts tts --locale ja-JP --models qwen3-tts-0.6b,qwen3-tts-1.7b
 
 # Irodori-TTS v4.1 in speech.cpp, which speaks like a reference voice
 node src/cli.ts tts --locale ja-JP --models irodori-tts-v4.1-small-mf,irodori-tts-v4.1-small-16steps --reference voice-bright-young-woman --seeds 1
+
+# The same in Irodori-TTS's official PyTorch runtime, to check speech.cpp's port against it (on a Mac, through uv)
+node src/cli.ts tts --locale ja-JP --models irodori-tts-v4.1-small-mf-official --reference voice-bright-young-woman --seeds 1
 
 # Ten of those sentences from each of five seeds, to hear which seed gives a voice worth keeping
 node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-16steps --seeds 1,2,3,4,5 \
@@ -64,6 +68,7 @@ folder `SPEECH_BENCH_DATA` names.
   recordings/  your recordings, <locale>/<speaker>/manifest.jsonl
   references/  reference voices made from synthesized takes, <name>.wav and <name>.json
   voice-files/ Irodori-TTS voice files made from the references for speech.cpp, by reference and codec
+  adapters/    the Python environments of the adapters
   logs/        server output
   runs/        a folder per run: run.jsonl, the speech of each sentence and analysis.json
   campaigns/   the runs of each experiment, <name>.json
@@ -156,6 +161,13 @@ Runtimes run as a process, speech.cpp's worker among them, are reached through s
 (docs/adr/0008): JSON lines, a request per line, the speech streamed back in base64 16-bit chunks. Irodori-TTS
 v4.1 in speech.cpp has no voice of its own and needs `--reference`; the reference goes to the worker as a voice
 file, which speech.cpp's `irodori-tts --make-voice` makes once on the CPU and `voice-files/` keeps.
+
+A model's official implementation runs in an adapter of the bench's own that speaks the same protocol
+(docs/adr/0012): `adapters/irodori-tts/` runs Irodori-TTS v4.1's official PyTorch runtime at FP32 on the Mac's
+GPU, from the revisions of the checkpoints speech.cpp's GGUFs were converted from, with the reference voice given
+as its WAVE file. uv installs the packages the adapter's lock file pins into `adapters/` of the data folder on the
+first run, before the timing starts. The official runtime does not stream, so its first audio arrives with the
+last.
 
 On a Mac, audio.cpp's Irodori-TTS v4 Small runs its codec on the CPU. audio.cpp's Metal codec (v0.8.2) adds a distorted copy of the
 voice, heard as a doubled voice with a low hum, which its CPU and Vulkan codecs do not; the CPU codec takes 4 to

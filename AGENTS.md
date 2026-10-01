@@ -23,7 +23,9 @@ behavior.
   files (`store.ts`, `download.ts`).
 - `src/engines/` holds one engine per runtime. An engine starts its process, transcribes an utterance or
   speaks a sentence, and stops; it knows nothing about datasets or scoring. The models run in this process
-  through sherpa-onnx (speaker embeddings, Silero VAD) are engines too.
+  through sherpa-onnx (speaker embeddings, Silero VAD) are engines too. `adapters/` holds the adapters that run a
+  model's official implementation behind speech.cpp's worker protocol, each a uv project with a lock file;
+  `src/engines/adapter.ts` installs and starts them.
 - `src/datasets/` turns a source (FLEURS, the user's recordings, the prompt lists) into utterances with
   references or sentences to speak.
 - `src/measure/` runs a model over a set and writes the result (`run-asr.ts`, `run-tts.ts`), owns the form of
