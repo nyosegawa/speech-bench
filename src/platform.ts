@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import os from 'node:os'
 
-/** The two systems ASIST ships on, which are the ones worth measuring. */
+/** The systems the bench runs on: macOS on Apple silicon and Windows on x64. */
 export type PlatformKey = 'darwin-arm64' | 'win32-x64'
 
 export function platformKey(): PlatformKey {
@@ -10,7 +10,7 @@ export function platformKey(): PlatformKey {
   throw new Error(`speech-bench runs on macOS arm64 and Windows x64, not ${key}`)
 }
 
-/** The GPU interface ggml runs on here: Metal on a Mac, Vulkan on Windows, as ASIST uses them. */
+/** The GPU interface ggml runs on here: Metal on a Mac, Vulkan on Windows. */
 export const gpuBackend = (): 'metal' | 'vulkan' => (platformKey() === 'darwin-arm64' ? 'metal' : 'vulkan')
 
 /**

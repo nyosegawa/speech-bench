@@ -8,7 +8,7 @@ const HEALTH_POLL_MS = 250
 
 /**
  * Loading a model and compiling its GPU kernels comes before a server answers its health check. The first
- * start of llama.cpp's Vulkan build compiled shaders for seconds on an RTX 2080 (ASIST, 2026-09-29).
+ * start of llama.cpp's Vulkan build compiled shaders for seconds on an RTX 2080 (2026-09-29).
  */
 const READY_TIMEOUT_MS = 180_000
 

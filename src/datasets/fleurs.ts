@@ -7,7 +7,7 @@ import type { UtteranceSet } from './item.ts'
 
 /**
  * FLEURS (google/fleurs, CC-BY-4.0): read sentences from Wikipedia in 102 languages, 16 kHz. Its es_419 is
- * Latin American Spanish and its pt_br Brazilian Portuguese, the regions ASIST's es-419 and pt-BR name.
+ * Latin American Spanish (es-419) and its pt_br Brazilian Portuguese (pt-BR).
  */
 const FLEURS = { repo: 'google/fleurs', revision: '70bb2e84b976b7e960aa89f1c648e09c59f894dd' }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { encodeWav16, peakNormalize, readWav, resample, withTrailingSilence } from '../src/wav.ts'
+import { encodeWav16, peakNormalize, readWav, resample, trimAround, withTrailingSilence } from '../src/wav.ts'
 
 /** A WAVE file of 32-bit float samples with a fact chunk, laid out like the files of FLEURS. */
 function floatWav(channels: number, sampleRate: number, samples: number[]): Buffer {
@@ -56,7 +56,7 @@ describe('withTrailingSilence', () => {
 })
 
 describe('peakNormalize', () => {
-  it('scales quiet audio to a peak of 0.9, as ASIST does before speech recognition', () => {
+  it('scales quiet audio to a peak of 0.9, so that every model hears an utterance at one level', () => {
     const scaled = peakNormalize({ sampleRate: 16_000, samples: Float32Array.from([0.1, -0.3, 0.2]) })
     expect([...scaled.samples].map((sample) => Number(sample.toFixed(4)))).toEqual([0.3, -0.9, 0.6])
   })
@@ -91,5 +91,19 @@ describe('resample', () => {
     const up = resample(tone(1_000, 16_000, 1), 24_000)
     expect(up.samples.length).toBe(24_000)
     expect(rms(up.samples, 1_500, 22_500)).toBeCloseTo(0.5 / Math.SQRT2, 2)
+  })
+})
+
+describe('trimAround', () => {
+  const pcm = { sampleRate: 10, samples: Float32Array.from({ length: 50 }, (_, index) => index) }
+
+  it('keeps the margin of the recording before and after the stretch', () => {
+    expect([...trimAround(pcm, 20, 30, 0.5).samples]).toEqual(Array.from({ length: 20 }, (_, index) => index + 15))
+  })
+
+  it('stops at the ends of the recording', () => {
+    const trimmed = trimAround(pcm, 2, 48, 0.5)
+    expect(trimmed.samples[0]).toBe(0)
+    expect(trimmed.samples.length).toBe(50)
   })
 })

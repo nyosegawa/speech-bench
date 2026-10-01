@@ -7,8 +7,8 @@ export interface Transcription {
 }
 
 /**
- * A speech recognition model running in a server of its own. The utterance is sent whole, the way ASIST
- * sends it once its VAD closes the utterance, so the measured time is the wait after the user stops.
+ * A speech recognition model running in a server of its own. The utterance is sent whole, as an application
+ * sends it once its VAD has closed the utterance, so the measured time is the wait after the speaker stops.
  */
 export interface AsrEngine {
   start(): Promise<void>

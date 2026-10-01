@@ -1,10 +1,10 @@
 # speech-bench
 
-Measures the local speech models [ASIST](https://github.com/nyosegawa/asist) uses or may use, under the
-conditions ASIST runs them in, for speech recognition and speech synthesis. It runs pinned ggml releases
-(llama.cpp, CrispASR, the Qwen3-TTS worker ASIST ships, audio.cpp) on macOS with Metal and on Windows with
-Vulkan, so that a model is chosen
-for speech.cpp on numbers from the machines ASIST ships to, and a port can later be checked against them.
+Measures local speech recognition and speech synthesis models under one set of conditions, across the runtimes
+they run in and the machines they run on, so that [speech.cpp](https://github.com/nyosegawa/speech.cpp) takes up
+a model on numbers, and a port can be checked against the model it was ported from. It runs pinned releases
+(llama.cpp, CrispASR, qwen3-tts-ggml, audio.cpp) on macOS with Metal and on Windows with Vulkan. It also makes
+voices for models that have none built in, from a description and lines in character.
 
 ## Requirements
 
@@ -60,13 +60,9 @@ folder `SPEECH_BENCH_DATA` names.
   runtimes/    llama.cpp, CrispASR, qwen3-tts-ggml and audio.cpp releases
   recordings/  your recordings, <locale>/<speaker>/manifest.jsonl
   references/  reference voices made from synthesized takes, <name>.wav and <name>.json
-  asist-input/ what ASIST's VAD received in sessions with ASIST, <locale>/<speaker>/<session>/
   logs/        server output
   results/     one JSON Lines file per run, and for synthesis a folder of the speech beside it
 ```
-
-Model files ASIST has already prepared (`~/Library/Application Support/ASIST/speech-models`, on Windows
-`%APPDATA%\asist\speech-models`) are taken over after their sha256 is checked.
 
 ### Your own recordings
 
@@ -76,7 +72,7 @@ node src/cli.ts record --locale ja-JP --speaker guest
 
 This serves a recording page on the loopback interface. It shows the prompts of `prompts/record-<locale>.json`
 one by one (short answers, requests with names and technical words, numbers, mixed English, fillers and
-long utterances, the kinds of speech ASIST hears), records the microphone without echo cancellation, noise
+long utterances, the kinds of speech an assistant hears), records the microphone without echo cancellation, noise
 suppression or automatic gain, and saves 16 kHz WAVE files with the text that was said. The controls, the
 progress and an input level meter stay at the top while a long prompt is read; each saved recording shows its
 waveform, its loudest sample and the level of the room around the voice, and says when it is too quiet or
@@ -93,44 +89,15 @@ object per line, with `audio` relative to the manifest:
 {"id": "short-hai", "audio": "short-hai.wav", "text": "はい"}
 ```
 
-### What ASIST hears
-
-Recordings made on the page above have no echo cancellation, noise suppression or automatic gain; ASIST
-hears through all three. A session with ASIST listening records what ASIST's VAD itself receives:
-
-```sh
-node src/cli.ts asist-input --locale ja-JP --speaker sakasegawa --mic builtin --capture native
-node src/cli.ts input-report
-```
-
-ASIST has to be running with `--remote-debugging-port=9222`; the session turns its microphone on. `--capture` restarts
-ASIST's microphone on the native helper (`native`, macOS voice processing, with DeepFilterNet when ASIST's
-noise suppression is on) or on `getusermedia` (Chromium's processing) for the session, and puts back what
-the settings chose afterwards; `--mic` names the microphone the system uses as its input, for the report.
-The terminal walks the speaker through `prompts/asist-input-<locale>.json`: silence, short answers,
-requests, a long utterance and an interruption while ASIST replies, a softer voice, a voice from a metre
-away, noises (a cough, typing, a knock on the desk) and talk that is not meant for ASIST. It moves on by
-itself once ASIST has finished with an item, and ASIST answers as it does in use, so its replies and their
-echo are part of the recording. When the session ends, ASIST's microphone is off.
-
-A session folder holds the audio the VAD received (`input.wav`, 16 kHz float), every frame with the state
-around it (`frames.jsonl`: the noise floor, the playback boost, Silero's voice probability, the hangover,
-whether a capture was open and how it ended, whether the assistant was speaking), the stretch each item
-covered (`items.jsonl`) and the conditions (`session.json`: the device, getUserMedia's applied settings,
-ASIST's version). `input-report` gives, for each session, the level of the room and of the assistant's echo,
-each item's loudest frame and the 95th percentile of its voice, what ASIST did with it, and what the VAD
-would do on the same frames with the values given by `--min-threshold`, `--min-voiced-ms`,
-`--min-utterance-ms` and `--min-speech-ms`.
-
 ## How the audio is prepared
 
-By default each utterance is prepared the way ASIST prepares a capture: the recording is scaled to a peak
-of 0.9, cut from 300 ms before ASIST's energy VAD would start the capture to the end of the hangover after
-it would close it, and scaled to a peak of 0.9 again. `--hangover` sets the hangover (600 ms, ASIST's
-default). An utterance of which ASIST's VAD keeps nothing, such as a short answer with less than 250 ms of
-voice, is not sent: the result records it as dropped, and the report counts it in its own column and
-leaves it out of the error rate and the timings. `--edges as-recorded` sends the recording as it is, with `--trailing-silence` seconds of silence
-after it.
+By default each utterance is trimmed to its voice: Silero VAD finds where the voice begins and ends, the
+recording is kept from `--margin` seconds before the first stretch of voice to as long after the last (0.2 s,
+as far as the recording reaches), and scaled to a peak of 0.9, so that every model hears the same stretch at
+the same level. An utterance in which Silero finds no voice is not sent: the result records it as dropped,
+and the report counts it in its own column and leaves it out of the error rate and the timings.
+`--edges as-recorded` sends the recording as it is, with `--trailing-silence` seconds of silence after it,
+which shows how a model takes long silences.
 
 ## What is measured
 
@@ -141,8 +108,8 @@ after it.
   that 一ドル and 1ドル are equal, and a long vowel mark as the vowel it lengthens, so that あー and ああ are equal. The errors of the whole set are divided by the length of its references,
   rather than averaging the rates of single utterances. Errors are counted when a report is made, from the
   texts the result files keep, so that every result is scored by the same rules.
-- **Time**: from sending the whole utterance to receiving its text, which is what the user waits for after
-  ASIST's VAD closes the utterance. The first utterance is transcribed once more, untimed, because it pays
+- **Time**: from sending the whole utterance to receiving its text, which is what a speaker waits for once
+  an application's VAD has closed the utterance. The first utterance is transcribed once more, untimed, because it pays
   for the GPU's first use.
 - **Empty results**: utterances that came back without text.
 
@@ -158,8 +125,8 @@ after it.
   misreadings, dropped or repeated words, and speech that runs on past the sentence.
 - **Heard as said**: the sentences the recognizer heard as they were written, apart from how it spells them
   (in Japanese katakana or hiragana, small or full-size vowels, あー or ああ), but not shorter, longer or with a
-  word more. A take that passes is one ASIST could keep, as when it makes its aizuchi ahead of time and keeps
-  the takes heard right.
+  word more. A take that passes is one an application could keep, as when it makes short replies ahead of
+  time and keeps the takes heard right.
 - **Seconds per character**: the pace of the speech, which shows a model that rushes or runs on.
 - The speech of every sentence is saved as a WAVE file in the folder named after the result file, for
   listening.
@@ -238,17 +205,18 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 
 | Input | Version |
 |---|---|
-| llama.cpp | b11246, the release ASIST ships |
+| llama.cpp | b11246 |
 | CrispASR | v0.8.38 (its macOS build needs macOS 26) |
-| Qwen3-ASR 1.7B and 0.6B | ggml-org Q8_0, the files ASIST pins |
+| Qwen3-ASR 1.7B and 0.6B | ggml-org Q8_0 |
 | parakeet-tdt-0.6b-v3, parakeet-tdt_ctc-0.6b-ja, ReazonSpeech NeMo v2 | cstr Q8_0 |
 | FLEURS | google/fleurs at revision 70bb2e84: ja-JP, en-US, fr-FR, de-DE, hi-IN, id-ID, it-IT, ko-KR, pt-BR and es-419 (it has no Spanish of Spain) |
-| qwen3-tts-ggml | v0.1.1, the worker ASIST ships |
-| Qwen3-TTS 0.6B and 1.7B CustomVoice | sakasegawa/qwen3-tts-ggml Q8_0 and the F16 codec, the files ASIST pins |
+| qwen3-tts-ggml | v0.1.1 |
+| Qwen3-TTS 0.6B and 1.7B CustomVoice | sakasegawa/qwen3-tts-ggml Q8_0 and the F16 codec |
 | audio.cpp | v0.8.2-audio8-perf-hotfix |
 | Irodori-TTS v4 Small | audio-cpp/audio.cpp-gguf Q8_0 |
-| sherpa-onnx | 1.13.8, the Node addon of its npm packages for macOS arm64 and Windows x64, for speaker embeddings |
+| sherpa-onnx | 1.13.8, the Node addon of its npm packages for macOS arm64 and Windows x64, for speaker embeddings and the VAD |
 | 3D-Speaker ERes2NetV2 | csukuangfj/speaker-embedding-models, the speaker embedding model |
+| Silero VAD v4 | csukuangfj/vad, which finds the voice of an utterance |
 
 ## Development
 

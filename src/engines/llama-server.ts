@@ -12,8 +12,8 @@ const LANGUAGE_PREFIX = /^language\s+\S+?<asr_text>/
 export const stripLanguagePrefix = (answer: string): string => answer.replace(LANGUAGE_PREFIX, '').trim()
 
 /**
- * Qwen3-ASR in llama-server, started with ASIST's own arguments (src/main/services/llama-asr.ts) and asked
- * the way ASIST asks it: the answer is begun with `language <Name><asr_text>`, which fixes the language.
+ * Qwen3-ASR in llama-server, one request at a time with every layer on the GPU, asked with the answer begun
+ * as `language <Name><asr_text>`, which fixes the language instead of leaving the model to detect it.
  */
 export class LlamaServerAsr implements AsrEngine {
   private server: RunningServer | null = null

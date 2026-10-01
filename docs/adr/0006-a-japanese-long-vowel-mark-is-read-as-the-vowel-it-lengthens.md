@@ -7,8 +7,8 @@ applies to speech recognition and to the speech a synthesis model made alike, an
 
 Recognizers write a drawn-out vowel either way. Qwen3-ASR 1.7B heard Irodori-TTS's あー。 as ああ。 in 36 of the
 95 takes spoken like a reference voice on 2026-10-01; each was counted as one error in two characters, which
-the listening and voices pages take for a broken take. A reader, and the conversation model ASIST passes a
-transcription to, takes the two alike.
+the listening and voices pages take for a broken take. A reader, whether a person or the language model a
+transcription goes to, takes the two alike.
 
 ## Rejected
 

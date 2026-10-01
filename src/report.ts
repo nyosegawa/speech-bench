@@ -9,7 +9,7 @@ import { countErrors, countHeardErrors, heardAsSaid, type ErrorCount } from './s
 export interface AsrSummary {
   run: AsrRunRecord
   utterances: number
-  /** Utterances ASIST's VAD drops before any model hears them; the other figures leave them out. */
+  /** Utterances no model heard, for want of voice; the other figures leave them out. */
   dropped: number
   /** Errors over the utterances heard divided by their reference length, as the public benchmarks count them. */
   errorRate: number
@@ -91,8 +91,11 @@ export function allResultFiles(): string[] {
   return fs.readdirSync(resultsDir()).filter((name) => name.endsWith('.jsonl')).sort().map((name) => path.join(resultsDir(), name))
 }
 
-const describeAudio = (audio: AudioPreparation): string =>
-  audio.edges === 'asist' ? `cut like ASIST's VAD, hangover ${audio.hangoverMs} ms` : `as recorded, ${audio.trailingSilence} s of silence added`
+function describeAudio(audio: AudioPreparation): string {
+  if (audio.edges === 'voice') return `trimmed to the voice ${audio.detector} finds, with ${audio.marginSeconds} s around it`
+  if (audio.edges === 'as-recorded') return `as recorded, ${audio.trailingSilence} s of silence added`
+  return `cut like ASIST's VAD, hangover ${audio.hangoverMs} ms`
+}
 
 /** The GPU the models ran on, which on a Mac is the chip that also names the CPU. */
 const machineOf = (summary: Summary): string => `${summary.run.machine.gpus.join(' + ')}, ${summary.run.machine.os}`

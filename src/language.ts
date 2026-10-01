@@ -1,11 +1,5 @@
-/** ASIST's conversation locales, the ones every measurement is about. */
-export const ASIST_LOCALES = ['ja-JP', 'en-US', 'fr-FR', 'de-DE', 'hi-IN', 'id-ID', 'it-IT', 'ko-KR', 'pt-BR', 'es-419', 'es-ES'] as const
-
-export type Locale = (typeof ASIST_LOCALES)[number]
-
-export function isLocale(value: string): value is Locale {
-  return (ASIST_LOCALES as readonly string[]).includes(value)
-}
+/** Whether a value has the shape of a BCP 47 language tag with an optional region, such as ja-JP or es-419. */
+export const isLanguageTag = (value: string): boolean => /^[a-z]{2,3}(-([A-Z]{2}|[0-9]{3}))?$/.test(value)
 
 const parts = (tag: string): [string, string | undefined] => {
   const [language, region] = tag.split('-')

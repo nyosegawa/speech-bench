@@ -7,8 +7,8 @@ stored are left unread.
 
 In Japanese, kanji numerals are read as Arabic digits on both sides before comparing, with the large units
 万, 億 and 兆 kept as written: 百四十八円 counts as 148円, 八二六四 as 8264 and 三百五十万円 as 350万円. A reader,
-and the conversation model ASIST passes a transcription to, takes 一ドル and 1ドル alike, so the difference is
-not an error of recognition or of reading aloud. FLEURS and the synthesis sentences write numbers in digits,
+whether a person or the language model a transcription goes to, takes 一ドル and 1ドル alike, so the difference
+is not an error of recognition or of reading aloud. FLEURS and the synthesis sentences write numbers in digits,
 while parakeet-ja, ReazonSpeech and Qwen3-ASR hearing synthesized speech often write kanji.
 
 ## Rejected
@@ -17,8 +17,8 @@ while parakeet-ja, ReazonSpeech and Qwen3-ASR hearing synthesized speech often w
   rules beside new ones, with nothing in a table to tell them apart.
 - **Comparing readings in kana through a morphological analyzer.** It would also forgive words written in
   other kanji, which are real errors, and it adds a dictionary to pin.
-- **Leaving numbers as written, as the public benchmarks do.** They score style differences as errors; the
-  bench is here to predict what an ASIST user meets.
+- **Leaving numbers as written, as the public benchmarks do.** They score style differences as errors, which
+  would rank models by how they write numbers rather than by what they heard.
 
 ## Measured
 

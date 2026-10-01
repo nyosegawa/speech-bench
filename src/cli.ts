@@ -9,31 +9,25 @@ import { isSafeName, recordingSet } from './datasets/recordings.ts'
 import { loadDesigns } from './datasets/designs.ts'
 import { loadPrompts } from './datasets/prompts.ts'
 import { startRecordingServer } from './record/server.ts'
-import { loadItems } from './asist-input/items.ts'
-import { inputReport } from './asist-input/report.ts'
-import { recordSession } from './asist-input/session.ts'
-import { ASIST_LOCALES, isLocale } from './language.ts'
+import { isLanguageTag } from './language.ts'
 import { dataDir, recordingsDir, resultsDir } from './paths.ts'
 import { latestRuns, listeningPage, readTtsRuns } from './listen.ts'
 import { embedGroups, largestSet, neighborGroups, neighborsPage, similarityOf } from './neighbors.ts'
 import { candidateGroups, loadReference, referenceFile, referenceManifest, writeReference } from './references.ts'
 import { allResultFiles, formatReport, readSummaries } from './report.ts'
 import type { AudioPreparation, TtsRunRecord } from './results.ts'
-import { runAsr } from './run-asr.ts'
+import { runAsr, TRIM_TO_VOICE } from './run-asr.ts'
 import { runTts } from './run-tts.ts'
-import { ASIST_HANGOVER_MS, ASIST_VAD, type VadValues } from './vad.ts'
 import { voicesData, voicesPage } from './voices.ts'
 import { readWav } from './wav.ts'
 
 const USAGE = `usage:
   node src/cli.ts models
   node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b,parakeet-tdt_ctc-0.6b-ja [--set fleurs [--count 100] | --set recordings --speaker name]
-      [--edges asist [--hangover 600] | --edges as-recorded [--trailing-silence 0]]
+      [--edges voice [--margin 0.2] | --edges as-recorded [--trailing-silence 0]]
   node src/cli.ts tts --locale ja-JP --models qwen3-tts-0.6b,irodori-tts-v4-small [--voice ono_anna] [--seeds 1,2,3]
       [--designs young-woman-caption,young-man-caption] [--reference name] [--duration-scale 0.5] [--sentences sentences.json] [--only aizuchi-hai,reply-weather]
   node src/cli.ts record --locale ja-JP --speaker name [--prompts prompts.json]
-  node src/cli.ts asist-input --locale ja-JP --speaker name --mic builtin --capture native|getusermedia [--port 9222] [--items items.json]
-  node src/cli.ts input-report [--min-threshold 0.012] [--min-voiced-ms 250] [--min-utterance-ms 300] [--min-speech-ms 150] [session folder ...]
   node src/cli.ts report [result.jsonl ...]
   node src/cli.ts listen [--blind] [--set speak-ja-JP-20] [--page name] [--reference name] [result.jsonl ...]
   node src/cli.ts neighbors [--page name] [result.jsonl ...]
@@ -43,27 +37,25 @@ const USAGE = `usage:
 Downloads, recordings and results go to ${dataDir()} (SPEECH_BENCH_DATA moves them).`
 
 function listModels(): void {
-  const describe = (model: { id: string; label: string; runtime: string; license: string; languages: readonly string[] }): string => {
-    const locales = ASIST_LOCALES.filter((locale) => modelCovers(model, locale))
-    return `${model.id}\n  ${model.label}, ${model.runtime}, ${model.license}\n  ASIST locales: ${locales.join(', ') || 'none'}\n  model card languages: ${model.languages.join(', ')}`
-  }
+  const describe = (model: { id: string; label: string; runtime: string; license: string; languages: readonly string[] }): string =>
+    `${model.id}\n  ${model.label}, ${model.runtime}, ${model.license}\n  model card languages: ${model.languages.join(', ')}`
   console.log(['Speech recognition', ...ASR_MODELS.map(describe), '', 'Speech synthesis', ...TTS_MODELS.map(describe)].join('\n'))
 }
 
-function audioPreparation(edges: string | undefined, hangover: string | undefined, trailingSilence: string | undefined): AudioPreparation {
-  if (edges === 'asist') {
-    if (trailingSilence !== undefined) throw new Error('--trailing-silence goes with --edges as-recorded; with asist the hangover is the silence at the end')
-    const hangoverMs = Number(hangover ?? ASIST_HANGOVER_MS)
-    if (!Number.isInteger(hangoverMs) || hangoverMs < 200 || hangoverMs > 900) throw new Error('--hangover is milliseconds from 200 to 900, the range ASIST allows')
-    return { edges: 'asist', hangoverMs }
+function audioPreparation(edges: string | undefined, margin: string | undefined, trailingSilence: string | undefined): AudioPreparation {
+  if (edges === 'voice') {
+    if (trailingSilence !== undefined) throw new Error('--trailing-silence goes with --edges as-recorded')
+    const marginSeconds = margin === undefined ? TRIM_TO_VOICE.marginSeconds : Number(margin)
+    if (!Number.isFinite(marginSeconds) || marginSeconds < 0 || marginSeconds > 2) throw new Error('--margin is seconds of the recording kept around the voice, from 0 to 2')
+    return { ...TRIM_TO_VOICE, marginSeconds }
   }
   if (edges === 'as-recorded') {
-    if (hangover !== undefined) throw new Error('--hangover goes with --edges asist')
+    if (margin !== undefined) throw new Error('--margin goes with --edges voice')
     const seconds = Number(trailingSilence ?? 0)
     if (!Number.isFinite(seconds) || seconds < 0) throw new Error('--trailing-silence is seconds, 0 or more')
     return { edges: 'as-recorded', trailingSilence: seconds }
   }
-  throw new Error('--edges is asist or as-recorded')
+  throw new Error('--edges is voice or as-recorded')
 }
 
 async function asr(args: string[]): Promise<void> {
@@ -75,16 +67,16 @@ async function asr(args: string[]): Promise<void> {
       set: { type: 'string', default: 'fleurs' },
       count: { type: 'string' },
       speaker: { type: 'string' },
-      edges: { type: 'string', default: 'asist' },
-      hangover: { type: 'string' },
+      edges: { type: 'string', default: 'voice' },
+      margin: { type: 'string' },
       'trailing-silence': { type: 'string' }
     }
   })
   const locale = values.locale
-  if (!locale || !isLocale(locale)) throw new Error(`--locale is one of ${ASIST_LOCALES.join(', ')}`)
+  if (!locale || !isLanguageTag(locale)) throw new Error('--locale is a BCP 47 tag such as ja-JP or en-US')
   if (!values.models) throw new Error('--models names one or more models, separated by commas')
   const models = values.models.split(',').map((id) => asrModel(id.trim()))
-  const audio = audioPreparation(values.edges, values.hangover, values['trailing-silence'])
+  const audio = audioPreparation(values.edges, values.margin, values['trailing-silence'])
   let set: UtteranceSet
   if (values.set === 'fleurs') {
     if (values.speaker !== undefined) throw new Error('--speaker goes with --set recordings')
@@ -123,7 +115,7 @@ async function tts(args: string[]): Promise<void> {
     }
   })
   const locale = values.locale
-  if (!locale || !isLocale(locale)) throw new Error(`--locale is one of ${ASIST_LOCALES.join(', ')}`)
+  if (!locale || !isLanguageTag(locale)) throw new Error('--locale is a BCP 47 tag such as ja-JP or en-US')
   if (!values.models) throw new Error('--models names one or more synthesis models, separated by commas')
   const models = values.models.split(',').map((id) => ttsModel(id.trim()))
   const seeds = values.seeds === undefined ? [null] : values.seeds.split(',').map((seed) => {
@@ -157,65 +149,11 @@ async function tts(args: string[]): Promise<void> {
 async function record(args: string[]): Promise<void> {
   const { values } = parseArgs({ args, options: { locale: { type: 'string' }, speaker: { type: 'string' }, prompts: { type: 'string' } } })
   const locale = values.locale
-  if (!locale || !isLocale(locale)) throw new Error(`--locale is one of ${ASIST_LOCALES.join(', ')}`)
+  if (!locale || !isLanguageTag(locale)) throw new Error('--locale is a BCP 47 tag such as ja-JP or en-US')
   if (!values.speaker || !isSafeName(values.speaker)) throw new Error('--speaker names who records, in lower-case letters, digits, - and _')
   const prompts = loadPrompts('record', locale, values.prompts)
   const { url } = await startRecordingServer({ locale, speaker: values.speaker }, prompts)
   console.log(`Open ${url} in a browser to record ${prompts.length} prompts as ${values.speaker}. Recordings go to ${path.join(recordingsDir(), locale, values.speaker)}. Press Ctrl-C to stop.`)
-}
-
-async function asistInput(args: string[]): Promise<void> {
-  const { values } = parseArgs({
-    args,
-    options: {
-      locale: { type: 'string' },
-      speaker: { type: 'string' },
-      mic: { type: 'string' },
-      capture: { type: 'string' },
-      port: { type: 'string', default: '9222' },
-      items: { type: 'string' }
-    }
-  })
-  const locale = values.locale
-  if (!locale || !isLocale(locale)) throw new Error(`--locale is one of ${ASIST_LOCALES.join(', ')}`)
-  if (!values.speaker || !isSafeName(values.speaker)) throw new Error('--speaker names who speaks, in lower-case letters, digits, - and _')
-  if (!values.mic || !isSafeName(values.mic)) throw new Error('--mic names the microphone (builtin, airpods and so on), in lower-case letters, digits, - and _')
-  const capture = values.capture
-  if (capture !== 'native' && capture !== 'getusermedia') throw new Error('--capture is native (the asist-mic helper) or getusermedia')
-  const port = Number(values.port)
-  if (!Number.isInteger(port) || port <= 0) throw new Error('--port is the port ASIST was started with --remote-debugging-port on')
-  const items = loadItems(locale, values.items)
-  const controller = new AbortController()
-  process.once('SIGINT', () => controller.abort())
-  const folder = await recordSession({ port, locale, speaker: values.speaker, mic: values.mic, capture, items, signal: controller.signal })
-  console.log(folder)
-}
-
-function inputReportCommand(args: string[]): void {
-  const { values, positionals } = parseArgs({
-    args,
-    allowPositionals: true,
-    options: {
-      'min-threshold': { type: 'string' },
-      'min-voiced-ms': { type: 'string' },
-      'min-utterance-ms': { type: 'string' },
-      'min-speech-ms': { type: 'string' }
-    }
-  })
-  const number = (flag: string, given: string | undefined, fallback: number): number => {
-    if (given === undefined) return fallback
-    const value = Number(given)
-    if (!Number.isFinite(value) || value < 0) throw new Error(`--${flag} is a number, 0 or more`)
-    return value
-  }
-  const candidate: VadValues = {
-    ...ASIST_VAD,
-    minThreshold: number('min-threshold', values['min-threshold'], ASIST_VAD.minThreshold),
-    minVoicedMs: number('min-voiced-ms', values['min-voiced-ms'], ASIST_VAD.minVoicedMs),
-    minUtteranceMs: number('min-utterance-ms', values['min-utterance-ms'], ASIST_VAD.minUtteranceMs),
-    minSpeechMs: number('min-speech-ms', values['min-speech-ms'], ASIST_VAD.minSpeechMs)
-  }
-  console.log(inputReport(positionals, candidate))
 }
 
 /** The speaker embedding of each reference voice by name, embedded once. */
@@ -328,8 +266,6 @@ async function main(): Promise<void> {
   else if (command === 'asr') await asr(rest)
   else if (command === 'tts') await tts(rest)
   else if (command === 'record') await record(rest)
-  else if (command === 'asist-input') await asistInput(rest)
-  else if (command === 'input-report') inputReportCommand(rest)
   else if (command === 'listen') await listen(rest)
   else if (command === 'neighbors') await neighbors(rest)
   else if (command === 'voices') await voices(rest)

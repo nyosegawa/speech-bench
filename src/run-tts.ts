@@ -15,7 +15,7 @@ import { AUDIO_CPP, ensureRuntime, QWEN3_TTS_GGML, type RuntimeSpec } from './ru
 import { ensurePinned } from './store.ts'
 import { durationSeconds, encodeWav16, peakNormalize, resample } from './wav.ts'
 
-/** The model the synthesized speech is transcribed with: the one ASIST recommends where it has the memory. */
+/** The model the synthesized speech is transcribed with: the most accurate local recognizer measured (FLEURS ja-JP 5.31%, 2026-09-30). */
 const RECOGNIZER = 'qwen3-asr-1.7b'
 
 /**

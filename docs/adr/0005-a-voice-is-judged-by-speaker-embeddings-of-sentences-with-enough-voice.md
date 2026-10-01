@@ -3,8 +3,8 @@
 Whether a synthesis run keeps one voice is measured with 3D-Speaker's ERes2NetV2 speaker embeddings, computed
 through sherpa-onnx's Node addon: the mean cosine similarity of every pair of the run's sentences that have
 1.5 s of voice or more. The median pitch of each sentence and its spread are shown beside it. A model without
-built-in voices, such as Irodori-TTS, can change its speaker between sentences, which a user of ASIST hears at
-once and the recognition error rate cannot show.
+built-in voices, such as Irodori-TTS, can change its speaker between sentences, which a listener hears at once
+and the recognition error rate cannot show.
 
 ## Rejected
 

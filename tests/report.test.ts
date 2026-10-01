@@ -73,8 +73,8 @@ describe('summarize a speech recognition run', () => {
   it('reads runs before format 8 as loaded with the runtime defaults, and says the options a run was loaded with', () => {
     expect(asr(summarize(fixture('result-format-6-asr.jsonl'))).run.runtime.options).toEqual({})
     expect(asr(summarize(fixture('result-format-8-asr.jsonl'))).run.runtime.options).toEqual({})
-    expect(asr(summarize(fixture('result-format-9-asr.jsonl'))).run.format).toBe(10)
-    expect(asr(summarize(fixture('result-format-10-asr.jsonl'))).run.format).toBe(10)
+    expect(asr(summarize(fixture('result-format-9-asr.jsonl'))).run.runtime.options).toEqual({})
+    expect(asr(summarize(fixture('result-format-10-asr.jsonl'))).run.runtime.options).toEqual({})
     const report = formatReport([summarize(fixture('result-format-8-tts.jsonl'))])
     expect(report).toContain('irodori_tts.codec_backend=cpu')
   })
@@ -84,6 +84,13 @@ describe('summarize a speech recognition run', () => {
     expect(five.utterances).toBe(3)
     expect(five.dropped).toBe(1)
     expect(five.errorRate).toBeGreaterThan(0)
+  })
+
+  it('reads a run of format 11 trimmed to the voice, with an utterance in which no voice was found', () => {
+    const eleven = asr(summarize(fixture('result-format-11-asr.jsonl')))
+    expect(eleven.run.audio).toEqual({ edges: 'voice', detector: 'silero-vad-v4', marginSeconds: 0.2 })
+    expect(eleven.dropped).toBe(1)
+    expect(formatReport([eleven])).toContain('trimmed to the voice silero-vad-v4 finds, with 0.2 s around it')
   })
 })
 
@@ -104,6 +111,7 @@ describe('summarize a speech synthesis run', () => {
     expect(tts(summarize(fixture('result-format-8-tts.jsonl'))).run.reference).toBeNull()
     expect(tts(summarize(fixture('result-format-9-tts.jsonl'))).run.durationScale).toBeNull()
     expect(tts(summarize(fixture('result-format-10-tts.jsonl'))).run.durationScale).toBe(0.5)
+    expect(tts(summarize(fixture('result-format-11-tts.jsonl'))).run.durationScale).toBe(0.5)
   })
 
   const ttsRun = { type: 'run', format: 4, task: 'tts', set: { name: 'speak', locale: 'ja-JP', size: 2 }, voice: 'ono_anna', recognizer: { id: 'r', label: 'R' }, loadSeconds: 1, warmupSeconds: 1 }

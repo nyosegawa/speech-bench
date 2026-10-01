@@ -3,8 +3,9 @@ import path from 'node:path'
 import { isSafeName } from './recordings.ts'
 
 /**
- * A sentence to be said, with the kind of utterance it stands for in ASIST (a short answer, a request, a
- * long one): read aloud by the user on the recording page, or spoken by a model when synthesis is measured.
+ * A sentence to be said, with the kind of utterance it stands for in a conversation with an assistant (a short
+ * answer, a request, a long one): read aloud on the recording page, or spoken by a model when synthesis is
+ * measured.
  */
 export interface Prompt {
   id: string
