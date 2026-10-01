@@ -3,7 +3,7 @@ import path from 'node:path'
 import type { SpeakerEmbedder } from './engines/speaker-embedding.ts'
 import { medianPitch, semitoneSpread } from './pitch.ts'
 import { parseResultFile, type SentenceRecord, type TtsRunRecord } from './results.ts'
-import { countErrors } from './scoring.ts'
+import { countHeardErrors } from './scoring.ts'
 import { cosine, likenessToTheRest, MIN_VOICED_SECONDS, voicedSeconds } from './speaker.ts'
 import { readWav } from './wav.ts'
 
@@ -32,9 +32,9 @@ const audioFile = (file: string, record: SentenceRecord): string => path.join(pa
 export const takeUrl = (page: string, entry: ListenedRun, record: SentenceRecord): string =>
   path.relative(path.dirname(page), audioFile(entry.file, record)).split(path.sep).map(encodeURIComponent).join('/')
 
-/** The characters the recognizer heard wrong in the sentences, as a share of the characters they have. */
+/** The characters the recognizer heard wrong in the sentences, each at most all of its own, as a share of the characters they have. */
 export function heardErrorRate(records: readonly SentenceRecord[], locale: string): number {
-  const counts = records.map((record) => countErrors(record.text, record.transcript, locale))
+  const counts = records.map((record) => countHeardErrors(record.text, record.transcript, locale))
   return counts.reduce((sum, count) => sum + count.errors, 0) / counts.reduce((sum, count) => sum + count.referenceLength, 0)
 }
 

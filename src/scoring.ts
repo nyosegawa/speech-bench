@@ -32,16 +32,45 @@ export function readJapaneseNumerals(text: string): string {
     run.split(/([万億兆])/u).map((part) => (part === '' || '万億兆'.includes(part) ? part : readKanjiSection(part))).join(''))
 }
 
+const VOWEL_ROWS = ['あぁかがさざただなはばぱまやゃらわゎ', 'いぃきぎしじちぢにひびぴみりゐ', 'うぅくぐすずつづぬふぶぷむゆゅるゔ', 'えぇけげせぜてでねへべぺめれゑ', 'おぉこごそぞとどのほぼぽもよょろを']
+const HIRAGANA_VOWELS = 'あいうえお'
+const KATAKANA_VOWELS = 'アイウエオ'
+/** Katakana from ァ to ヶ stand 0x60 code points above the hiragana of the same sound. */
+const KATAKANA_OFFSET = 0x60
+
+/**
+ * Japanese text with each long vowel mark written as the vowel it lengthens, in the script of the kana before
+ * it: あー becomes ああ and コーヒー コオヒイ. Recognizers write a drawn-out あ either way, and synthesized speech
+ * is heard as ああ as often as あー. A mark after a kana without a vowel of its own, such as ん, stays.
+ */
+export function readLongVowels(text: string): string {
+  let read = ''
+  for (const character of text) {
+    const before = read.at(-1)
+    if (character !== 'ー' || before === undefined) {
+      read += character
+      continue
+    }
+    const code = before.codePointAt(0)!
+    const katakana = code >= 0x30a1 && code <= 0x30f6
+    const hiragana = katakana ? String.fromCodePoint(code - KATAKANA_OFFSET) : before
+    const row = VOWEL_ROWS.findIndex((kana) => kana.includes(hiragana))
+    read += row < 0 ? character : (katakana ? KATAKANA_VOWELS : HIRAGANA_VOWELS)[row]
+  }
+  return read
+}
+
 /**
  * The text as it is compared: NFKC, lower case, and without punctuation, symbols and spaces for character
  * scoring, or with runs of spaces collapsed for word scoring. Punctuation is left out because models
  * differ in how they punctuate, which is not a recognition error; the Neosophie benchmark normalizes the
- * same way. Japanese numbers are compared in Arabic digits, since a reader takes 一ドル and 1ドル alike.
+ * same way. Japanese numbers are compared in Arabic digits, since a reader takes 一ドル and 1ドル alike, and
+ * long vowel marks as the vowels they lengthen.
  */
 export function normalizeForScoring(text: string, locale: string): string {
   const byCharacter = scoredByCharacter(locale)
   const folded = text.normalize('NFKC').toLowerCase()
-  const numbers = languageOf(locale) === 'ja' ? readJapaneseNumerals(folded) : folded
+  const numbers = languageOf(locale) === 'ja' ? readLongVowels(readJapaneseNumerals(folded)) : folded
   // An apostrophe joins the parts of a word (don't, l'homme), so it is removed rather than turned into a space.
   const bare = numbers.replace(/['’]/gu, '').replace(/[\p{P}\p{S}]/gu, byCharacter ? '' : ' ')
   return byCharacter ? bare.replace(/\p{Z}|\s/gu, '') : bare.replace(/[\p{Z}\s]+/gu, ' ').trim()
@@ -77,4 +106,15 @@ const units = (text: string, locale: string): string[] => {
 export function countErrors(reference: string, hypothesis: string, locale: string): ErrorCount {
   const expected = units(reference, locale)
   return { errors: editDistance(expected, units(hypothesis, locale)), referenceLength: expected.length }
+}
+
+/**
+ * The errors the recognizer made in hearing one synthesized sentence, at most as many as the sentence has. A
+ * take that runs on is broken whatever its length, and counted in full one take decided a voice's rate: on
+ * 2026-10-01 a 3.8 s あー。 heard as あ 511 times made 46.6% of a reference voice's 1,206 characters, against
+ * 4.2% without it.
+ */
+export function countHeardErrors(text: string, transcript: string, locale: string): ErrorCount {
+  const count = countErrors(text, transcript, locale)
+  return { errors: Math.min(count.errors, count.referenceLength), referenceLength: count.referenceLength }
 }
