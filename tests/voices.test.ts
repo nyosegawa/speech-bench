@@ -45,7 +45,7 @@ describe('voicesData', () => {
     expect(data.sentences[0]!.takes[0]!.map((take) => take?.url)).toEqual(['tts-a-1-seed1/s0.wav', 'tts-a-1-seed2/s0.wav'])
   })
 
-  it('picks the candidate with the fewest broken sentences, then the most alike takes across its seeds', () => {
+  it('picks the candidate with the smallest share of broken takes, then the most alike takes across its seeds', () => {
     const alikeButBroken = [run('a-1', 1, [[1, 0], [1, 0]], { misheard: 0 }), run('a-1', 2, [[1, 0], [1, 0]])]
     const lessAlike = [run('a-2', 1, [[1, 0], [0.6, 0.8]]), run('a-2', 2, [[1, 0], [0.6, 0.8]])]
     const data = voicesData([...alikeButBroken, ...lessAlike, run('b-1', 1, [[0, 1], [0, 1]])], reference, page, 'voices')
@@ -61,6 +61,14 @@ describe('voicesData', () => {
     const [b1] = data.voices[1]!.candidates
     expect(data.similarity[a1!]![b1!]).toBeCloseTo(0.5, 5)
     expect(data.similarity[b1!]![b1!]).toBeCloseTo(0, 5)
+  })
+
+  it('compares broken takes as a share of each candidate\'s takes, which differ when a seed is missing', () => {
+    const oneSeedOneBroken = [run('a-1', 1, [[1, 0], [1, 0]], { misheard: 0 })]
+    const twoSeedsOneBroken = [run('a-2', 1, [[1, 0], [0.6, 0.8]], { misheard: 0 }), run('a-2', 2, [[1, 0], [0.6, 0.8]])]
+    const data = voicesData([...oneSeedOneBroken, ...twoSeedsOneBroken, run('b-1', 1, [[0, 1], [0, 1]])], reference, page, 'voices')
+    const [, a2] = data.voices[0]!.candidates
+    expect(data.voices[0]!.best).toBe(a2)
   })
 
   it('stops when the runs of one reference had their lengths scaled differently', () => {
