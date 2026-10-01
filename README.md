@@ -156,6 +156,10 @@ after it.
   stopped, and compared with the sentence as for recognition, except that a sentence counts at most all of
   its characters as errors, so that one take that runs on cannot decide the rate of a voice. It counts
   misreadings, dropped or repeated words, and speech that runs on past the sentence.
+- **Heard as said**: the sentences the recognizer heard as they were written, apart from how it spells them
+  (in Japanese katakana or hiragana, small or full-size vowels, あー or ああ), but not shorter, longer or with a
+  word more. A take that passes is one ASIST could keep, as when it makes its aizuchi ahead of time and keeps
+  the takes heard right.
 - **Seconds per character**: the pace of the speech, which shows a model that rushes or runs on.
 - The speech of every sentence is saved as a WAVE file in the folder named after the result file, for
   listening.
