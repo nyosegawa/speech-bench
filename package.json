@@ -2,7 +2,7 @@
   "name": "speech-bench",
   "private": true,
   "type": "module",
-  "description": "Measure local speech models (ASR and TTS) for ASIST on Metal and Vulkan",
+  "description": "Measure local speech models (recognition and synthesis) across runtimes on Metal and Vulkan",
   "license": "MIT",
   "engines": {
     "node": ">=22.18"
@@ -10,7 +10,9 @@
   "scripts": {
     "bench": "node src/cli.ts",
     "test": "vitest run",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "web:build": "npm --prefix web run build",
+    "web:dev": "npm --prefix web run dev"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",

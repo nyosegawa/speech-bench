@@ -14,7 +14,7 @@ behavior.
 ## Architecture
 
 - `src/cli.ts` is the entry; it and `src/cli/` parse the commands and nothing else, one file for each group
-  of commands (measuring, pages, voices, recording).
+  of commands (measuring, pages, voices, recording, the web app).
 - `src/core/` holds what every part reads: WAVE files and resampling (`wav.ts`), the data folder
   (`paths.ts`), the system and machine (`platform.ts`, decided once, so the rest never checks the system
   itself) and BCP 47 tags (`language.ts`).
@@ -33,7 +33,10 @@ behavior.
   sets of takes of one voice (`neighbors.ts`), and the analysis kept beside a run (`run-analysis.ts`).
 - `src/make/` makes voices: the recipes in `prompts/voices-<locale>.json` (`recipes.ts`), the steps from
   takes to a chosen reference (`voice.ts`) and the reference voices (`references.ts`).
-- `src/pages/` builds the listening, voices and neighbors pages.
+- `src/pages/` builds the data of the listening page and the voices and neighbors pages.
+- `src/web/` is the web app's server: its JSON API (`api.ts` holds the types the app reads) and the audio of
+  the data folder. `web/` is the app itself, in React with Tailwind CSS 4 and shadcn/ui, built with Vite; it
+  imports only types from `src/`, through `@bench/`.
 
 Keep these boundaries explicit: code does not reach past its module for an operation that belongs to
 another one.

@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { heardErrorRate, takeUrl, type ListenedRun } from './listen.ts'
+import { takeFile } from '../measure/runs.ts'
+import { heardErrorRate, type ListenedRun, type UrlOf } from './listen.ts'
 import { semitoneSpread } from '../analysis/pitch.ts'
 import type { ReferenceManifest } from '../make/references.ts'
 import type { SentenceRecord } from '../measure/results.ts'
@@ -77,10 +78,9 @@ export function splitShared(names: readonly string[]): { shared: string; rest: s
  * of each names it. A candidate's sameness of voice is the mean similarity of every pair of its takes over
  * all its runs, since one voice has to hold across seeds; the best candidate of a voice has the fewest
  * broken takes, as a share of its takes since candidates can have spoken with different numbers of seeds, and then
- * the most alike takes. `page` is where the page will be written, which the audio
- * is linked relative to.
+ * the most alike takes. The audio is linked by `urlOf`.
  */
-export function voicesData(runs: readonly ListenedRun[], reference: (name: string) => { manifest: ReferenceManifest; file: string }, page: string, title: string): VoicesPageData {
+export function voicesData(runs: readonly ListenedRun[], reference: (name: string) => { manifest: ReferenceManifest; file: string }, urlOf: UrlOf, title: string): VoicesPageData {
   const spoken = runs.filter((entry) => entry.run.reference !== null)
   const setNames = new Set(spoken.map((entry) => entry.run.set.name))
   if (setNames.size !== 1) throw new Error(`the runs that spoke like a reference spoke ${setNames.size === 0 ? 'no set' : `different sets of sentences (${[...setNames].join(', ')})`}; name the result files of one set`)
@@ -103,7 +103,7 @@ export function voicesData(runs: readonly ListenedRun[], reference: (name: strin
     const pitches = defined(taken.map(({ entry, record }) => entry.pitches[record.id]))
     return {
       name,
-      reference: { url: path.relative(path.dirname(page), file).split(path.sep).map(encodeURIComponent).join('/'), seconds: manifest.seconds, texts: manifest.takes.map((take) => take.text) },
+      reference: { url: urlOf(file), seconds: manifest.seconds, texts: manifest.takes.map((take) => take.text) },
       runs: entries.map((entry) => (entry.run.seed === null ? entry.run.machine.hostname : `seed ${entry.run.seed}`)),
       sameVoice: mean(pairwise(embeddingsOf(entries))),
       likeReference: mean(defined(taken.map(({ entry, record }) => entry.likeReference[record.id]))),
@@ -138,7 +138,7 @@ export function voicesData(runs: readonly ListenedRun[], reference: (name: strin
       takes: candidateRuns.map((entries) => entries.map((entry) => {
         const record = entry.sentences.find((candidate) => candidate.id === sentence.id)
         if (!record) return null
-        return { url: takeUrl(page, entry, record), seconds: record.audioSeconds, transcript: record.transcript, heardErrorRate: heardErrorRate([record], locale), pitchHz: entry.pitches[record.id] ?? null, likeReference: entry.likeReference[record.id] ?? null }
+        return { url: urlOf(takeFile(entry.file, record)), seconds: record.audioSeconds, transcript: record.transcript, heardErrorRate: heardErrorRate([record], locale), pitchHz: entry.pitches[record.id] ?? null, likeReference: entry.likeReference[record.id] ?? null }
       }))
     })),
     similarity: similarity.map((row) => row.map((value) => (value === null ? null : Number(value.toFixed(4)))))

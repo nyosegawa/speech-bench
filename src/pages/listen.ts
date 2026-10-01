@@ -8,8 +8,6 @@ import { takeFile } from '../measure/runs.ts'
 import { countHeardErrors } from '../measure/scoring.ts'
 import { cosine, likenessToTheRest } from '../analysis/speaker.ts'
 
-const PAGE = path.join(import.meta.dirname, 'listen-page.html')
-
 /**
  * One synthesis run as the listening page shows it: the result file, its run line, its sentences, and what
  * is read from each sentence's audio: the median pitch, or null where it has none, and how much its voice
@@ -27,9 +25,11 @@ export interface ListenedRun {
   likeReference: Readonly<Record<string, number | null>>
 }
 
-/** Where a take's audio is, as a link relative to the folder of the page at `page`, so that it opens from the file system. */
-export const takeUrl = (page: string, entry: ListenedRun, record: SentenceRecord): string =>
-  path.relative(path.dirname(page), takeFile(entry.file, record)).split(path.sep).map(encodeURIComponent).join('/')
+/** The link a page plays an audio file by, which a page written to disk makes relative and the web server makes a route. */
+export type UrlOf = (file: string) => string
+
+/** Links relative to the folder of a page written at `page`, so that it opens from the file system. */
+export const relativeTo = (page: string): UrlOf => (file) => path.relative(path.dirname(page), file).split(path.sep).map(encodeURIComponent).join('/')
 
 /** The characters the recognizer heard wrong in the sentences, each at most all of its own, as a share of the characters they have. */
 export function heardErrorRate(records: readonly SentenceRecord[], locale: string): number {
@@ -134,15 +134,14 @@ const median = (values: readonly number[]): number => [...values].sort((a, b) =>
 const mean = (values: readonly number[]): number => values.reduce((sum, value) => sum + value, 0) / values.length
 
 /**
- * The data of a page that plays every sentence as each run spoke it. `page` is where the page will be
- * written, which the audio is linked relative to so that it opens from the file system. A blind page names
+ * The data of a page that plays every sentence as each run spoke it, its audio linked by `urlOf`. A blind page names
  * the runs by letter, shuffles their order, leaves out the voice descriptions, what the recognizer heard, the
  * timings, the pitches and the likenesses, and keeps the names for a closed section at the end. A run's
  * pitch is the median of its sentences' and its spread their standard deviation in semitones; its sameness
  * of voice is the mean similarity of every pair of its sentences with voice enough to judge. Both show a
  * voice that changes between sentences.
  */
-export function listeningData(runs: readonly ListenedRun[], page: string, blind: boolean, random: () => number = Math.random, reference: string | null = null): PageData {
+export function listeningData(runs: readonly ListenedRun[], urlOf: UrlOf, blind: boolean, random: () => number = Math.random, reference: string | null = null): PageData {
   const setNames = new Set(runs.map((entry) => entry.run.set.name))
   if (setNames.size !== 1) throw new Error(`the runs spoke different sets of sentences (${[...setNames].join(', ')}); name the result files of one set`)
   const ordered = blind ? [...runs].map((entry) => ({ entry, order: random() })).sort((a, b) => a.order - b.order).map(({ entry }) => entry) : [...runs]
@@ -174,17 +173,10 @@ export function listeningData(runs: readonly ListenedRun[], page: string, blind:
       takes: ordered.map((entry) => {
         const record = entry.sentences.find((candidate) => candidate.id === sentence.id)
         if (!record) return null
-        const take = { url: takeUrl(page, entry, record), seconds: record.audioSeconds }
+        const take = { url: urlOf(takeFile(entry.file, record)), seconds: record.audioSeconds }
         return blind ? take : { ...take, transcript: record.transcript, heardErrorRate: rate([record]), firstAudioSeconds: record.firstAudioSeconds, pitchHz: entry.pitches[record.id] ?? null, likeness: entry.likeness[record.id] ?? null, likeReference: entry.likeReference[record.id] ?? null }
       })
     })),
     ...(blind ? { key: ordered.map((_, index) => `${String.fromCharCode(65 + index)}: ${names[index]!}`) } : {})
   }
-}
-
-/** The listening page: the data above in the page's template, safe to embed in a script element. */
-export function listeningPage(runs: readonly ListenedRun[], page: string, blind: boolean, random: () => number = Math.random, reference: string | null = null): string {
-  const data = listeningData(runs, page, blind, random, reference)
-  const json = JSON.stringify(data).replace(/</g, '\\u003c')
-  return fs.readFileSync(PAGE, 'utf8').replace('__TITLE__', data.title.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`)).replace('__DATA__', () => json)
 }

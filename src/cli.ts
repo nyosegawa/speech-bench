@@ -4,7 +4,8 @@ import { dataDir } from './core/paths.ts'
 import { migrateResults } from './measure/runs.ts'
 import { formatReport, readSummaries } from './measure/report.ts'
 import { asr, listModels, runFilesOf, tts } from './cli/measure.ts'
-import { listen, neighbors, voices } from './cli/pages.ts'
+import { neighbors, voices } from './cli/pages.ts'
+import { web } from './cli/web.ts'
 import { record } from './cli/record.ts'
 import { reference, voice } from './cli/voices.ts'
 
@@ -17,7 +18,7 @@ const USAGE = `usage:
       [--campaign name]
   node src/cli.ts record --locale ja-JP --speaker name [--prompts prompts.json]
   node src/cli.ts report [--campaign name | run.jsonl ...]
-  node src/cli.ts listen [--blind] [--set speak-ja-JP-20] [--page name] [--reference name] [--campaign name | run.jsonl ...]
+  node src/cli.ts web [--port 5280]
   node src/cli.ts neighbors [--page name] [--campaign name | run.jsonl ...]
   node src/cli.ts reference --name name [--threshold 0.8] [--seconds 30] [--candidates 6 | --takes sentence@seed,...] result.jsonl ...
   node src/cli.ts voices [--page name] [--campaign name | run.jsonl ...]
@@ -36,7 +37,7 @@ async function main(): Promise<void> {
   else if (command === 'asr') await asr(rest)
   else if (command === 'tts') await tts(rest)
   else if (command === 'record') await record(rest)
-  else if (command === 'listen') await listen(rest)
+  else if (command === 'web') await web(rest)
   else if (command === 'neighbors') await neighbors(rest)
   else if (command === 'voices') await voices(rest)
   else if (command === 'reference') await reference(rest)
