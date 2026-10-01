@@ -18,8 +18,4 @@ describe('prepareAudio', () => {
   it('sends a recording as recorded with the silence asked for after it', () => {
     expect(prepareAudio(recording, { edges: 'as-recorded', trailingSilence: 1 }, null)!.samples.length).toBe(400)
   })
-
-  it('refuses the cut of ASIST\'s VAD, which earlier runs record but no run makes any more', () => {
-    expect(() => prepareAudio(recording, { edges: 'asist', hangoverMs: 600 }, null)).toThrow(/no longer/)
-  })
 })

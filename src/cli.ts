@@ -17,7 +17,7 @@ import { latestRuns, listeningPage, readTtsRuns } from './listen.ts'
 import { embedGroups, largestSet, neighborGroups, neighborsPage, similarityOf } from './neighbors.ts'
 import { candidateGroups, loadReference, referenceFile, referenceManifest, writeReference } from './references.ts'
 import { formatReport, readSummaries } from './report.ts'
-import type { AudioPreparation, TtsRunRecord } from './results.ts'
+import type { NewPreparation, TtsRunRecord } from './results.ts'
 import { runAsr, TRIM_TO_VOICE } from './run-asr.ts'
 import { runTts } from './run-tts.ts'
 import { voicesData, voicesPage } from './voices.ts'
@@ -46,7 +46,7 @@ function listModels(): void {
   console.log(['Speech recognition', ...ASR_MODELS.map(describe), '', 'Speech synthesis', ...TTS_MODELS.map(describe)].join('\n'))
 }
 
-function audioPreparation(edges: string | undefined, margin: string | undefined, trailingSilence: string | undefined): AudioPreparation {
+function audioPreparation(edges: string | undefined, margin: string | undefined, trailingSilence: string | undefined): NewPreparation {
   if (edges === 'voice') {
     if (trailingSilence !== undefined) throw new Error('--trailing-silence goes with --edges as-recorded')
     const marginSeconds = margin === undefined ? TRIM_TO_VOICE.marginSeconds : Number(margin)
