@@ -6,7 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import type { ListenData } from '@/lib/api.ts'
 import { percent, seconds } from '@/lib/format.ts'
 import { cn } from '@/lib/utils.ts'
-import { brokenIn, judge, LIMITS, runColor, verdictClass, type ListenedRun, type Verdict } from './figures.ts'
+import { judge, LIMITS, runColor, verdictClass, type Verdict } from '@/lib/figures.ts'
+import { brokenIn, type ListenedRun } from './listen-data.ts'
 
 interface Column {
   key: string

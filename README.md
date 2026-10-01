@@ -68,13 +68,13 @@ folder `SPEECH_BENCH_DATA` names.
   logs/        server output
   runs/        a folder per run: run.jsonl, the speech of each sentence and analysis.json
   campaigns/   the runs of each experiment, <name>.json
-  pages/       the neighbors and voices pages
+  pages/       the neighbors page
 ```
 
 `run.jsonl` holds what was measured, one JSON line for the run and one per utterance or sentence.
 `analysis.json` holds what is read from the speech (its voice, pitch and speaker embedding), kept so that a
 page does not read the speech again, and made again when the speaker model changes. `--campaign name` on `asr`
-or `tts` adds the run to an experiment, which `report`, `voices` and `neighbors` then take with
+or `tts` adds the run to an experiment, which `report` and `neighbors` then take with
 `--campaign name` and the web app's runs page filters by. Data of the earlier layout, a result file in `results/` with its speech in a folder beside
 it, is moved into `runs/` by `node src/cli.ts migrate`.
 
@@ -218,8 +218,7 @@ reference's sha256. `voice` takes a recipe through four steps, and every run it 
 node src/cli.ts voice gather soft-young-woman --locale ja-JP        # its lines with seeds 1 to 5, described in words
 node src/cli.ts voice candidates soft-young-woman --locale ja-JP    # three references of 10 s from takes 0.8 alike
 node src/cli.ts voice try soft-young-woman --locale ja-JP           # the measured sentences like each, in speech.cpp
-node src/cli.ts voices --campaign voice-soft-young-woman            # the page to hear and compare them
-node src/cli.ts voice choose soft-young-woman soft-young-woman-candidate-1 --locale ja-JP
+node src/cli.ts web                                                 # Voices: hear and compare them, and choose one
 ```
 
 `gather` has Irodori-TTS v4 Small in audio.cpp, the model that takes a description, say the lines; `candidates`
@@ -227,15 +226,16 @@ makes the references from those takes as `--candidates` does below, and never wr
 made, since runs name them; `try` has Irodori-TTS v4.1 Small MF in speech.cpp speak the sentences of
 `prompts/speak-<locale>.json` like each candidate with seeds 1 and 2; `choose` copies the candidate to
 `voice-<id>`, which it never replaces with other audio, and writes the choice into the recipe. `voice list`
-shows the recipes and their choices.
+shows the recipes and their choices, and `voice choose <id> <candidate>` chooses without the web app.
 
-`voices` writes a page for choosing one reference per voice. It takes the runs that spoke like a reference, groups
-them by reference and the references by the voice their takes were gathered from, and sums up each candidate over
-every sentence of every seed: how alike its takes are, how much they sound like its reference, what the
-recognizer heard and how many takes broke down. It marks the candidate with the smallest share of broken takes and
-then the most alike ones, plays the references and the sentences of each candidate, and shows how alike the chosen voices
-are to each other, so that two voices that would sound like one person stand out. The choices are kept in the
-browser and can be copied.
+The web app's Voices page lists the recipes and how far each voice has been made, and sets the chosen voices side
+by side on the sentences the most of them were tried with: their figures, the other voice each sounds most like,
+and how alike every two of them are, so that two voices that would sound like one person stand out. A voice's page
+shows the steps with their commands, and the candidates as the model spoke like them, on the sentences and length
+factor chosen at the top: each candidate summed up over every sentence of every seed (how alike its takes are, how
+much they sound like its reference, what the recognizer heard and how many takes broke down), the one with the
+smallest share of broken takes and then the most alike takes marked, the references and every take to play, and
+a button that chooses one.
 
 
 ## Pinned inputs

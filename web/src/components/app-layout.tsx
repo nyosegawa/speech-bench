@@ -2,7 +2,7 @@ import { AudioLines } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router'
 import { cn } from '@/lib/utils.ts'
 
-const LINKS = [{ to: '/', label: 'Runs' }]
+const LINKS = [{ to: '/', label: 'Runs', end: true }, { to: '/voices', label: 'Voices', end: false }]
 
 export function AppLayout() {
   return (
@@ -15,7 +15,7 @@ export function AppLayout() {
           </NavLink>
           <nav className="flex gap-4 text-sm">
             {LINKS.map((link) => (
-              <NavLink key={link.to} to={link.to} end className={({ isActive }) => cn('text-muted-foreground hover:text-foreground', isActive && 'text-foreground font-medium')}>
+              <NavLink key={link.to} to={link.to} end={link.end} className={({ isActive }) => cn('text-muted-foreground hover:text-foreground', isActive && 'text-foreground font-medium')}>
                 {link.label}
               </NavLink>
             ))}

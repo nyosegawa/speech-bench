@@ -1,5 +1,3 @@
-import fs from 'node:fs'
-import path from 'node:path'
 import { takeFile } from '../measure/runs.ts'
 import { heardErrorRate, type ListenedRun, type UrlOf } from './listen.ts'
 import { semitoneSpread } from '../analysis/pitch.ts'
@@ -7,12 +5,10 @@ import type { ReferenceManifest } from '../make/references.ts'
 import type { SentenceRecord } from '../measure/results.ts'
 import { across, pairwise } from '../analysis/speaker.ts'
 
-const PAGE = path.join(import.meta.dirname, 'voices-page.html')
-
 /** A sentence heard with more than this share of its characters wrong has broken down, as on the listening page. */
 const BROKEN = 0.3
 
-/** A take as the voices page plays it. */
+/** A take as the voices pages play it. */
 export interface VoiceTake {
   url: string
   seconds: number
@@ -38,7 +34,7 @@ export interface Candidate {
   medianFirstAudioSeconds: number
 }
 
-/** What the voices page's script reads. */
+/** What the voices pages read: the candidates of one or more voices, compared on one set of sentences. */
 export interface VoicesPageData {
   title: string
   /** What the names of every voice share, said once. */
@@ -143,10 +139,4 @@ export function voicesData(runs: readonly ListenedRun[], reference: (name: strin
     })),
     similarity: similarity.map((row) => row.map((value) => (value === null ? null : Number(value.toFixed(4)))))
   }
-}
-
-/** The voices page, with its data embedded in a script element safely. */
-export function voicesPage(data: VoicesPageData): string {
-  const json = JSON.stringify(data).replace(/</g, '\\u003c')
-  return fs.readFileSync(PAGE, 'utf8').replace('__TITLE__', data.title.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`)).replace('__DATA__', () => json)
 }

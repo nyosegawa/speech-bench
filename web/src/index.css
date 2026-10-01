@@ -91,6 +91,8 @@
     --run-7: #4d7c0f;
     --run-8: #7c3aed;
     --run-9: #475569;
+    --heat-low: #f1f5f9;
+    --heat-high: #1e3a8a;
 }
 
 .dark {
@@ -135,6 +137,8 @@
     --run-7: #a3e635;
     --run-8: #a78bfa;
     --run-9: #94a3b8;
+    --heat-low: #1e293b;
+    --heat-high: #60a5fa;
 }
 
 @layer base {

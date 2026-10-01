@@ -10,8 +10,9 @@ import { Skeleton } from '@/components/ui/skeleton.tsx'
 import { Switch } from '@/components/ui/switch.tsx'
 import { useApi, type ListenData } from '@/lib/api.ts'
 import { cn } from '@/lib/utils.ts'
-import { runColor } from './figures.ts'
-import { usePlayer, type Player, type TakeRef } from './player.ts'
+import { usePlayer, type Player } from '@/components/player.tsx'
+import { runColor } from '@/lib/figures.ts'
+import type { TakeRef } from './listen-data.ts'
 import { SentenceCard } from './sentence-card.tsx'
 import { StripChart } from './strip-chart.tsx'
 import { SummaryTable } from './summary-table.tsx'
@@ -46,9 +47,9 @@ function useStars(data: ListenData | null): [ReadonlySet<number>, (run: number) 
   return [current, toggle]
 }
 
-const everyTakeOf = (data: ListenData, run: number): TakeRef[] => data.sentences.map((_, sentence) => ({ sentence, run }))
+const everyTakeOf = (data: ListenData, run: number): TakeRef[] => data.sentences.flatMap((sentence, index) => (sentence.takes[run] ? [{ sentence: index, run }] : []))
 
-function NowPlaying({ data, player }: { data: ListenData; player: Player }) {
+function NowPlaying({ data, player }: { data: ListenData; player: Player<TakeRef> }) {
   if (player.error) return <span className="text-sm text-destructive">{player.error}</span>
   if (!player.current) return <span className="text-sm text-muted-foreground">Play a voice's sentences in a row to hear whether it stays the same voice, or one sentence in every voice to compare them. Esc stops.</span>
   const { sentence, run } = player.current
@@ -82,7 +83,9 @@ function ReferencePicker({ value, onChange }: { value: string | null; onChange: 
 }
 
 function Listening({ data, blind, onBlind, onReference }: { data: ListenData; blind: boolean; onBlind: (blind: boolean) => void; onReference: (reference: string | null) => void }) {
-  const player = usePlayer(data)
+  const player = usePlayer<TakeRef>(({ sentence, run }) => data.sentences[sentence]!.takes[run]!.url)
+  const { stop } = player
+  useEffect(() => stop, [data, stop])
   const [stars, toggleStar] = useStars(data)
   const header = useRef<HTMLDivElement>(null)
 

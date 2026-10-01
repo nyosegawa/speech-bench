@@ -1,25 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ListenData } from '@/lib/api.ts'
 
-/** A take: one sentence as one run spoke it, by their places on the page. */
-export interface TakeRef {
-  sentence: number
-  run: number
-}
-
-export interface Player {
+export interface Player<T> {
   audio: HTMLAudioElement
-  current: TakeRef | null
+  current: T | null
   error: string | null
-  play: (takes: readonly TakeRef[]) => void
+  play: (items: readonly T[]) => void
   stop: () => void
 }
 
-/** Plays takes one after another until the list ends or Escape is pressed. */
-export function usePlayer(data: ListenData): Player {
+/** Plays items one after another until the list ends or Escape is pressed; `urlOf` gives each item's audio. */
+export function usePlayer<T>(urlOf: (item: T) => string): Player<T> {
   const audio = useMemo(() => new Audio(), [])
-  const queue = useRef<TakeRef[]>([])
-  const [current, setCurrent] = useState<TakeRef | null>(null)
+  const queue = useRef<T[]>([])
+  const urlOfLatest = useRef(urlOf)
+  urlOfLatest.current = urlOf
+  const [current, setCurrent] = useState<T | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const stop = useCallback(() => {
@@ -29,25 +24,26 @@ export function usePlayer(data: ListenData): Player {
   }, [audio])
 
   const next = useCallback(() => {
-    const take = queue.current.shift() ?? null
-    setCurrent(take)
-    if (!take) {
+    const item = queue.current.shift() ?? null
+    setCurrent(item)
+    if (item === null) {
       audio.pause()
       return
     }
-    audio.src = data.sentences[take.sentence]!.takes[take.run]!.url
+    audio.src = urlOfLatest.current(item)
     audio.play().catch((reason: unknown) => {
+      // Starting another item while one loads aborts the first; that is not a failure.
       if (reason instanceof DOMException && reason.name === 'AbortError') return
       setError(`could not play ${audio.src}: ${reason instanceof Error ? reason.message : String(reason)}`)
       stop()
     })
-  }, [audio, data, stop])
+  }, [audio, stop])
 
-  const play = useCallback((takes: readonly TakeRef[]) => {
+  const play = useCallback((items: readonly T[]) => {
     setError(null)
-    queue.current = takes.filter(({ sentence, run }) => data.sentences[sentence]?.takes[run])
+    queue.current = [...items]
     next()
-  }, [data, next])
+  }, [next])
 
   useEffect(() => {
     audio.addEventListener('ended', next)
@@ -58,15 +54,14 @@ export function usePlayer(data: ListenData): Player {
     return () => {
       audio.removeEventListener('ended', next)
       document.removeEventListener('keydown', onKey)
+      audio.pause()
     }
   }, [audio, next, stop])
-
-  useEffect(() => stop, [data, stop])
 
   return { audio, current, error, play, stop }
 }
 
-/** How far the take that is playing has played, from 0 to 1. */
+/** How far the item that is playing has played, from 0 to 1. */
 export function usePlayedShare(audio: HTMLAudioElement): number {
   const [share, setShare] = useState(0)
   useEffect(() => {
@@ -76,4 +71,10 @@ export function usePlayedShare(audio: HTMLAudioElement): number {
     return () => audio.removeEventListener('timeupdate', update)
   }, [audio])
   return share
+}
+
+/** A bar along the bottom of what is playing, in the color `--run` of its element. */
+export function PlayedBar({ audio }: { audio: HTMLAudioElement }) {
+  const share = usePlayedShare(audio)
+  return <span className="absolute bottom-0 left-0 h-0.5 bg-(--run)" style={{ width: `${share * 100}%` }} />
 }

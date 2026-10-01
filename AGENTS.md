@@ -33,7 +33,7 @@ behavior.
   sets of takes of one voice (`neighbors.ts`), and the analysis kept beside a run (`run-analysis.ts`).
 - `src/make/` makes voices: the recipes in `prompts/voices-<locale>.json` (`recipes.ts`), the steps from
   takes to a chosen reference (`voice.ts`) and the reference voices (`references.ts`).
-- `src/pages/` builds the data of the listening page and the voices and neighbors pages.
+- `src/pages/` builds the data of the listening and voices pages, and the neighbors page.
 - `src/web/` is the web app's server: its JSON API (`api.ts` holds the types the app reads) and the audio of
   the data folder. `web/` is the app itself, in React with Tailwind CSS 4 and shadcn/ui, built with Vite; it
   imports only types from `src/`, through `@bench/`.
