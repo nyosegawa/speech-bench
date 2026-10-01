@@ -13,6 +13,8 @@ voices for models that have none built in, from a description and lines in chara
 
 ```sh
 npm install
+npm --prefix web install
+npm run web:build
 ```
 
 ## Use
@@ -45,9 +47,8 @@ node src/cli.ts report
 node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-16steps --seeds 1 \
   --designs young-woman-words,young-woman-caption,young-woman-detailed --only aizuchi-hai,reply-weather,long-plan
 
-# A page that plays the synthesized speech of one set of sentences; --blind hides and shuffles the names
-node src/cli.ts listen --blind
-node src/cli.ts listen --page irodori-voices ~/speech-bench-data/runs/tts-*-woman-*-speak-ja-JP-10/run.jsonl
+# The web app at http://127.0.0.1:5280/: every run, and the speech of chosen runs side by side
+node src/cli.ts web
 ```
 
 ## Data
@@ -67,14 +68,14 @@ folder `SPEECH_BENCH_DATA` names.
   logs/        server output
   runs/        a folder per run: run.jsonl, the speech of each sentence and analysis.json
   campaigns/   the runs of each experiment, <name>.json
-  pages/       the listening, neighbors and voices pages
+  pages/       the neighbors and voices pages
 ```
 
 `run.jsonl` holds what was measured, one JSON line for the run and one per utterance or sentence.
 `analysis.json` holds what is read from the speech (its voice, pitch and speaker embedding), kept so that a
 page does not read the speech again, and made again when the speaker model changes. `--campaign name` on `asr`
-or `tts` adds the run to an experiment, which `report`, `listen`, `voices` and `neighbors` then take with
-`--campaign name`. Data of the earlier layout, a result file in `results/` with its speech in a folder beside
+or `tts` adds the run to an experiment, which `report`, `voices` and `neighbors` then take with
+`--campaign name` and the web app's runs page filters by. Data of the earlier layout, a result file in `results/` with its speech in a folder beside
 it, is moved into `runs/` by `node src/cli.ts migrate`.
 
 ### Your own recordings
@@ -162,10 +163,12 @@ voice, heard as a doubled voice with a low hum, which its CPU and Vulkan codecs 
 recorded with each result and shown in the report. A model with built-in voices
 speaks with the voice native to the locale, or the one `--voice` names.
 
-The listening page shows each run as a voice: its sentences play in a row, to hear whether it stays the same
-voice, and each sentence plays in every voice in turn, to compare them. Voices can be starred while listening.
-Without `--blind` the page opens with a summary: a table of the voices, sortable and marked green or red, and a
-chart with a point for each sentence of each voice, which plays it. For each voice it gives:
+The web app lists every run, sortable and filtered by set, campaign and text. Synthesis runs of one set, once
+chosen, open the listening page, which shows each run as a voice: its sentences play in a row, to hear whether it
+stays the same voice, and each sentence plays in every voice in turn, to compare them. Voices can be starred while
+listening. Blind hides the names and shuffles the voices, and says which is which at the end; otherwise the page
+opens with a summary: a table of the voices, sortable and marked green or red, and a chart with a point for each
+sentence of each voice, which plays it. For each voice it gives:
 
 - **Same voice**: how alike the sentences sound, the mean cosine similarity of the speaker embeddings
   (3D-Speaker ERes2NetV2) of every pair of sentences with 1.5 s of voice or more. One real speaker's recordings
@@ -195,7 +198,7 @@ manifest of its takes. `--candidates n` makes up to n references of the length i
 than the largest set, which can be too small for more than one: groups in which every pair holds and no sentence
 is said twice, no take in two, the most alike first. `--takes sentence@seed,...` makes one from takes named by
 hand. `tts --reference name` then has the model speak like it; the listening page shows how much each run sounds
-like the reference it spoke like, or like the one `listen --reference name` names. `tts --duration-scale 0.5`
+like the reference it spoke like, or like the one chosen at the top of the page. `tts --duration-scale 0.5`
 multiplies the length Irodori-TTS predicts for each sentence, which it otherwise leaves as predicted; the factor is
 kept in the result file and tells runs apart on the listening page.
 
@@ -260,7 +263,11 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 ```sh
 npm test
 npm run typecheck
+npm run web:build
 ```
+
+`npm run web:dev` serves the app from its source on port 5173, reloading on each change, and passes `/api` and
+`/audio` to `node src/cli.ts web`, which must be running on port 5280.
 
 AGENTS.md holds the rules for changing the code.
 

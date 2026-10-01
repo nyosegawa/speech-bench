@@ -21,8 +21,14 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
       - run: npm ci
+      - run: npm --prefix web ci
       - run: npm run typecheck
       - run: npm test
+      # Type-checks the app against the API's types and builds it.
+      - run: npm run web:build
       # The command line itself must start on both systems; `models` needs no download.
       - run: node src/cli.ts models

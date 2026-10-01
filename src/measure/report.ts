@@ -1,5 +1,4 @@
 import fs from 'node:fs'
-import path from 'node:path'
 import { scoredByCharacter } from '../core/language.ts'
 import { isDropped, parseResultFile, type AsrRunRecord, type AudioPreparation, type HeardUtterance, type TtsRunRecord } from './results.ts'
 import { countErrors, countHeardErrors, heardAsSaid, type ErrorCount } from './scoring.ts'

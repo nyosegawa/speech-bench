@@ -148,9 +148,9 @@ const THRESHOLDS = Array.from({ length: 46 }, (_, index) => (50 + index) / 100)
 /**
  * The page's data for each group: its takes ordered so that similar takes stand together, their
  * similarities, and the largest sets at every threshold the page offers, both held by every pair and held
- * around the center. `page` is where the page will be written, which the audio is linked relative to.
+ * around the center. The audio is linked by `urlOf`.
  */
-export function neighborGroups(groups: readonly EmbeddedGroup[], page: string): NeighborGroup[] {
+export function neighborGroups(groups: readonly EmbeddedGroup[], urlOf: (file: string) => string): NeighborGroup[] {
   return groups.map((group) => {
     const order = clusteredOrder(similarityOf(group.takes))
     const takes = order.map((index) => group.takes[index]!)
@@ -160,7 +160,7 @@ export function neighborGroups(groups: readonly EmbeddedGroup[], page: string): 
     return {
       name: group.name,
       detail: group.detail,
-      takes: takes.map(({ label, sentence, text, audio, seconds }) => ({ label, sentence, text, seconds, url: path.relative(path.dirname(page), audio).split(path.sep).map(encodeURIComponent).join('/') })),
+      takes: takes.map(({ label, sentence, text, audio, seconds }) => ({ label, sentence, text, seconds, url: urlOf(audio) })),
       similarity: similarity.map((row) => row.map((value) => Number(value.toFixed(4)))),
       sets: { pairs: sets(true), center: sets(false) },
       tooShort: group.tooShort
