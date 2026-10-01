@@ -6,7 +6,8 @@ import { SpeakerEmbedder } from './engines/speaker-embedding.ts'
 import { fleursLocales, fleursTestSet } from './datasets/fleurs.ts'
 import type { UtteranceSet } from './datasets/item.ts'
 import { isSafeName, recordingSet } from './datasets/recordings.ts'
-import { loadDesigns } from './datasets/designs.ts'
+import { loadDesigns, loadRecipes, recipeOf } from './make/recipes.ts'
+import { chooseCandidate, gatherTakes, makeCandidates, tryCandidates, voiceCampaign } from './make/voice.ts'
 import { loadPrompts } from './datasets/prompts.ts'
 import { startRecordingServer } from './record/server.ts'
 import { isLanguageTag } from './language.ts'
@@ -15,7 +16,7 @@ import { joinCampaign, readCampaign } from './campaigns.ts'
 import { allRunFiles, migrateResults, runFile, runIdOf } from './runs.ts'
 import { latestRuns, listeningPage, readTtsRuns } from './listen.ts'
 import { embedGroups, largestSet, neighborGroups, neighborsPage, similarityOf } from './neighbors.ts'
-import { candidateGroups, loadReference, referenceFile, referenceManifest, writeReference } from './references.ts'
+import { loadReference, referenceFile, referenceManifest, writeCandidates, writeReference, type ReferenceManifest } from './references.ts'
 import { formatReport, readSummaries } from './report.ts'
 import type { NewPreparation, TtsRunRecord } from './results.ts'
 import { runAsr, TRIM_TO_VOICE } from './run-asr.ts'
@@ -36,6 +37,11 @@ const USAGE = `usage:
   node src/cli.ts neighbors [--page name] [--campaign name | run.jsonl ...]
   node src/cli.ts reference --name name [--threshold 0.8] [--seconds 30] [--candidates 6 | --takes sentence@seed,...] result.jsonl ...
   node src/cli.ts voices [--page name] [--campaign name | run.jsonl ...]
+  node src/cli.ts voice list --locale ja-JP
+  node src/cli.ts voice gather <voice> --locale ja-JP [--model irodori-tts-v4-small-16steps] [--seeds 1,2,3,4,5]
+  node src/cli.ts voice candidates <voice> --locale ja-JP [--threshold 0.8] [--seconds 10] [--count 3]
+  node src/cli.ts voice try <voice> --locale ja-JP [--model irodori-tts-v4.1-small-mf] [--seeds 1,2]
+  node src/cli.ts voice choose <voice> <candidate> --locale ja-JP
   node src/cli.ts migrate
 
 Downloads, recordings and results go to ${dataDir()} (SPEECH_BENCH_DATA moves them).`
@@ -275,9 +281,59 @@ async function reference(args: string[]): Promise<void> {
   }
   const count = Number(values.candidates)
   if (!Number.isInteger(count) || count < 1) throw new Error('--candidates is how many candidate references to make, a whole number')
-  const candidates = candidateGroups(similarity, sentences, (take) => group!.takes[take]!.seconds, threshold, seconds, count)
-  if (candidates.length < count) console.log(`the ${group!.takes.length} takes make ${candidates.length} candidates of ${seconds} s in which every pair is ${threshold} or more alike, not ${count}`)
-  for (const [index, candidate] of candidates.entries()) write(`${values.name}-${index + 1}`, candidate)
+  printCandidates(writeCandidates(group!, values.name, threshold, seconds, count), count, threshold, seconds)
+}
+
+function printCandidates(written: readonly ReferenceManifest[], count: number, threshold: number, seconds: number): void {
+  if (written.length < count) console.log(`the takes make ${written.length} candidates of ${seconds} s in which every pair is ${threshold} or more alike, not ${count}`)
+  for (const reference of written) {
+    console.log(`${reference.name}: ${reference.takes.length} takes, ${reference.seconds.toFixed(1)} s, every pair ${reference.weakestPair.toFixed(2)} or more alike, ${reference.meanSimilarity.toFixed(2)} on average`)
+    for (const take of reference.takes) console.log(`  ${take.likenessToCenter.toFixed(2)}  ${take.label}  ${take.text}`)
+  }
+}
+
+const seedList = (given: string): number[] => given.split(',').map((seed) => {
+  const value = Number(seed.trim())
+  if (!Number.isSafeInteger(value) || value < 0) throw new Error(`--seeds lists whole numbers from 0, separated by commas, not ${JSON.stringify(seed)}`)
+  return value
+})
+
+/** Making a voice from its recipe in prompts/voices-<locale>.json: gather, candidates, try and choose. */
+async function voice(args: string[]): Promise<void> {
+  const [step, ...rest] = args
+  const { values, positionals } = parseArgs({
+    args: rest,
+    allowPositionals: true,
+    options: { locale: { type: 'string' }, model: { type: 'string' }, seeds: { type: 'string' }, threshold: { type: 'string', default: '0.8' }, seconds: { type: 'string', default: '10' }, count: { type: 'string', default: '3' } }
+  })
+  const locale = values.locale
+  if (!locale || !isLanguageTag(locale)) throw new Error('--locale is a BCP 47 tag such as ja-JP')
+  if (step === 'list') {
+    for (const recipe of loadRecipes(locale)) console.log(`${recipe.id}  ${recipe.description}  ${recipe.lines.length} lines  ${recipe.chosen ? `chosen ${recipe.chosen.candidate}` : 'not chosen'}`)
+    return
+  }
+  const [id, candidate] = positionals
+  if (!id) throw new Error(`voice ${step ?? ''} needs the voice, one of the ids in prompts/voices-${locale}.json`)
+  const recipe = recipeOf(locale, id)
+  if (step === 'gather') {
+    const files = await gatherTakes(recipe, locale, ttsModel(values.model ?? 'irodori-tts-v4-small-16steps'), seedList(values.seeds ?? '1,2,3,4,5'))
+    console.log(`${files.length} runs joined campaign ${voiceCampaign(id)}`)
+  } else if (step === 'candidates') {
+    const threshold = Number(values.threshold)
+    const seconds = Number(values.seconds)
+    const count = Number(values.count)
+    if (!(threshold > 0 && threshold < 1) || !(seconds > 0 && seconds <= 120) || !(Number.isInteger(count) && count > 0)) throw new Error('--threshold is a similarity between 0 and 1, --seconds up to 120 and --count a whole number')
+    printCandidates(await makeCandidates(recipe, threshold, seconds, count), count, threshold, seconds)
+  } else if (step === 'try') {
+    const files = await tryCandidates(recipe, locale, ttsModel(values.model ?? 'irodori-tts-v4.1-small-mf'), loadPrompts('speak', locale), seedList(values.seeds ?? '1,2'))
+    console.log(`${files.length} runs joined campaign ${voiceCampaign(id)}; compare them with "node src/cli.ts voices --campaign ${voiceCampaign(id)}"`)
+  } else if (step === 'choose') {
+    if (!candidate) throw new Error('voice choose needs the voice and the candidate chosen')
+    await chooseCandidate(recipe, locale, candidate)
+    console.log(`${id} speaks like ${candidate} from now on, kept as voice-${id}`)
+  } else {
+    throw new Error('voice is followed by list, gather, candidates, try or choose')
+  }
 }
 
 async function main(): Promise<void> {
@@ -290,6 +346,7 @@ async function main(): Promise<void> {
   else if (command === 'neighbors') await neighbors(rest)
   else if (command === 'voices') await voices(rest)
   else if (command === 'reference') await reference(rest)
+  else if (command === 'voice') await voice(rest)
   else if (command === 'report') {
     const { values, positionals } = parseArgs({ args: rest, allowPositionals: true, options: { campaign: { type: 'string' } } })
     console.log(formatReport(readSummaries(runFilesOf(positionals, values.campaign))))

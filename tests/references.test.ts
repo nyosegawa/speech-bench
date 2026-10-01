@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { EmbeddedTake } from '../src/neighbors.ts'
-import { candidateGroups, loadReference, writeReference } from '../src/references.ts'
+import { candidateGroups, copyReference, loadReference, writeCandidates, writeReference } from '../src/references.ts'
 import { encodeWav16, readWav } from '../src/wav.ts'
 
 describe('reference voices', () => {
@@ -39,6 +39,20 @@ describe('reference voices', () => {
     expect(written.takes).toHaveLength(4)
     expect(written.threshold).toBeNull()
     expect((await loadReference('by-hand')).seconds).toBeCloseTo(2 * 4 + 0.3 * 3, 1)
+  })
+
+  it('never writes over candidates already made, which runs name', () => {
+    const group = { name: 'voice', detail: '', takes: takes(4), tooShort: 0 }
+    writeReference('voice-candidate-1', 'voice', 0.8, takes(2), () => 0.9, null)
+    expect(() => writeCandidates(group, 'voice-candidate', 0.8, 3, 1)).toThrow(/exist already/)
+  })
+
+  it('keeps a chosen voice from being replaced by other audio', async () => {
+    writeReference('one', 'voice', null, takes(2), () => 0.9, null)
+    writeReference('other', 'voice', null, takes(3), () => 0.9, null)
+    await copyReference('one', 'voice-chosen')
+    await expect(copyReference('one', 'voice-chosen')).resolves.toMatchObject({ name: 'voice-chosen' })
+    await expect(copyReference('other', 'voice-chosen')).rejects.toThrow(/other audio/)
   })
 
   it('refuses a set shorter than the length asked for, and a reference that was never written', async () => {

@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { isSafeName } from './datasets/recordings.ts'
 import { sha256Of } from './download.ts'
-import type { EmbeddedTake } from './neighbors.ts'
+import { similarityOf, type EmbeddedGroup, type EmbeddedTake } from './neighbors.ts'
 import { referencesDir } from './paths.ts'
 import { encodeWav16, readWav, resample } from './wav.ts'
 
@@ -129,3 +129,33 @@ export function candidateGroups(similarity: readonly (readonly number[])[], sent
   }
   return groups
 }
+
+/** The reference voices whose names start with the prefix, in the order of their names. */
+export function referenceNames(prefix: string): string[] {
+  if (!fs.existsSync(referencesDir())) return []
+  return fs.readdirSync(referencesDir()).filter((file) => file.startsWith(prefix) && file.endsWith('.wav')).map((file) => path.basename(file, '.wav')).sort()
+}
+
+/**
+ * Writes up to `count` candidate references of one voice's takes, `<base>-1` and on (candidateGroups). A
+ * candidate already written is never overwritten, since runs that spoke like it name it.
+ */
+export function writeCandidates(group: EmbeddedGroup, base: string, threshold: number, seconds: number, count: number): ReferenceManifest[] {
+  const existing = referenceNames(`${base}-`).filter((name) => /^\d+$/.test(name.slice(base.length + 1)))
+  if (existing.length > 0) throw new Error(`candidates of ${base} exist already (${existing.join(', ')}); remove them from ${referencesDir()} to make new ones`)
+  const similarity = similarityOf(group.takes)
+  const groups = candidateGroups(similarity, group.takes.map((take) => take.sentence), (take) => group.takes[take]!.seconds, threshold, seconds, count)
+  return groups.map((members, index) => writeReference(`${base}-${index + 1}`, group.name, threshold, members.map((member) => group.takes[member]!), (a, b) => similarity[members[a]!]![members[b]!]!, seconds))
+}
+
+/** Copies a reference voice to another name, refusing to replace one that holds other audio. */
+export async function copyReference(from: string, to: string): Promise<ReferenceVoice> {
+  const source = filesOf(from)
+  const target = filesOf(to)
+  const sha256 = await sha256Of(referenceFile(from))
+  if (fs.existsSync(target.wav) && (await sha256Of(target.wav)) !== sha256) throw new Error(`${to} exists already with other audio; remove ${target.wav} to replace it`)
+  fs.copyFileSync(source.wav, target.wav)
+  fs.writeFileSync(target.manifest, `${JSON.stringify({ ...referenceManifest(from), name: to }, null, 2)}\n`)
+  return loadReference(to)
+}
+
