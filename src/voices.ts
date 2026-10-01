@@ -30,6 +30,8 @@ export interface Candidate {
   likeReference: number | null
   heardErrorRate: number
   broken: number
+  /** The takes of all its runs, which the broken ones are a share of. */
+  takes: number
   pitchHz: number | null
   pitchSpread: number
   medianFirstAudioSeconds: number
@@ -74,7 +76,8 @@ export function splitShared(names: readonly string[]): { shared: string; rest: s
  * the reference, and the references grouped by the voice their takes were gathered from, as the manifest
  * of each names it. A candidate's sameness of voice is the mean similarity of every pair of its takes over
  * all its runs, since one voice has to hold across seeds; the best candidate of a voice has the fewest
- * broken sentences and then the most alike takes. `page` is where the page will be written, which the audio
+ * broken takes, as a share of its takes since candidates can have spoken with different numbers of seeds, and then
+ * the most alike takes. `page` is where the page will be written, which the audio
  * is linked relative to.
  */
 export function voicesData(runs: readonly ListenedRun[], reference: (name: string) => { manifest: ReferenceManifest; file: string }, page: string, title: string): VoicesPageData {
@@ -106,12 +109,14 @@ export function voicesData(runs: readonly ListenedRun[], reference: (name: strin
       likeReference: mean(defined(taken.map(({ entry, record }) => entry.likeReference[record.id]))),
       heardErrorRate: heardErrorRate(taken.map(({ record }) => record), locale),
       broken: taken.filter(({ record }) => heardErrorRate([record], locale) > BROKEN).length,
+      takes: taken.length,
       pitchHz: pitches.length > 0 ? median(pitches) : null,
       pitchSpread: semitoneSpread(pitches),
       medianFirstAudioSeconds: median(taken.map(({ record }) => record.firstAudioSeconds))
     }
   })
-  const rank = (a: number, b: number): number => candidates[a]!.broken - candidates[b]!.broken || (candidates[b]!.sameVoice ?? 0) - (candidates[a]!.sameVoice ?? 0)
+  const brokenShare = (candidate: number): number => candidates[candidate]!.broken / candidates[candidate]!.takes
+  const rank = (a: number, b: number): number => brokenShare(a) - brokenShare(b) || (candidates[b]!.sameVoice ?? 0) - (candidates[a]!.sameVoice ?? 0)
   const voices = groups.map((group) => {
     const members = names.flatMap((name, index) => (reference(name).manifest.group === group ? [index] : []))
     return { name: group, candidates: members, best: [...members].sort(rank)[0]! }

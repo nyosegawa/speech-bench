@@ -185,7 +185,7 @@ function figures(candidate) {
     element('td', { className: judge(c.sameVoice, LIMITS.sameGood, LIMITS.sameBad, true), textContent: fixed(c.sameVoice) }),
     element('td', { className: judge(c.likeReference, LIMITS.sameGood, LIMITS.sameBad, true), textContent: fixed(c.likeReference) }),
     element('td', { className: judge(c.heardErrorRate, LIMITS.cerGood, LIMITS.cerBad, false), textContent: percent(c.heardErrorRate) }),
-    element('td', { className: c.broken === 0 ? 'good' : 'bad', textContent: String(c.broken) }),
+    element('td', { className: c.broken === 0 ? 'good' : 'bad', textContent: `${c.broken} of ${c.takes}` }),
     element('td', { textContent: c.pitchHz ? `${Math.round(c.pitchHz)} Hz` : '–' })
   ]
 }
@@ -195,7 +195,7 @@ function renderVoices() {
   const rows = data.voices.map((voice, index) => {
     const chosen = chosenOf(index)
     const chips = element('div', { className: 'chips' }, voice.candidates.map((candidate) => {
-      const chip = element('button', { className: `chip${candidate === chosen ? ' chosen' : ''}`, title: `${data.candidates[candidate].name}${candidate === voice.best ? ' — did best: the fewest broken sentences, then the most alike takes' : ''}`, onclick: () => choose(index, candidate) }, [label(candidate)])
+      const chip = element('button', { className: `chip${candidate === chosen ? ' chosen' : ''}`, title: `${data.candidates[candidate].name}${candidate === voice.best ? ' — did best: the smallest share of broken takes, then the most alike takes' : ''}`, onclick: () => choose(index, candidate) }, [label(candidate)])
       if (candidate === voice.best) chip.append(element('span', { className: 'best', textContent: ' ●' }))
       chip.style.setProperty('--color', colorOf(candidate))
       return chip
@@ -226,7 +226,7 @@ function renderVoices() {
       element('thead', {}, [element('tr', {}, ['Voice', 'Candidate', ...FIGURE_HEADS, 'Most alike voice', ''].map((text) => element('th', { textContent: text })))]),
       element('tbody', {}, rows)
     ])]),
-    element('p', { className: 'legend', textContent: `The figures are of the chosen candidate, over every sentence of every seed it spoke. Same voice: the mean similarity of the speaker embeddings (3D-Speaker ERes2NetV2) of every pair of its takes with 1.5 s of voice or more. Like its reference: the mean similarity of its takes to the reference it spoke like. Broken: takes heard with more than 30% of their characters wrong. ● marks the candidate that did best: the fewest broken takes, then the most alike. Most alike voice: the other voice whose chosen candidate is most like this one; red at ${LIMITS.alike} or more, where takes of one description were heard as one voice.` }),
+    element('p', { className: 'legend', textContent: `The figures are of the chosen candidate, over every sentence of every seed it spoke. Same voice: the mean similarity of the speaker embeddings (3D-Speaker ERes2NetV2) of every pair of its takes with 1.5 s of voice or more. Like its reference: the mean similarity of its takes to the reference it spoke like. Broken: takes heard with more than 30% of their characters wrong. ● marks the candidate that did best: the smallest share of broken takes, then the most alike. Most alike voice: the other voice whose chosen candidate is most like this one; red at ${LIMITS.alike} or more, where takes of one description were heard as one voice.` }),
     element('pre', { textContent: lines })
   )
 }

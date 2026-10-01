@@ -216,8 +216,8 @@ node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-16steps --refer
 `voices` writes a page for choosing one reference per voice. It takes the runs that spoke like a reference, groups
 them by reference and the references by the voice their takes were gathered from, and sums up each candidate over
 every sentence of every seed: how alike its takes are, how much they sound like its reference, what the
-recognizer heard and how many takes broke down. It marks the candidate with the fewest broken takes and then the
-most alike ones, plays the references and the sentences of each candidate, and shows how alike the chosen voices
+recognizer heard and how many takes broke down. It marks the candidate with the smallest share of broken takes and
+then the most alike ones, plays the references and the sentences of each candidate, and shows how alike the chosen voices
 are to each other, so that two voices that would sound like one person stand out. The choices are kept in the
 browser and can be copied.
 
