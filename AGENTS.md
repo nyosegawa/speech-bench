@@ -22,7 +22,7 @@ behavior.
   speaks a sentence, and stops; it knows nothing about datasets or scoring. The models run in this process
   through sherpa-onnx (speaker embeddings, Silero VAD) are engines too.
 - `src/datasets/` turns a source (FLEURS, the user's recordings, the prompt lists) into utterances with
-  references or sentences to speak. `src/record/` serves the recording page.
+  references or sentences to speak. `src/make/` makes voices from the recipes in `prompts/voices-<locale>.json`. `src/record/` serves the recording page.
 - `src/scoring.ts` compares texts; `src/run-asr.ts` and `src/run-tts.ts` run a model over a set and write
   the result file; `src/results.ts` owns the form of result files and their upgrades; `src/runs.ts` owns
   where a run is kept; `src/analysis.ts` reads the speech of a run once and keeps what it read;

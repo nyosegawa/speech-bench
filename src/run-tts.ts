@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { asrModel, modelCovers, ttsVoiceFor, type TtsModel } from './catalog.ts'
-import type { VoiceDesign } from './datasets/designs.ts'
+import type { VoiceDesign } from './make/recipes.ts'
 import type { Prompt } from './datasets/prompts.ts'
 import type { ReferenceVoice } from './references.ts'
 import { AudioCppTts } from './engines/audiocpp.ts'

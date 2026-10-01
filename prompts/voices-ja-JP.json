@@ -1,0 +1,351 @@
+{
+  "locale": "ja-JP",
+  "voices": [
+    {
+      "id": "bright-young-woman",
+      "description": "若い女性、明るい声、はっきりした話し方",
+      "lines": [
+        {"id":"greet-morning","kind":"greet","text":"おはようございます!今日もいい一日にしましょうね。"},
+        {"id":"greet-back","kind":"greet","text":"おかえりなさい!外は寒くなかったですか?"},
+        {"id":"greet-night","kind":"greet","text":"今日も一日お疲れさまでした。ゆっくり休んでくださいね。"},
+        {"id":"greet-weekend","kind":"greet","text":"いよいよ週末ですね!何か楽しい予定はありますか?"},
+        {"id":"greet-long-time","kind":"greet","text":"わあ、お久しぶりです!元気にしてましたか?"},
+        {"id":"greet-late","kind":"greet","text":"こんな時間まで起きてたんですね。無理しすぎないでくださいね。"},
+        {"id":"cheer-worked","kind":"cheer","text":"やったー、ちゃんと動きました!うまくいってよかったです。"},
+        {"id":"cheer-idea","kind":"cheer","text":"それ、すごくいいアイデアだと思います!"},
+        {"id":"cheer-effort","kind":"cheer","text":"お疲れさまでした!今日はたくさん頑張りましたね。"},
+        {"id":"cheer-together","kind":"cheer","text":"大丈夫ですよ、一緒にひとつずつ片づけていきましょう。"},
+        {"id":"cheer-almost","kind":"cheer","text":"あと少しで終わりですね。ここまで来たら、もうひと息です!"},
+        {"id":"cheer-first-step","kind":"cheer","text":"最初の一歩が一番大変なんです。もう踏み出せてますよ。"},
+        {"id":"cheer-proud","kind":"cheer","text":"こんなに早く終わらせるなんて、さすがですね!"},
+        {"id":"cheer-mistake","kind":"cheer","text":"失敗しても大丈夫です。次はきっとうまくいきますよ。"},
+        {"id":"confirm-wait","kind":"confirm","text":"ちょっと待ってくださいね、今すぐ調べてみます。"},
+        {"id":"confirm-done","kind":"confirm","text":"はい、できました!メモに追加しておきましたよ。"},
+        {"id":"confirm-understood","kind":"confirm","text":"わかりました!明日の朝、忘れずにお知らせしますね。"},
+        {"id":"confirm-again","kind":"confirm","text":"ごめんなさい、もう一度だけ言ってもらえますか?"},
+        {"id":"confirm-check","kind":"confirm","text":"念のため確認しますね。金曜日の夕方六時で合ってますか?"},
+        {"id":"confirm-sent","kind":"confirm","text":"メッセージ、ちゃんと送っておきました。返事が来たら教えますね。"},
+        {"id":"confirm-canceled","kind":"confirm","text":"了解です、さっきの予定は取り消しておきました。"},
+        {"id":"confirm-found","kind":"confirm","text":"見つけました!探していた資料、これで合ってますか?"},
+        {"id":"suggest-reminder","kind":"suggest","text":"もしよかったら、先にリマインダーを作っておきましょうか?"},
+        {"id":"suggest-break","kind":"suggest","text":"そろそろ少し休憩しませんか?お茶でも飲んでひと息つきましょう。"},
+        {"id":"suggest-umbrella","kind":"suggest","text":"夕方から雨が降るみたいなので、傘を持っていくと安心ですよ。"},
+        {"id":"suggest-order","kind":"suggest","text":"急ぎのものから順番に片づけると、気持ちも楽になりますよ。"},
+        {"id":"suggest-early","kind":"suggest","text":"明日は早いので、今夜は早めに寝たほうがいいかもしれませんね。"},
+        {"id":"suggest-walk","kind":"suggest","text":"天気がいいので、お昼休みに少し散歩してみるのはどうですか?"},
+        {"id":"suggest-split","kind":"suggest","text":"大きな作業は、小さく分けてみると進めやすくなりますよ。"},
+        {"id":"suggest-note","kind":"suggest","text":"今の話、忘れないうちにメモしておきましょうか?"},
+        {"id":"chat-weather","kind":"chat","text":"わあ、明日は晴れるみたいですよ。お出かけ日和ですね!"},
+        {"id":"chat-lunch","kind":"chat","text":"お昼ごはん、もう食べました?今日は何にするんですか?"},
+        {"id":"chat-coffee","kind":"chat","text":"コーヒーのいい香りがしてきそうな、気持ちのいい朝ですね。"},
+        {"id":"chat-sakura","kind":"chat","text":"もうすぐ桜の季節ですね。お花見、行けたらいいなあ。"},
+        {"id":"chat-music","kind":"chat","text":"作業のときに音楽を聴くと、集中できる気がしませんか?"},
+        {"id":"chat-trip","kind":"chat","text":"旅行、すごく楽しみですね!お土産話、聞かせてくださいね。"},
+        {"id":"chat-cat","kind":"chat","text":"猫って、見ているだけで癒やされますよね。"},
+        {"id":"chat-summer","kind":"chat","text":"今日は暑かったですね。冷たいものでも飲んで、涼んでください。"},
+        {"id":"notice-meeting","kind":"notice","text":"あ、午後三時の打ち合わせ、忘れないでくださいね。"},
+        {"id":"notice-mail","kind":"notice","text":"新しいメールが三件届いてますよ。ひとつは急ぎみたいです。"},
+        {"id":"notice-battery","kind":"notice","text":"バッテリーが残り少なくなってきました。そろそろ充電しましょう。"},
+        {"id":"notice-birthday","kind":"notice","text":"明日は田中さんのお誕生日ですよ。お祝いのメッセージ、送りますか?"},
+        {"id":"notice-train","kind":"notice","text":"いつもの電車、今日は十分くらい遅れているみたいです。"},
+        {"id":"notice-deadline","kind":"notice","text":"レポートの締め切り、あさってまでなので、まだ間に合いますよ。"},
+        {"id":"ask-help","kind":"ask","text":"何かお手伝いできることはありますか?なんでも言ってくださいね。"},
+        {"id":"ask-time","kind":"ask","text":"午前と午後だったら、どちらのほうが都合がいいですか?"},
+        {"id":"ask-feeling","kind":"ask","text":"今日はなんだか元気がなさそうですね。何かありました?"},
+        {"id":"ask-plan","kind":"ask","text":"週末のお出かけ、どこに行くかもう決めましたか?"},
+        {"id":"ask-choice","kind":"ask","text":"赤と青だったら、どっちの色が好きですか?"},
+        {"id":"ask-remind","kind":"ask","text":"何時ごろにお知らせしたらいいですか?"},
+        {"id":"surprise-snow","kind":"surprise","text":"えっ、外を見てください!雪が降ってきましたよ!"},
+        {"id":"surprise-fast","kind":"surprise","text":"わっ、もう終わったんですか?すごく早いですね!"},
+        {"id":"surprise-news","kind":"surprise","text":"本当ですか?それはびっくりしました!"},
+        {"id":"sorry-mistake","kind":"sorry","text":"あっ、ごめんなさい!さっきの時間、間違えて伝えちゃいました。"},
+        {"id":"sorry-slow","kind":"sorry","text":"お待たせしてすみません。ちょっと時間がかかっちゃいました。"},
+        {"id":"long-day","kind":"long","text":"今日の予定をお伝えしますね。午前中は会議がひとつ、午後は三時から打ち合わせがあって、夕方は空いてますよ。"},
+        {"id":"long-recipe","kind":"long","text":"冷蔵庫にある卵とトマトで、簡単なスープが作れますよ。十分くらいでできるので、よかったら試してみてください。"},
+        {"id":"long-weekend","kind":"long","text":"週末はお天気もよさそうなので、少し遠くまで出かけてみるのもいいかもしれませんね。帰りに温泉に寄るのも素敵です。"},
+        {"id":"long-sleep","kind":"long","text":"最近ちょっと夜更かしが続いてるみたいなので、今日は早めに寝てみませんか?明日の朝、すっきり起きられると思いますよ。"},
+        {"id":"long-thanks","kind":"long","text":"いつも話しかけてくれて、ありがとうございます。少しでもお役に立てているなら、私もすごくうれしいです。"}
+      ],
+      "chosen": {"reference":"voice-bright-young-woman","candidate":"bright-young-woman-pair-3","sha256":"0854fd856bb2d7c4424786553a32e1f3850751079e29265f3012de5de58b2dc0"}
+    },
+    {
+      "id": "soft-young-woman",
+      "description": "若い女性、ふんわりした柔らかい声、やさしい話し方",
+      "lines": [
+        {"id":"statement-1","kind":"statement","text":"週末はお天気が崩れにくいみたいですよ。ゆっくりお散歩するのもいいですね。"},
+        {"id":"statement-2","kind":"statement","text":"十時半からの打ち合わせ、カレンダーに入れておきましたよ。"},
+        {"id":"statement-3","kind":"statement","text":"今日はたくさんがんばったので、少しゆっくりしてくださいね。"},
+        {"id":"statement-4","kind":"statement","text":"さっきのメモ、ちゃんと保存しておきました。安心してくださいね。"},
+        {"id":"statement-5","kind":"statement","text":"温かいお茶を飲むと、気持ちがほっとしますよね。"},
+        {"id":"statement-6","kind":"statement","text":"急がなくても大丈夫ですよ。ひとつずつ進めていきましょう。"},
+        {"id":"statement-7","kind":"statement","text":"夕方から少し冷えるみたいなので、羽織るものがあるといいかもしれません。"},
+        {"id":"greet-8","kind":"greet","text":"おはようございます。よく眠れましたか?"},
+        {"id":"feeling-9","kind":"feeling","text":"わあ、うれしいです。ありがとうございます。"},
+        {"id":"ask-10","kind":"ask","text":"何か困っていることがあったら、いつでも話してくださいね。"}
+      ],
+      "chosen": {"reference":"voice-soft-young-woman","candidate":"soft-young-woman-candidate-1","sha256":"305b8ac2571af8b7d2657d9f004b9571f6e2d6cc65d203c14157ab3d5bd2f2af"}
+    },
+    {
+      "id": "calm-young-woman",
+      "description": "若い女性、落ち着いた澄んだ声、知的で簡潔な話し方",
+      "lines": [
+        {"id":"statement-1","kind":"statement","text":"週末は晴れ間が多く、気温も平年並みの見込みです。"},
+        {"id":"statement-2","kind":"statement","text":"十時半から木村さんと打ち合わせです。資料は共有フォルダに入っています。"},
+        {"id":"statement-3","kind":"statement","text":"締め切りまであと二日あります。優先度の高いものから進めましょう。"},
+        {"id":"statement-4","kind":"statement","text":"原因はおそらく設定の変更です。一度、元に戻して確かめてみてください。"},
+        {"id":"statement-5","kind":"statement","text":"今日の予定は三件です。夕方は比較的空いています。"},
+        {"id":"statement-6","kind":"statement","text":"メールは送信済みです。返信が来たらお知らせします。"},
+        {"id":"statement-7","kind":"statement","text":"その方法でも問題ありません。ただ、少し時間がかかると思います。"},
+        {"id":"greet-8","kind":"greet","text":"おはようございます。今日の予定を確認しますか?"},
+        {"id":"feeling-9","kind":"feeling","text":"なるほど、それは合理的な判断だと思います。"},
+        {"id":"ask-10","kind":"ask","text":"どちらの案を優先するか、決めておきましょうか?"}
+      ],
+      "chosen": {"reference":"voice-calm-young-woman","candidate":"calm-young-woman-candidate-1","sha256":"1e955f2fdc3e186a1b1aa37eeaf13d7ae743ee0934a1a8cb7f630d9e32af6ffa"}
+    },
+    {
+      "id": "bright-adult-woman",
+      "description": "大人の女性、明るく張りのある声、軽快な話し方",
+      "lines": [
+        {"id":"statement-1","kind":"statement","text":"さあ、今日も元気にいきましょう!まずは今日の予定からお伝えしますね。"},
+        {"id":"statement-2","kind":"statement","text":"週末は気持ちのいい青空が広がりそうです。お洗濯日和ですよ。"},
+        {"id":"statement-3","kind":"statement","text":"十時半からは打ち合わせが入っています。準備はばっちりですね。"},
+        {"id":"statement-4","kind":"statement","text":"週末は各地でお祭りがあるみたいですよ。出かけてみるのも楽しそうです。"},
+        {"id":"statement-5","kind":"statement","text":"お昼ごはんのあとは、ちょっと眠くなりますよね。ストレッチで気分転換しましょう。"},
+        {"id":"statement-6","kind":"statement","text":"今週もよく頑張りました!金曜日の夜は、ゆっくり楽しんでくださいね。"},
+        {"id":"statement-7","kind":"statement","text":"新しいメールが二件届いています。どちらも急ぎではなさそうですよ。"},
+        {"id":"greet-8","kind":"greet","text":"おはようございます!今朝の調子はいかがですか?"},
+        {"id":"feeling-9","kind":"feeling","text":"いいですね、その調子です!"},
+        {"id":"ask-10","kind":"ask","text":"さて、次は何をしましょうか?"}
+      ],
+      "chosen": {"reference":"voice-bright-adult-woman","candidate":"bright-adult-woman-candidate-3","sha256":"227d38cf014ee92e847ff27fcc1b8f99607f21df8525a5cae6ddd3c6dbd55cb8"}
+    },
+    {
+      "id": "announcer-woman",
+      "description": "大人の女性、明瞭な声、アナウンサーのような正確な話し方",
+      "lines": [
+        {"id":"statement-1","kind":"statement","text":"週末は全国的に高気圧に覆われ、おおむね晴れる見込みです。"},
+        {"id":"statement-2","kind":"statement","text":"十時半から、木村さんとの打ち合わせが予定されています。"},
+        {"id":"statement-3","kind":"statement","text":"札幌の今日の最高気温は十八度、湿度は五十パーセントの予想です。"},
+        {"id":"statement-4","kind":"statement","text":"中央線は現在、平常どおり運転しています。"},
+        {"id":"statement-5","kind":"statement","text":"本日の予定は三件です。一件目は午前十時からの定例会議です。"},
+        {"id":"statement-6","kind":"statement","text":"夕方から夜にかけて、所によりにわか雨が降るでしょう。"},
+        {"id":"statement-7","kind":"statement","text":"日経平均株価は、前の日に比べて小幅に値上がりしています。"},
+        {"id":"greet-8","kind":"greet","text":"おはようございます。七時になりました。"},
+        {"id":"feeling-9","kind":"feeling","text":"以上、今日の予定をお伝えしました。"},
+        {"id":"ask-10","kind":"ask","text":"続いて、各地の天気です。"}
+      ],
+      "chosen": {"reference":"voice-announcer-woman","candidate":"announcer-woman-candidate-1","sha256":"433e2eadf3b1f383d8046116347230bfe29599ba7dff4719c550c9ea15910cc9"}
+    },
+    {
+      "id": "low-adult-woman",
+      "description": "大人の女性、低く柔らかい声、ゆったりした話し方",
+      "lines": [
+        {"id":"statement-1","kind":"statement","text":"週末は穏やかに晴れるそうです。窓を開けると気持ちがいいでしょうね。"},
+        {"id":"statement-2","kind":"statement","text":"打ち合わせは十時半からです。少し早めに準備しておきましょう。"},
+        {"id":"statement-3","kind":"statement","text":"今日は一日お疲れさまでした。温かいお風呂にゆっくり浸かってくださいね。"},
+        {"id":"statement-4","kind":"statement","text":"焦らなくても大丈夫です。時間はまだ十分にありますから。"},
+        {"id":"statement-5","kind":"statement","text":"夜は少し冷えるようです。暖かくしてお休みください。"},
+        {"id":"statement-6","kind":"statement","text":"さっきの件、メモに残しておきました。あとで見返せますよ。"},
+        {"id":"statement-7","kind":"statement","text":"雨の日は、好きな音楽を聴きながら過ごすのもいいものですね。"},
+        {"id":"greet-8","kind":"greet","text":"こんばんは。今日はどんな一日でしたか?"},
+        {"id":"feeling-9","kind":"feeling","text":"ふふ、それは素敵ですね。"},
+        {"id":"ask-10","kind":"ask","text":"少し、休憩しませんか?"}
+      ],
+      "chosen": {"reference":"voice-low-adult-woman","candidate":"low-adult-woman-candidate-2","sha256":"66b4fd3ad8d9405090f6dfab26041c6b88c2076c7c91047015fb289e2d81ec42"}
+    },
+    {
+      "id": "calm-adult-woman",
+      "description": "大人の女性、落ち着いた低めの声、上品な話し方",
+      "lines": [
+        {"id":"statement-1","kind":"statement","text":"週末は穏やかに晴れる予報です。朝は少し冷えますので、上着があると安心ですね。"},
+        {"id":"statement-2","kind":"statement","text":"十時半から、木村さんとの打ち合わせが入っております。"},
+        {"id":"statement-3","kind":"statement","text":"お送りいただいた資料は、フォルダに整理しておきました。"},
+        {"id":"statement-4","kind":"statement","text":"本日もお疲れさまでした。どうぞゆっくりお休みください。"},
+        {"id":"statement-5","kind":"statement","text":"締め切りまではまだ余裕がございますので、落ち着いて進めましょう。"},
+        {"id":"statement-6","kind":"statement","text":"お問い合わせのメールには、先ほど返信しておきました。"},
+        {"id":"statement-7","kind":"statement","text":"季節の変わり目ですから、体調には気をつけてくださいね。"},
+        {"id":"greet-8","kind":"greet","text":"おはようございます。今日も一日よろしくお願いいたします。"},
+        {"id":"feeling-9","kind":"feeling","text":"まあ、それは素敵ですね。"},
+        {"id":"ask-10","kind":"ask","text":"少し休憩なさってはいかがでしょう?"}
+      ],
+      "chosen": {"reference":"voice-calm-adult-woman","candidate":"calm-adult-woman-candidate-3","sha256":"577690e07ea6513711552a363c07215962eca90250853537311dfbd59f3424a7"}
+    },
+    {
+      "id": "gentle-older-woman",
+      "description": "年配の女性、温かく優しい声、ゆっくりした話し方",
+      "lines": [
+        {"id":"statement-1","kind":"statement","text":"週末はよく晴れるそうですよ。お布団を干すといいですね。"},
+        {"id":"statement-2","kind":"statement","text":"十時半に、木村さんとのお約束が入っていますよ。"},
+        {"id":"statement-3","kind":"statement","text":"今日は冷えますから、温かくして出かけてくださいね。"},
+        {"id":"statement-4","kind":"statement","text":"無理をしないで、疲れたら少し横になるといいですよ。"},
+        {"id":"statement-5","kind":"statement","text":"お薬の時間になりましたよ。お水と一緒に飲んでくださいね。"},
+        {"id":"statement-6","kind":"statement","text":"庭の梅が、そろそろ咲きはじめる頃ですね。"},
+        {"id":"statement-7","kind":"statement","text":"ゆっくりで大丈夫ですよ。私がちゃんと覚えておきますからね。"},
+        {"id":"greet-8","kind":"greet","text":"おはようございます。よく眠れましたか?"},
+        {"id":"feeling-9","kind":"feeling","text":"まあ、それはよかったですねえ。"},
+        {"id":"ask-10","kind":"ask","text":"何か食べたいものはありますか?"}
+      ],
+      "chosen": {"reference":"voice-gentle-older-woman","candidate":"gentle-older-woman-candidate-3","sha256":"e6ed7fbc06b548f1c79f518a444c07007998176eeadbce54d5d2d07c40f27c33"}
+    },
+    {
+      "id": "energetic-young-man",
+      "description": "若い男性、元気で明るい声、はきはきした話し方",
+      "lines": [
+        {"id":"statement-1","kind":"statement","text":"週末は一日晴れるみたいです!外に出るにはもってこいですね。"},
+        {"id":"statement-2","kind":"statement","text":"十時半からの打ち合わせ、ちゃんと入れておきました!"},
+        {"id":"statement-3","kind":"statement","text":"リマインダー、セット完了です!忘れずにお知らせしますね。"},
+        {"id":"statement-4","kind":"statement","text":"このままいけば、今日中に全部終わりそうですよ。"},
+        {"id":"statement-5","kind":"statement","text":"新しいメールが三件来てます。ひとつは急ぎみたいです!"},
+        {"id":"statement-6","kind":"statement","text":"週末はサッカーの試合がありますよ。応援に行きませんか?"},
+        {"id":"statement-7","kind":"statement","text":"少し休憩したら、また一緒に頑張りましょう!"},
+        {"id":"greet-8","kind":"greet","text":"おはようございます!今日もよろしくお願いします!"},
+        {"id":"feeling-9","kind":"feeling","text":"よっしゃ、うまくいきましたね!"},
+        {"id":"ask-10","kind":"ask","text":"次は何をやりましょうか?"}
+      ],
+      "chosen": {"reference":"voice-energetic-young-man","candidate":"energetic-young-man-candidate-1","sha256":"9610b1509c866fa9bdaf9ac1d28bb8729d5f23f36c6e4daf629fa943b784b348"}
+    },
+    {
+      "id": "fresh-young-man",
+      "description": "若い男性、爽やかな声、はっきりした話し方",
+      "lines": [
+        {"id":"statement-1","kind":"statement","text":"週末は一日晴れるみたいですよ。気持ちのいい一日になりそうですね。"},
+        {"id":"statement-2","kind":"statement","text":"十時半からの打ち合わせ、カレンダーに入れておきました。"},
+        {"id":"statement-3","kind":"statement","text":"リマインダーを作っておいたので、忘れる心配はないですよ。"},
+        {"id":"statement-4","kind":"statement","text":"その資料なら、共有フォルダの一番上にありますよ。"},
+        {"id":"statement-5","kind":"statement","text":"少し休憩しましょうか。そのほうがきっと集中できますよ。"},
+        {"id":"statement-6","kind":"statement","text":"今日の作業はここまでで十分だと思います。お疲れさまでした。"},
+        {"id":"statement-7","kind":"statement","text":"電車が少し遅れているので、早めに出たほうがよさそうです。"},
+        {"id":"greet-8","kind":"greet","text":"おはようございます。今日もいい天気ですね。"},
+        {"id":"feeling-9","kind":"feeling","text":"それ、いい考えだと思いますよ!"},
+        {"id":"ask-10","kind":"ask","text":"ほかに手伝えることはありますか?"}
+      ],
+      "chosen": {"reference":"voice-fresh-young-man","candidate":"fresh-young-man-candidate-1","sha256":"c8521b318896bf7edf20a5fe04e9fee5cc7a4e6066fd8d4b158c41c9108ca411"}
+    },
+    {
+      "id": "calm-young-man",
+      "description": "若い男性、落ち着いた声、理知的で簡潔な話し方",
+      "lines": [
+        {"id":"statement-1","kind":"statement","text":"週末は晴れの日が続き、朝晩は少し冷え込む見込みです。"},
+        {"id":"statement-2","kind":"statement","text":"十時半から打ち合わせがあります。議題は資料にまとめておきました。"},
+        {"id":"statement-3","kind":"statement","text":"エラーの原因は、設定ファイルの記述の誤りでした。"},
+        {"id":"statement-4","kind":"statement","text":"今週の残りの作業は二件です。どちらも明日中に終わる見込みです。"},
+        {"id":"statement-5","kind":"statement","text":"電車は十分ほど遅れています。一本早い電車に乗ると間に合います。"},
+        {"id":"statement-6","kind":"statement","text":"その方針で問題ないと思います。念のため、先に小さく試してみましょう。"},
+        {"id":"statement-7","kind":"statement","text":"メールは送っておきました。返信があれば知らせます。"},
+        {"id":"greet-8","kind":"greet","text":"おはようございます。今日の予定を確認しましょうか。"},
+        {"id":"feeling-9","kind":"feeling","text":"なるほど、筋の通った考えですね。"},
+        {"id":"ask-10","kind":"ask","text":"どちらを先に進めますか?"}
+      ],
+      "chosen": {"reference":"voice-calm-young-man","candidate":"calm-young-man-candidate-2","sha256":"4efbe7166d948afe85a48d9d082e3ae0eff57567925ababf9dfd43b62626ce7f"}
+    },
+    {
+      "id": "bright-adult-man",
+      "description": "大人の男性、明るく張りのある声、軽快な話し方",
+      "lines": [
+        {"id":"statement-1","kind":"statement","text":"さあ、今日も一日はじまりました!まずは予定をチェックしていきましょう。"},
+        {"id":"statement-2","kind":"statement","text":"週末は朝から青空が広がりそうです。絶好のお出かけ日和ですよ。"},
+        {"id":"statement-3","kind":"statement","text":"十時半からは打ち合わせです。ここが今日の山場ですね。"},
+        {"id":"statement-4","kind":"statement","text":"今週もいよいよ金曜日!あとひと踏ん張りいきましょう。"},
+        {"id":"statement-5","kind":"statement","text":"新しいメールが二件届いてます。どちらも落ち着いて見れば大丈夫そうですよ。"},
+        {"id":"statement-6","kind":"statement","text":"週末は映画でもどうですか?話題の新作が公開されてますよ。"},
+        {"id":"statement-7","kind":"statement","text":"ここまで順調です!この調子で最後まで走り抜けましょう。"},
+        {"id":"greet-8","kind":"greet","text":"おはようございます!今日も元気にいきましょう!"},
+        {"id":"feeling-9","kind":"feeling","text":"いいですねえ、最高です!"},
+        {"id":"ask-10","kind":"ask","text":"さて、次はどうしましょうか?"}
+      ],
+      "chosen": {"reference":"voice-bright-adult-man","candidate":"bright-adult-man-candidate-2","sha256":"2f51fb24ff79c7f14f08807966a3a363a92a113e8f1bcc149625463c791d16ef"}
+    },
+    {
+      "id": "announcer-man",
+      "description": "大人の男性、明瞭な声、アナウンサーのような正確な話し方",
+      "lines": [
+        {"id":"statement-1","kind":"statement","text":"週末は全国的に晴れ、日中は気温が上がる見込みです。"},
+        {"id":"statement-2","kind":"statement","text":"本日の予定をお伝えします。十時半から打ち合わせが予定されています。"},
+        {"id":"statement-3","kind":"statement","text":"関東地方は、夜遅くにかけて雨が降るところがある見込みです。"},
+        {"id":"statement-4","kind":"statement","text":"現在、中央線は平常どおり運転しています。"},
+        {"id":"statement-5","kind":"statement","text":"日経平均株価は、午前の取引で小幅に値下がりしています。"},
+        {"id":"statement-6","kind":"statement","text":"札幌の明日の最低気温は八度、最高気温は十七度の予想です。"},
+        {"id":"statement-7","kind":"statement","text":"週末は各地で行楽日和となりそうです。"},
+        {"id":"greet-8","kind":"greet","text":"おはようございます。午前七時のニュースです。"},
+        {"id":"feeling-9","kind":"feeling","text":"以上、今日の予定でした。"},
+        {"id":"ask-10","kind":"ask","text":"続いて、天気予報です。"}
+      ],
+      "chosen": {"reference":"voice-announcer-man","candidate":"announcer-man-candidate-2","sha256":"c325c9c3c62ebcc81024ebf5be9b05bb841968c77a7264fb906435a8dd705974"}
+    },
+    {
+      "id": "calm-adult-man",
+      "description": "大人の男性、落ち着いた低い声、丁寧な話し方",
+      "lines": [
+        {"id":"statement-1","kind":"statement","text":"かしこまりました。明日の朝六時半にお知らせいたします。"},
+        {"id":"statement-2","kind":"statement","text":"本日の十時半より、木村様との打ち合わせが入っております。"},
+        {"id":"statement-3","kind":"statement","text":"週末は晴れの予報でございます。お出かけには良い日和かと存じます。"},
+        {"id":"statement-4","kind":"statement","text":"お申し付けのメールは、先ほど送信いたしました。"},
+        {"id":"statement-5","kind":"statement","text":"少々冷え込んでまいりました。温かい飲み物をご用意なさってはいかがでしょう。"},
+        {"id":"statement-6","kind":"statement","text":"資料は共有フォルダに整理しておきました。ご確認ください。"},
+        {"id":"statement-7","kind":"statement","text":"本日のご予定は、以上の三件でございます。"},
+        {"id":"greet-8","kind":"greet","text":"おはようございます。よくお休みになれましたか?"},
+        {"id":"feeling-9","kind":"feeling","text":"承知いたしました。お任せください。"},
+        {"id":"ask-10","kind":"ask","text":"他に何か、お手伝いできることはございますか?"}
+      ],
+      "chosen": {"reference":"voice-calm-adult-man","candidate":"calm-adult-man-candidate-3","sha256":"fc8e0e5fff1dfcaeaf4d84e04b21dc8aacbfc55f165425acab51ad9043aa2b32"}
+    },
+    {
+      "id": "deep-adult-man",
+      "description": "大人の男性、低く渋い声、ゆったりした話し方",
+      "lines": [
+        {"id":"statement-1","kind":"statement","text":"週末は穏やかに晴れるようです。ゆっくり過ごすにはいい日ですね。"},
+        {"id":"statement-2","kind":"statement","text":"十時半から打ち合わせがあります。慌てずにいきましょう。"},
+        {"id":"statement-3","kind":"statement","text":"今日はよく働きましたね。少し肩の力を抜いてください。"},
+        {"id":"statement-4","kind":"statement","text":"夜は冷え込むようです。温かくして休んでください。"},
+        {"id":"statement-5","kind":"statement","text":"その件は、もう少し様子を見てから決めても遅くはありません。"},
+        {"id":"statement-6","kind":"statement","text":"メールは送っておきました。返事はゆっくり待ちましょう。"},
+        {"id":"statement-7","kind":"statement","text":"静かな夜には、好きな本を読むのもいいものですね。"},
+        {"id":"greet-8","kind":"greet","text":"こんばんは。今日はどんな一日でしたか。"},
+        {"id":"feeling-9","kind":"feeling","text":"なるほど、それはいい考えですね。"},
+        {"id":"ask-10","kind":"ask","text":"一杯のコーヒーでも、いかがですか。"}
+      ],
+      "chosen": {"reference":"voice-deep-adult-man","candidate":"deep-adult-man-candidate-1","sha256":"bfd37e80a2628c2b86493501b5387621b8977ef7e9ff8f5807881ea732fedb23"}
+    },
+    {
+      "id": "gentle-older-man",
+      "description": "年配の男性、穏やかで温かい声、ゆっくりした話し方",
+      "lines": [
+        {"id":"statement-1","kind":"statement","text":"週末はよく晴れるそうですよ。散歩にでも出かけるといいでしょう。"},
+        {"id":"statement-2","kind":"statement","text":"十時半に、木村さんとのお約束がありますよ。"},
+        {"id":"statement-3","kind":"statement","text":"今日は風が冷たいですから、帽子をかぶって出かけるといいですよ。"},
+        {"id":"statement-4","kind":"statement","text":"慌てなくても大丈夫ですよ。ひとつずつ片づけていけばいいんです。"},
+        {"id":"statement-5","kind":"statement","text":"庭の柿が、ずいぶん色づいてきましたね。"},
+        {"id":"statement-6","kind":"statement","text":"困ったことがあったら、遠慮せずに言ってくださいね。"},
+        {"id":"statement-7","kind":"statement","text":"昔から、早寝早起きは体にいいと言いますからね。"},
+        {"id":"greet-8","kind":"greet","text":"おはようございます。今朝はいい天気ですね。"},
+        {"id":"feeling-9","kind":"feeling","text":"ほう、それはよかったですねえ。"},
+        {"id":"ask-10","kind":"ask","text":"お茶でも一杯、いかがですか?"}
+      ],
+      "chosen": {"reference":"voice-gentle-older-man","candidate":"gentle-older-man-candidate-3","sha256":"22dff4fb65fee9076716c1a3470efbac1356b7560860273f236db6c0b2ab2174"}
+    },
+    {
+      "id": "young-woman-caption",
+      "description": "若く明るい女性の声。落ち着いたトーンで、はっきりと丁寧に話している。"
+    },
+    {
+      "id": "young-woman-detailed",
+      "description": "20代前半の女性。やや高めの澄んだ声で、明るく親しみやすい口調。普通の速さで、一語ずつはっきりと丁寧に話している。静かな部屋で、マイクの近くで録音された音声。"
+    },
+    {
+      "id": "young-man-caption",
+      "description": "若く爽やかな男性の声。落ち着いたトーンで、はっきりと丁寧に話している。"
+    },
+    {
+      "id": "young-man-detailed",
+      "description": "20代前半の男性。中くらいの高さの明るい声で、爽やかで親しみやすい口調。普通の速さで、一語ずつはっきりと丁寧に話している。静かな部屋で、マイクの近くで録音された音声。"
+    },
+    {
+      "id": "mature-woman-caption",
+      "description": "落ち着いた大人の女性の声。やや低めの柔らかいトーンで、上品に丁寧に話している。"
+    },
+    {
+      "id": "mature-woman-detailed",
+      "description": "30代後半の女性。やや低めで柔らかく響く声で、落ち着いた上品な口調。ややゆっくりした速さで、一語ずつはっきりと丁寧に話している。静かな部屋で、マイクの近くで録音された音声。"
+    }
+  ]
+}

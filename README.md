@@ -41,7 +41,7 @@ node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b --set recordings --sp
 # One table of every result so far
 node src/cli.ts report
 
-# The same ten sentences in each voice described in prompts/designs-ja-JP.json, all from seed 1
+# The same ten sentences in each voice described in prompts/voices-ja-JP.json, all from seed 1
 node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-16steps --seeds 1 \
   --designs young-woman-words,young-woman-caption,young-woman-detailed --only aizuchi-hai,reply-weather,long-plan
 
@@ -142,15 +142,14 @@ which shows how a model takes long silences.
   word more. A take that passes is one an application could keep, as when it makes short replies ahead of
   time and keeps the takes heard right.
 - **Seconds per character**: the pace of the speech, which shows a model that rushes or runs on.
-- The speech of every sentence is saved as a WAVE file in the folder named after the result file, for
-  listening.
+- The speech of every sentence is saved as a WAVE file in the run's folder, for listening.
 
 A model without built-in voices (Irodori-TTS here) makes a voice up for every sentence from the seed it is
 sampled with, which audio.cpp picks at random for each request. `--seeds` gives one run for each seed: audio.cpp
 samples every sentence of a run from it, and speech.cpp's worker the first request, each later one the next
 seed. A seed does not keep the voice:
 Irodori-TTS follows the sentence more than the seed. `--designs` describes the voice in words instead, with the
-descriptions of `prompts/designs-<locale>.json` (Irodori-TTS's `instruction`), one run for each.
+descriptions of the voices in `prompts/voices-<locale>.json` (Irodori-TTS's `instruction`), one run for each.
 
 Runtimes run as a process, speech.cpp's worker among them, are reached through speech.cpp's worker protocol
 (docs/adr/0008): JSON lines, a request per line, the speech streamed back in base64 16-bit chunks. Irodori-TTS
@@ -205,6 +204,28 @@ node src/cli.ts reference --name bright-young-woman-30s --seconds 30 ~/speech-be
 node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-16steps --reference bright-young-woman-30s --seeds 1
 ```
 
+### Making a voice
+
+A voice for a model without built-in voices is made from its recipe in `prompts/voices-<locale>.json`: an id, a
+description in words, lines it would say in character, and, once chosen, the reference it speaks like with that
+reference's sha256. `voice` takes a recipe through four steps, and every run it makes joins the campaign
+`voice-<id>`:
+
+```sh
+node src/cli.ts voice gather soft-young-woman --locale ja-JP        # its lines with seeds 1 to 5, described in words
+node src/cli.ts voice candidates soft-young-woman --locale ja-JP    # three references of 10 s from takes 0.8 alike
+node src/cli.ts voice try soft-young-woman --locale ja-JP           # the measured sentences like each, in speech.cpp
+node src/cli.ts voices --campaign voice-soft-young-woman            # the page to hear and compare them
+node src/cli.ts voice choose soft-young-woman soft-young-woman-candidate-1 --locale ja-JP
+```
+
+`gather` has Irodori-TTS v4 Small in audio.cpp, the model that takes a description, say the lines; `candidates`
+makes the references from those takes as `--candidates` does below, and never writes over candidates already
+made, since runs name them; `try` has Irodori-TTS v4.1 Small MF in speech.cpp speak the sentences of
+`prompts/speak-<locale>.json` like each candidate with seeds 1 and 2; `choose` copies the candidate to
+`voice-<id>`, which it never replaces with other audio, and writes the choice into the recipe. `voice list`
+shows the recipes and their choices.
+
 `voices` writes a page for choosing one reference per voice. It takes the runs that spoke like a reference, groups
 them by reference and the references by the voice their takes were gathered from, and sums up each candidate over
 every sentence of every seed: how alike its takes are, how much they sound like its reference, what the
@@ -213,11 +234,6 @@ then the most alike ones, plays the references and the sentences of each candida
 are to each other, so that two voices that would sound like one person stand out. The choices are kept in the
 browser and can be copied.
 
-```sh
-node src/cli.ts reference --name soft-young-woman-candidate --seconds 10 --candidates 3 ~/speech-bench-data/runs/tts-*-soft-young-woman-seed*-speak-ja-JP-10/run.jsonl
-node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-16steps --reference soft-young-woman-candidate-1 --seeds 1,2
-node src/cli.ts voices --page women ~/speech-bench-data/runs/tts-*-ref-*-candidate-*-speak-ja-JP-20/run.jsonl
-```
 
 ## Pinned inputs
 

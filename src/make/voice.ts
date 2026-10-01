@@ -1,0 +1,71 @@
+import fs from 'node:fs'
+import { joinCampaign, readCampaign } from '../campaigns.ts'
+import { SPEAKER_MODEL, type TtsModel } from '../catalog.ts'
+import type { Prompt } from '../datasets/prompts.ts'
+import { SpeakerEmbedder } from '../engines/speaker-embedding.ts'
+import { embedGroups } from '../neighbors.ts'
+import { copyReference, loadReference, referenceNames, writeCandidates, type ReferenceManifest } from '../references.ts'
+import { parseResultFile } from '../results.ts'
+import { runFile, runIdOf } from '../runs.ts'
+import { runTts } from '../run-tts.ts'
+import { recordChoice, type Recipe } from './recipes.ts'
+
+/**
+ * Making a voice for a model without built-in ones, in four steps: gather takes of its description saying its
+ * lines with several seeds, make candidate references of takes that sound like one voice, have the model
+ * speak the measured sentences like each candidate, and record the one chosen by ear. Every run joins the
+ * voice's campaign.
+ */
+export const voiceCampaign = (id: string): string => `voice-${id}`
+export const candidateBase = (id: string): string => `${id}-candidate`
+/** The reference a chosen voice is kept under, apart from its candidates, which can be made again. */
+export const voiceReference = (id: string): string => `voice-${id}`
+
+/** Takes of the voice's description saying its lines, one run for each seed. */
+export async function gatherTakes(recipe: Recipe, locale: string, model: TtsModel, seeds: readonly number[]): Promise<string[]> {
+  if (recipe.lines.length === 0) throw new Error(`${recipe.id} has no lines to say; give it lines in character before gathering takes`)
+  const files: string[] = []
+  for (const seed of seeds) {
+    process.stderr.write(`${model.id} as ${recipe.id} with seed ${seed} saying ${recipe.lines.length} lines\n`)
+    const file = await runTts(model, locale, recipe.lines, { voice: undefined, seed, design: { id: recipe.id, instruction: recipe.description }, reference: null, durationScale: null })
+    joinCampaign(voiceCampaign(recipe.id), runIdOf(file))
+    files.push(file)
+  }
+  return files
+}
+
+/** Candidate references from the takes the voice's campaign gathered with its description. */
+export async function makeCandidates(recipe: Recipe, threshold: number, seconds: number, count: number): Promise<ReferenceManifest[]> {
+  const files = readCampaign(voiceCampaign(recipe.id)).runs.map(runFile).filter((file) => {
+    const parsed = parseResultFile(fs.readFileSync(file, 'utf8').split('\n'))
+    return parsed.run.task === 'tts' && parsed.run.design?.id === recipe.id && parsed.run.reference === null
+  })
+  if (files.length === 0) throw new Error(`${recipe.id} has no takes gathered yet; run "node src/cli.ts voice gather ${recipe.id}" first`)
+  const groups = embedGroups(files, await SpeakerEmbedder.open(SPEAKER_MODEL))
+  if (groups.length !== 1) throw new Error(`the takes of ${recipe.id} fall into ${groups.length} groups (${groups.map((group) => group.name).join('; ')}); they were made with different models or options`)
+  return writeCandidates(groups[0]!, candidateBase(recipe.id), threshold, seconds, count)
+}
+
+/** The model speaks the sentences like each candidate of the voice, one run for each seed. */
+export async function tryCandidates(recipe: Recipe, locale: string, model: TtsModel, sentences: readonly Prompt[], seeds: readonly number[]): Promise<string[]> {
+  const base = candidateBase(recipe.id)
+  const candidates = referenceNames(`${base}-`).filter((name) => /^\d+$/.test(name.slice(base.length + 1)))
+  if (candidates.length === 0) throw new Error(`${recipe.id} has no candidates yet; run "node src/cli.ts voice candidates ${recipe.id}" first`)
+  const files: string[] = []
+  for (const name of candidates) {
+    const reference = await loadReference(name)
+    for (const seed of seeds) {
+      process.stderr.write(`${model.id} like ${name} with seed ${seed} speaking ${sentences.length} sentences\n`)
+      const file = await runTts(model, locale, sentences, { voice: undefined, seed, design: null, reference, durationScale: null })
+      joinCampaign(voiceCampaign(recipe.id), runIdOf(file))
+      files.push(file)
+    }
+  }
+  return files
+}
+
+/** Keeps the chosen candidate as the voice's reference and records the choice in the recipes. */
+export async function chooseCandidate(recipe: Recipe, locale: string, candidate: string, recipesFile?: string): Promise<void> {
+  const kept = await copyReference(candidate, voiceReference(recipe.id))
+  recordChoice(locale, recipe.id, { reference: kept.name, candidate, sha256: kept.sha256 }, recipesFile)
+}
