@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countErrors, countHeardErrors, editDistance, readJapaneseNumerals, readLongVowels } from '../src/scoring.ts'
+import { countErrors, countHeardErrors, editDistance, heardAsSaid, readJapaneseNumerals, readLongVowels } from '../src/scoring.ts'
 
 describe('countErrors', () => {
   it('ignores punctuation, spaces and full-width forms in Japanese', () => {
@@ -71,5 +71,26 @@ describe('countHeardErrors', () => {
   it('counts a synthesized sentence that runs on as all wrong, and no more', () => {
     expect(countHeardErrors('あー。', 'あ'.repeat(500), 'ja-JP')).toEqual({ errors: 2, referenceLength: 2 })
     expect(countHeardErrors('はい。', 'はい、うん。', 'ja-JP')).toEqual({ errors: 2, referenceLength: 2 })
+  })
+})
+
+describe('heardAsSaid', () => {
+  it('passes a sentence heard as written in another spelling', () => {
+    expect(heardAsSaid('はい。', 'ハイ', 'ja-JP')).toBe(true)
+    expect(heardAsSaid('あー。', 'あぁ。', 'ja-JP')).toBe(true)
+    expect(heardAsSaid('あー。', 'ああ', 'ja-JP')).toBe(true)
+    expect(heardAsSaid('うんうん。', 'うん、うん。', 'ja-JP')).toBe(true)
+  })
+
+  it('fails a sentence heard shorter, longer or with words more', () => {
+    expect(heardAsSaid('あー。', 'あ。', 'ja-JP')).toBe(false)
+    expect(heardAsSaid('あー。', 'あ'.repeat(40), 'ja-JP')).toBe(false)
+    expect(heardAsSaid('うんうん。', 'うん。', 'ja-JP')).toBe(false)
+    expect(heardAsSaid('はい。', 'はい、そうよ。', 'ja-JP')).toBe(false)
+  })
+
+  it('compares other languages as scoring normalizes them', () => {
+    expect(heardAsSaid('Yes.', 'yes', 'en-US')).toBe(true)
+    expect(heardAsSaid('Yes.', 'yes yes', 'en-US')).toBe(false)
   })
 })

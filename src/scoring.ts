@@ -90,6 +90,24 @@ export function editDistance<T>(reference: readonly T[], hypothesis: readonly T[
   return previous[hypothesis.length] ?? 0
 }
 
+/** Katakana from ァ to ヶ, which spell the same sounds as hiragana. */
+const toHiragana = (text: string): string => text.replace(/[\u30a1-\u30f6]/gu, (kana) => String.fromCodePoint(kana.codePointAt(0)! - KATAKANA_OFFSET))
+const SMALL_VOWELS: Readonly<Record<string, string>> = { ぁ: 'あ', ぃ: 'い', ぅ: 'う', ぇ: 'え', ぉ: 'お' }
+
+/**
+ * Whether the recognizer heard a sentence as it was written, apart from how it spells it: besides what scoring
+ * leaves out, Japanese is compared with katakana as hiragana and small vowels as full-size ones, so that はい,
+ * ハイ, あー, ああ and あぁ pass. A length or a count heard otherwise, あ for あー or うん for うんうん, and any word
+ * more or less do not: a vowel drawn out for seconds is heard as one あ or a long run of them.
+ */
+export function heardAsSaid(text: string, transcript: string, locale: string): boolean {
+  const spelled = (written: string): string => {
+    const normalized = normalizeForScoring(written, locale)
+    return languageOf(locale) === 'ja' ? toHiragana(normalized).replace(/[ぁぃぅぇぉ]/gu, (vowel) => SMALL_VOWELS[vowel]!) : normalized
+  }
+  return spelled(text) === spelled(transcript)
+}
+
 /** The errors of one transcription and the length of its reference, so that rates can be summed over a corpus. */
 export interface ErrorCount {
   errors: number

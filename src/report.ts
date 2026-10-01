@@ -3,7 +3,7 @@ import path from 'node:path'
 import { scoredByCharacter } from './language.ts'
 import { resultsDir } from './paths.ts'
 import { isDropped, parseResultFile, type AsrRunRecord, type AudioPreparation, type HeardUtterance, type TtsRunRecord } from './results.ts'
-import { countErrors, countHeardErrors, type ErrorCount } from './scoring.ts'
+import { countErrors, countHeardErrors, heardAsSaid, type ErrorCount } from './scoring.ts'
 
 /** What one speech recognition result file adds up to. */
 export interface AsrSummary {
@@ -26,6 +26,8 @@ export interface TtsSummary {
   sentences: number
   /** What the recognizer misheard in the synthesized speech, over the whole set, each sentence counting at most all of its characters. */
   errorRate: number
+  /** The sentences the recognizer heard as they were written, apart from how it spells them. */
+  heardAsSaid: number
   medianFirstAudioSeconds: number
   p90FirstAudioSeconds: number
   /** The summed synthesis time over the summed duration of the speech. */
@@ -72,6 +74,7 @@ export function summarize(lines: readonly string[]): Summary {
     run,
     sentences: sentences.length,
     errorRate: corpusErrorRate(sentences.map((record) => countHeardErrors(record.text, record.transcript, run.set.locale))),
+    heardAsSaid: sentences.filter((record) => heardAsSaid(record.text, record.transcript, run.set.locale)).length,
     medianFirstAudioSeconds: quantile(firstAudio, 0.5),
     p90FirstAudioSeconds: quantile(firstAudio, 0.9),
     realTimeFactor: sum(sentences, (record) => record.totalSeconds) / sum(sentences, (record) => record.audioSeconds),
@@ -112,9 +115,9 @@ function asrTable(rows: readonly AsrSummary[]): string[] {
 function ttsTable(rows: readonly TtsSummary[]): string[] {
   const metric = scoredByCharacter(rows[0]!.run.set.locale) ? 'CER' : 'WER'
   return [
-    `| Model | Voice | Design or reference | Seed | GPU, system | Runtime | N | Heard ${metric} | Median first audio s | p90 first audio s | RTF | s per character | Load s |`,
-    '|---|---|---|---|---|---|---|---|---|---|---|---|---|',
-    ...rows.map((row) => `| ${[row.run.model.label, row.run.voice ?? 'none', [row.run.design?.id, row.run.reference ? `reference ${row.run.reference.name}` : null].filter(Boolean).join(' + ') || 'none', row.run.seed ?? 'random', machineOf(row), runtimeOf(row), row.sentences, percent(row.errorRate),
+    `| Model | Voice | Design or reference | Seed | GPU, system | Runtime | N | Heard ${metric} | Heard as said | Median first audio s | p90 first audio s | RTF | s per character | Load s |`,
+    '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|',
+    ...rows.map((row) => `| ${[row.run.model.label, row.run.voice ?? 'none', [row.run.design?.id, row.run.reference ? `reference ${row.run.reference.name}` : null, row.run.durationScale === null ? null : `length ×${row.run.durationScale}`].filter(Boolean).join(' + ') || 'none', row.run.seed ?? 'random', machineOf(row), runtimeOf(row), row.sentences, percent(row.errorRate), row.heardAsSaid,
       row.medianFirstAudioSeconds.toFixed(3), row.p90FirstAudioSeconds.toFixed(3), row.realTimeFactor.toFixed(3), row.secondsPerCharacter.toFixed(3),
       row.run.loadSeconds.toFixed(1)].join(' | ')} |`)
   ]
