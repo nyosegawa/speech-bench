@@ -47,7 +47,7 @@ function decode(data: Buffer, format: { code: number; channels: number; bits: nu
   return samples
 }
 
-/** A 16-bit mono WAVE file, the form ASIST sends to its speech recognition. */
+/** A 16-bit mono WAVE file, the form every runtime here reads. */
 export function encodeWav16(pcm: Pcm): Buffer {
   const data = Buffer.alloc(pcm.samples.length * 2)
   for (let index = 0; index < pcm.samples.length; index++) {
@@ -72,8 +72,8 @@ export function encodeWav16(pcm: Pcm): Buffer {
 }
 
 /**
- * The audio scaled so that its peak is 0.9, as ASIST scales an utterance before sending it to speech
- * recognition (VoiceController.normalize). Audio already that loud, or silent, is returned as it is.
+ * The audio scaled so that its peak is 0.9, so that every model hears an utterance at one level whatever
+ * it was recorded at. Audio already that loud, or silent, is returned as it is.
  */
 export function peakNormalize(pcm: Pcm): Pcm {
   let peak = 0
@@ -81,6 +81,15 @@ export function peakNormalize(pcm: Pcm): Pcm {
   if (peak < 1e-4 || peak >= 0.9) return pcm
   const gain = 0.9 / peak
   return { sampleRate: pcm.sampleRate, samples: pcm.samples.map((sample) => sample * gain) }
+}
+
+/**
+ * The stretch from `start` to `end` with `marginSeconds` of the recording before and after it, as far as the
+ * recording reaches.
+ */
+export function trimAround(pcm: Pcm, start: number, end: number, marginSeconds: number): Pcm {
+  const margin = Math.round(marginSeconds * pcm.sampleRate)
+  return { sampleRate: pcm.sampleRate, samples: pcm.samples.slice(Math.max(0, start - margin), Math.min(pcm.samples.length, end + margin)) }
 }
 
 /** The audio with this many seconds of silence after it, like the margin a VAD leaves behind an utterance. */

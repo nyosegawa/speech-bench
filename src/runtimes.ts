@@ -17,7 +17,7 @@ export interface RuntimeSpec {
   assets: Record<PlatformKey, RuntimeAsset>
 }
 
-/** The llama.cpp release ASIST ships (scripts/resources/llama-cpp.mjs), so the baseline is the one users run. */
+/** The llama.cpp release Qwen3-ASR is measured in. */
 export const LLAMA_CPP: RuntimeSpec = {
   id: 'llama.cpp',
   version: 'b11246',
@@ -36,8 +36,7 @@ export const LLAMA_CPP: RuntimeSpec = {
 }
 
 /**
- * CrispASR's prebuilt binaries: Metal on the Mac, Vulkan on Windows. The macOS build requires macOS 26,
- * which is enough for measuring on a development Mac but not for shipping in ASIST.
+ * CrispASR's prebuilt binaries: Metal on the Mac, Vulkan on Windows. The macOS build requires macOS 26.
  */
 export const CRISPASR: RuntimeSpec = {
   id: 'crispasr',
@@ -56,7 +55,7 @@ export const CRISPASR: RuntimeSpec = {
   }
 }
 
-/** The Qwen3-TTS worker ASIST ships (scripts/resources/qwen3-tts.mjs), with the protocol ASIST speaks to it. */
+/** qwen3-tts-ggml's Qwen3-TTS worker, the release before the project became speech.cpp. */
 export const QWEN3_TTS_GGML: RuntimeSpec = {
   id: 'qwen3-tts-ggml',
   version: 'v0.1.1',

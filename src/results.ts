@@ -4,15 +4,17 @@ import type { MachineInfo } from './platform.ts'
  * The version of the form of a result file, written in its run line. Raising it needs an upgrade in
  * `upgradeRun` and a sample of the new version in tests/fixtures.
  */
-export const RESULT_FORMAT = 10
+export const RESULT_FORMAT = 11
 
 /**
- * How the audio of each utterance is prepared before it is sent to speech recognition: as ASIST prepares
- * a capture, or as recorded with silence added after it.
+ * How the audio of each utterance is prepared before it is sent to speech recognition: trimmed to the voice
+ * a VAD finds with a margin of the recording around it, or as recorded with silence added after it. Runs of
+ * formats 2 to 10 were cut the way ASIST's energy VAD cuts a capture, keeping a hangover after it.
  */
 export type AudioPreparation =
-  | { edges: 'asist'; hangoverMs: number }
+  | { edges: 'voice'; detector: string; marginSeconds: number }
   | { edges: 'as-recorded'; trailingSilence: number }
+  | { edges: 'asist'; hangoverMs: number }
 
 /** The pinned files a run used, so that a result names exactly what it measured. */
 export interface ModelRecord {
@@ -53,12 +55,15 @@ export interface HeardUtterance {
   seconds: number
 }
 
-/** An utterance ASIST's VAD keeps nothing of, so that ASIST never sends it and no model hears it. */
+/**
+ * An utterance no model heard: one in which the VAD found no voice, or, in runs of formats 5 to 10, one
+ * ASIST's energy VAD kept nothing of.
+ */
 export interface DroppedUtterance {
   type: 'utterance'
   id: string
   reference: string
-  droppedBy: 'asist-vad'
+  droppedBy: 'no-voice' | 'asist-vad'
 }
 
 /** One line per utterance after an ASR run line. */
@@ -107,7 +112,8 @@ export type RunRecord = AsrRunRecord | TtsRunRecord
  * 4 had no dropped utterances, since a run stopped at an utterance ASIST's VAD dropped; formats 3 to 5 set no
  * seed for speech synthesis, so the runtime chose one for each sentence; formats 3 to 6 described no voice;
  * formats 1 to 7 loaded every runtime with its defaults, which on Metal ran Irodori-TTS's codec on the GPU;
- * formats 3 to 8 had no reference voice; formats 3 to 9 left the length of the speech as the model predicted it.
+ * formats 3 to 8 had no reference voice; formats 3 to 9 left the length of the speech as the model predicted it;
+ * formats 2 to 10 knew no other preparation than ASIST's and as recorded.
  */
 export function upgradeRun(raw: Record<string, unknown>): RunRecord {
   let run = raw
@@ -123,6 +129,7 @@ export function upgradeRun(raw: Record<string, unknown>): RunRecord {
   if (run.format === 7) run = { ...run, format: 8, runtime: { ...(run.runtime as Record<string, unknown>), options: {} } }
   if (run.format === 8) run = { ...run, format: 9, ...(run.task === 'tts' ? { reference: null } : {}) }
   if (run.format === 9) run = { ...run, format: 10, ...(run.task === 'tts' ? { durationScale: null } : {}) }
+  if (run.format === 10) run = { ...run, format: 11 }
   if (run.format !== RESULT_FORMAT) throw new Error(`result format ${String(run.format)} is not known; this version reads formats 1 to ${RESULT_FORMAT}`)
   return run as unknown as RunRecord
 }

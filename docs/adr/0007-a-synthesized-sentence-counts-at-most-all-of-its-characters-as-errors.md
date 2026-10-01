@@ -13,7 +13,8 @@ which made 46.6% of the voice's 1,206 characters over two seeds. With the cap th
 ## Rejected
 
 - **Capping speech recognition too.** It would part the bench's rates from the public benchmarks it is read
-  against, and a recognizer that writes far more than was said hands all of it to ASIST's conversation model.
+  against, and a recognizer that writes far more than was said hands all of it to whatever reads the
+  transcription.
 - **The median of the sentences' rates.** It hides a few broken sentences among good ones, and weighs a
   two-character aizuchi as much as a long sentence.
 - **Leaving broken takes out of the rate.** Their count shows that they broke, but not how much of the rest

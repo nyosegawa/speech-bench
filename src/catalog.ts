@@ -32,7 +32,7 @@ const model = (repo: string, revision: string, file: string, bytes: number, sha2
 const QWEN3_ASR_1_7B = ['ggml-org/Qwen3-ASR-1.7B-GGUF', '36a678687ba7d07a74ca70ccb0e36902e005fb80'] as const
 const QWEN3_ASR_0_6B = ['ggml-org/Qwen3-ASR-0.6B-GGUF', '928ab958557df9aa2ef1c93e0e83c7ad0933fae2'] as const
 
-/** The files are the ones ASIST pins in src/shared/asr-models.ts, so the baseline is what ASIST runs. */
+/** Qwen3-ASR as ggml-org converts it for llama-server, and the CrispASR conversions of the NeMo models. */
 export const ASR_MODELS: readonly AsrModel[] = [
   {
     id: 'qwen3-asr-1.7b',
@@ -111,7 +111,7 @@ export interface TtsVoice {
 }
 
 /**
- * Where a synthesis model runs: the Qwen3-TTS worker ASIST ships, told the language by the model's own
+ * Where a synthesis model runs: the Qwen3-TTS worker of qwen3-tts-ggml, told the language by the model's own
  * name for it, or audio.cpp's server with the family it loads as, the options it is loaded with on each GPU
  * interface, the request options every sentence is sent with, and whether it takes a voice described in
  * words (`instruction`) and a reference voice to speak like.
@@ -238,8 +238,8 @@ export function ttsVoiceFor(model: TtsModel, locale: string, requested: string |
   return native.id
 }
 
-/** A model that turns an utterance into a speaker embedding, to tell whether two utterances are one voice. */
-export interface SpeakerModel {
+/** A small ONNX model run in this process through sherpa-onnx. */
+export interface OnnxModel {
   id: string
   label: string
   file: PinnedFile
@@ -254,9 +254,20 @@ export interface SpeakerModel {
  * apart as well but rated Irodori-TTS's changing voice 0.65 alike against ono_anna's 0.73, so it is not used
  * for synthesized speech.
  */
-export const SPEAKER_MODEL: SpeakerModel = {
+export const SPEAKER_MODEL: OnnxModel = {
   id: 'eres2netv2',
   label: '3D-Speaker ERes2NetV2',
   file: model('csukuangfj/speaker-embedding-models', '0743f301363dec56491a490f6d6cbc9d67f9a3bf', '3dspeaker_speech_eres2netv2_sv_zh-cn_16k-common.onnx', 71_441_526, 'bf1a75b9930474cf3389ef415e6e5d38ca96fea4a3a00f7e301d080a58ee2239'),
   license: 'Apache-2.0'
+}
+
+/**
+ * Silero VAD v4 as sherpa-onnx packages it, which finds where the voice of an utterance begins and ends so
+ * that every model hears the same stretch of it.
+ */
+export const VAD_MODEL: OnnxModel = {
+  id: 'silero-vad-v4',
+  label: 'Silero VAD v4',
+  file: model('csukuangfj/vad', 'fba88cd2e921609e7675c3aaf51e0b9b295da4bc', 'silero_vad.onnx', 1_807_522, 'a35ebf52fd3ce5f1469b2a36158dba761bc47b973ea3382b3186ca15b1f5af28'),
+  license: 'MIT'
 }

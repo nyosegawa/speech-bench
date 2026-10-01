@@ -2,9 +2,12 @@
 
 ## Project
 
-speech-bench measures local speech models (speech recognition and speech synthesis) for ASIST,
-under the conditions ASIST runs them in, on macOS arm64 with Metal and Windows x64 with Vulkan. It is a
-TypeScript command-line tool on Node 22.18 or later, tested with Vitest. README.md is the documentation
+speech-bench measures local speech models (speech recognition and speech synthesis) under one set of
+conditions, across the runtimes they run in and the machines they run on (macOS arm64 with Metal, Windows x64
+with Vulkan), so that speech.cpp takes up a model on numbers and a port can be checked against the model it
+came from. It also makes voices for models without built-in ones. It serves no one application: an
+application's own conditions, such as its VAD, stay out of it. It is a TypeScript command-line tool on Node
+22.18 or later, tested with Vitest. README.md is the documentation
 for users; `docs/adr/` keeps the decisions. Read the relevant implementation and tests before changing
 behavior.
 
@@ -16,11 +19,10 @@ behavior.
 - `src/runtimes.ts` pins the releases of the runtimes; `src/store.ts` and `src/download.ts` fetch and
   verify pinned files.
 - `src/engines/` holds one engine per runtime. An engine starts its process, transcribes an utterance or
-  speaks a sentence, and stops; it knows nothing about datasets or scoring.
+  speaks a sentence, and stops; it knows nothing about datasets or scoring. The models run in this process
+  through sherpa-onnx (speaker embeddings, Silero VAD) are engines too.
 - `src/datasets/` turns a source (FLEURS, the user's recordings, the prompt lists) into utterances with
   references or sentences to speak. `src/record/` serves the recording page.
-- `src/asist-input/` records, in a session with the running ASIST, what ASIST's VAD receives, and reports on
-  those sessions; `src/vad.ts` replays ASIST's VAD on recorded frames and cuts recordings like ASIST.
 - `src/scoring.ts` compares texts; `src/run-asr.ts` and `src/run-tts.ts` run a model over a set and write
   the result file; `src/results.ts` owns the form of result files and their upgrades; `src/report.ts`
   reads result files and summarizes them.

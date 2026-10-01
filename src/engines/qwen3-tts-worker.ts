@@ -12,7 +12,7 @@ const PROTOCOL_PREFIX = 'ASIST_JSON:'
 
 /**
  * Loading the model and compiling GPU kernels comes before `ready`. After a GPU driver update the Vulkan
- * shaders took 12.6 s to compile on an RTX 2080 (ASIST, 2026-09-29).
+ * shaders took 12.6 s to compile on an RTX 2080 (2026-09-29).
  */
 const READY_TIMEOUT_MS = 180_000
 
@@ -42,9 +42,8 @@ interface Pending {
 }
 
 /**
- * Qwen3-TTS in the worker ASIST runs (src/main/services/qwen-tts.ts), spoken to over the same JSON lines:
- * a request per line on stdin, and on stdout `ready`, then `chunk` messages with audio while the sentence
- * is generated and `end` when it is done.
+ * Qwen3-TTS in qwen3-tts-ggml's worker, spoken to over JSON lines: a request per line on stdin, and on
+ * stdout `ready`, then `chunk` messages with audio while the sentence is generated and `end` when it is done.
  */
 export class Qwen3TtsWorker implements TtsEngine {
   private child: ChildProcessWithoutNullStreams | null = null
