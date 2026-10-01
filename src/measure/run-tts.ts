@@ -1,6 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { asrModel, modelCovers, ttsVoiceFor, type TtsModel } from '../catalog/models.ts'
+import { asrModel, modelCovers, SPEAKER_MODEL, ttsVoiceFor, type TtsModel } from '../catalog/models.ts'
+import { analyzeRun } from '../analysis/run-analysis.ts'
+import { SpeakerEmbedder } from '../engines/speaker-embedding.ts'
 import type { VoiceDesign } from '../make/recipes.ts'
 import type { Prompt } from '../datasets/prompts.ts'
 import type { ReferenceVoice } from '../make/references.ts'
@@ -163,5 +165,8 @@ export async function runTts(model: TtsModel, locale: string, sentences: readonl
   }
   const file = runFile(stem)
   fs.writeFileSync(file, [run, ...records].map((record) => JSON.stringify(record)).join('\n') + '\n')
+  // Analyzed now, a run's speech is never analyzed while someone waits for a page.
+  process.stderr.write(`  analyzing the speech with ${SPEAKER_MODEL.id}\n`)
+  analyzeRun(file, await SpeakerEmbedder.open(SPEAKER_MODEL))
   return file
 }

@@ -72,8 +72,10 @@ folder `SPEECH_BENCH_DATA` names.
 ```
 
 `run.jsonl` holds what was measured, one JSON line for the run and one per utterance or sentence.
-`analysis.json` holds what is read from the speech (its voice, pitch and speaker embedding), kept so that a
-page does not read the speech again, and made again when the speaker model changes. `--campaign name` on `asr`
+`analysis.json` holds what is read from the speech (its voice, pitch and speaker embedding). A synthesis run makes it
+as it ends, so that a page does not read the speech again, and it is made again when the speaker model changes.
+`node src/cli.ts analyze` makes it for the runs made before, which a page would otherwise analyze while it loads
+(640 takes took 225 s on an Apple M5). `--campaign name` on `asr`
 or `tts` adds the run to an experiment, which `report` and `neighbors` then take with
 `--campaign name` and the web app's runs page filters by. Data of the earlier layout, a result file in `results/` with its speech in a folder beside
 it, is moved into `runs/` by `node src/cli.ts migrate`.

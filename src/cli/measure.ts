@@ -1,5 +1,8 @@
 import { parseArgs } from 'node:util'
-import { ASR_MODELS, asrModel, TTS_MODELS, ttsModel } from '../catalog/models.ts'
+import fs from 'node:fs'
+import { ASR_MODELS, asrModel, SPEAKER_MODEL, TTS_MODELS, ttsModel } from '../catalog/models.ts'
+import { analyzeRun } from '../analysis/run-analysis.ts'
+import { SpeakerEmbedder } from '../engines/speaker-embedding.ts'
 import { fleursLocales, fleursTestSet } from '../datasets/fleurs.ts'
 import type { UtteranceSet } from '../datasets/item.ts'
 import { recordingSet } from '../datasets/recordings.ts'
@@ -10,7 +13,7 @@ import { joinCampaign, readCampaign } from '../measure/campaigns.ts'
 import { allRunFiles, runFile, runIdOf } from '../measure/runs.ts'
 import { loadReference } from '../make/references.ts'
 import { formatReport, readSummaries } from '../measure/report.ts'
-import type { NewPreparation } from '../measure/results.ts'
+import { parseResultFile, type NewPreparation } from '../measure/results.ts'
 import { runAsr, TRIM_TO_VOICE } from '../measure/run-asr.ts'
 import { runTts } from '../measure/run-tts.ts'
 
@@ -41,6 +44,18 @@ export function runFilesOf(named: readonly string[], campaign: string | undefine
   if (campaign === undefined) return named.length > 0 ? [...named] : allRunFiles()
   if (named.length > 0) throw new Error('name runs or a campaign, not both')
   return readCampaign(campaign).runs.map(runFile)
+}
+
+/** Analyzes the speech of synthesis runs made before a run was analyzed as it ended, or made again after a change. */
+export async function analyze(args: string[]): Promise<void> {
+  const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { campaign: { type: 'string' } } })
+  const files = runFilesOf(positionals, values.campaign).filter((file) => parseResultFile(fs.readFileSync(file, 'utf8').split('\n')).run.task === 'tts')
+  const embedder = await SpeakerEmbedder.open(SPEAKER_MODEL)
+  files.forEach((file, index) => {
+    process.stderr.write(`${index + 1}/${files.length} ${runIdOf(file)}\n`)
+    analyzeRun(file, embedder)
+  })
+  console.log(`analyzed ${files.length} synthesis run${files.length === 1 ? '' : 's'}`)
 }
 
 export async function asr(args: string[]): Promise<void> {
