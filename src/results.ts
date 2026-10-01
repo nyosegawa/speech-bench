@@ -4,7 +4,7 @@ import type { MachineInfo } from './platform.ts'
  * The version of the form of a result file, written in its run line. Raising it needs an upgrade in
  * `upgradeRun` and a sample of the new version in tests/fixtures.
  */
-export const RESULT_FORMAT = 9
+export const RESULT_FORMAT = 10
 
 /**
  * How the audio of each utterance is prepared before it is sent to speech recognition: as ASIST prepares
@@ -77,6 +77,8 @@ export interface TtsRunRecord extends RunCommon {
   design: { id: string; instruction: string } | null
   /** The reference voice the model spoke like, by name and the sha256 of its WAVE file, or null. */
   reference: { name: string; sha256: string; seconds: number } | null
+  /** What the length the model predicted for each sentence was multiplied by, or null when it was left as predicted. */
+  durationScale: number | null
   /** The speech recognition model the synthesized audio is transcribed with, to count what it misread. */
   recognizer: { id: string; label: string }
 }
@@ -105,7 +107,7 @@ export type RunRecord = AsrRunRecord | TtsRunRecord
  * 4 had no dropped utterances, since a run stopped at an utterance ASIST's VAD dropped; formats 3 to 5 set no
  * seed for speech synthesis, so the runtime chose one for each sentence; formats 3 to 6 described no voice;
  * formats 1 to 7 loaded every runtime with its defaults, which on Metal ran Irodori-TTS's codec on the GPU;
- * formats 3 to 8 had no reference voice.
+ * formats 3 to 8 had no reference voice; formats 3 to 9 left the length of the speech as the model predicted it.
  */
 export function upgradeRun(raw: Record<string, unknown>): RunRecord {
   let run = raw
@@ -120,6 +122,7 @@ export function upgradeRun(raw: Record<string, unknown>): RunRecord {
   if (run.format === 6) run = { ...run, format: 7, ...(run.task === 'tts' ? { design: null } : {}) }
   if (run.format === 7) run = { ...run, format: 8, runtime: { ...(run.runtime as Record<string, unknown>), options: {} } }
   if (run.format === 8) run = { ...run, format: 9, ...(run.task === 'tts' ? { reference: null } : {}) }
+  if (run.format === 9) run = { ...run, format: 10, ...(run.task === 'tts' ? { durationScale: null } : {}) }
   if (run.format !== RESULT_FORMAT) throw new Error(`result format ${String(run.format)} is not known; this version reads formats 1 to ${RESULT_FORMAT}`)
   return run as unknown as RunRecord
 }

@@ -12,7 +12,7 @@ const PAGE = path.join(import.meta.dirname, 'neighbors-page.html')
  * voice or description, loaded the same way on the same GPU. Seeds and sentences vary within a group.
  */
 export function voiceGroup(run: TtsRunRecord): { key: string; name: string; detail: string } {
-  const voice = [run.design?.id ?? run.voice, run.reference ? `reference ${run.reference.name}` : null].filter(Boolean).join(' + ') || 'no voice'
+  const voice = [run.design?.id ?? run.voice, run.reference ? `reference ${run.reference.name}` : null, run.durationScale === null ? null : `length ×${run.durationScale}`].filter(Boolean).join(' + ') || 'no voice'
   const options = Object.entries(run.runtime.options).map(([name, value]) => `${name}=${value}`).join(', ')
   const gpu = run.machine.gpus.join(' + ')
   return {

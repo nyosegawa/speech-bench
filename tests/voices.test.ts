@@ -9,10 +9,10 @@ const results = path.join(path.sep, 'data', 'results')
 const page = path.join(results, 'voices-voices.html')
 
 /** A run that spoke like `reference`, one sentence per embedding, heard as said unless `misheard` names one. */
-function run(reference: string, seed: number, embeddings: number[][], options: { set?: string; misheard?: number } = {}): ListenedRun {
+function run(reference: string, seed: number, embeddings: number[][], options: { set?: string; misheard?: number; durationScale?: number } = {}): ListenedRun {
   const record = {
     type: 'run', format: 9, task: 'tts', startedAt: '2026-10-01T00:00:00Z', set: { name: options.set ?? 'speak-ja-JP-20', locale: 'ja-JP', size: embeddings.length },
-    voice: null, seed, design: null, reference: { name: reference, sha256: '0', seconds: 10 },
+    voice: null, seed, design: null, reference: { name: reference, sha256: '0', seconds: 10 }, durationScale: options.durationScale ?? null,
     model: { id: 'irodori', label: 'Irodori', license: 'MIT', files: [] }, machine: { hostname: 'pc', gpus: ['RTX 2080'] }, runtime: { id: 'audio.cpp', version: 'v1', options: {} }
   } as unknown as TtsRunRecord
   const sentences: SentenceRecord[] = embeddings.map((_, index) => ({
@@ -61,6 +61,10 @@ describe('voicesData', () => {
     const [b1] = data.voices[1]!.candidates
     expect(data.similarity[a1!]![b1!]).toBeCloseTo(0.5, 5)
     expect(data.similarity[b1!]![b1!]).toBeCloseTo(0, 5)
+  })
+
+  it('stops when the runs of one reference had their lengths scaled differently', () => {
+    expect(() => voicesData([run('a-1', 1, [[1, 0]]), run('a-1', 2, [[1, 0]], { durationScale: 0.5 })], reference, page, 'voices')).toThrow(/scaled differently/)
   })
 
   it('stops when the runs spoke different sets of sentences', () => {

@@ -204,7 +204,9 @@ manifest of its takes. `--candidates n` makes up to n references of the length i
 than the largest set, which can be too small for more than one: groups in which every pair holds and no sentence
 is said twice, no take in two, the most alike first. `--takes sentence@seed,...` makes one from takes named by
 hand. `tts --reference name` then has the model speak like it; the listening page shows how much each run sounds
-like the reference it spoke like, or like the one `listen --reference name` names.
+like the reference it spoke like, or like the one `listen --reference name` names. `tts --duration-scale 0.5`
+multiplies the length Irodori-TTS predicts for each sentence, which it otherwise leaves as predicted; the factor is
+kept in the result file and tells runs apart on the listening page.
 
 ```sh
 node src/cli.ts reference --name bright-young-woman-30s --seconds 30 ~/speech-bench-data/results/tts-*-young-woman-words-*-speak-ja-JP-60.jsonl
