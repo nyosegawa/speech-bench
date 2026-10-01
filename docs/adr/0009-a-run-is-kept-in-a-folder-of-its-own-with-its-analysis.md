@@ -3,8 +3,9 @@
 Every run is kept in `runs/<run>/` of the data folder: its result file `run.jsonl`, for synthesis the WAVE file
 of each sentence beside it, and `analysis.json`, what was read from that speech (the voice in each take, its
 median pitch and its speaker embedding). The result file is what was measured; the analysis is made from it
-and the speech, kept so that it is not made again, and made again when the speaker model or the analysis
-changes. A campaign, `campaigns/<name>.json`, names the runs of one experiment, which a run joins when it is
+and the speech as the run ends, kept so that it is not made again, and made again when the speaker model or the
+analysis changes. Made when a page first asked for it, the analysis kept the page waiting: the chosen voices of
+2026-10-01, 640 takes, took 225 s on an Apple M5, against about 6 s for a run of 20 sentences at its end. A campaign, `campaigns/<name>.json`, names the runs of one experiment, which a run joins when it is
 made with `--campaign`.
 
 The earlier layout kept 1,269 files side by side in `results/`, a result file next to a folder of speech
