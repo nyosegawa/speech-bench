@@ -34,10 +34,10 @@ function Steps({ detail }: { detail: VoiceDetail }) {
   const { recipe, locale } = detail
   const tried = detail.trySets.reduce((sum, set) => sum + set.runs, 0)
   const steps = [
-    { title: 'Gather takes', done: `${detail.gathered} runs of its description saying its lines`, command: `node src/cli.ts voice gather ${recipe.id} --locale ${locale}` },
-    { title: 'Make candidates', done: `${detail.candidates.length} candidate references`, command: `node src/cli.ts voice candidates ${recipe.id} --locale ${locale}` },
-    { title: 'Try them', done: `${tried} runs that spoke like a candidate`, command: `node src/cli.ts voice try ${recipe.id} --locale ${locale}` },
-    { title: 'Choose', done: recipe.chosen ? `chose ${recipe.chosen.candidate}, kept as ${recipe.chosen.reference}` : 'not chosen yet; choose below', command: null }
+    { title: 'Gather takes', done: `${detail.gathered.length} runs of its description saying its lines`, command: `node src/cli.ts voice gather ${recipe.id} --locale ${locale}`, link: detail.gathered.length > 0 ? { to: `/neighbors?runs=${detail.gathered.join(',')}`, label: 'How alike the takes are' } : null },
+    { title: 'Make candidates', done: `${detail.candidates.length} candidate references`, command: `node src/cli.ts voice candidates ${recipe.id} --locale ${locale}`, link: null },
+    { title: 'Try them', done: `${tried} runs that spoke like a candidate`, command: `node src/cli.ts voice try ${recipe.id} --locale ${locale}`, link: null },
+    { title: 'Choose', done: recipe.chosen ? `chose ${recipe.chosen.candidate}, kept as ${recipe.chosen.reference}` : 'not chosen yet; choose below', command: null, link: null }
   ]
   return (
     <Card>
@@ -46,7 +46,7 @@ function Steps({ detail }: { detail: VoiceDetail }) {
         {steps.map((step, index) => (
           <div key={step.title} className="space-y-1.5 rounded-lg border p-3">
             <div className="text-sm font-medium">{index + 1}. {step.title}</div>
-            <div className="text-xs text-muted-foreground">{step.done}</div>
+            <div className="text-xs text-muted-foreground">{step.done}{step.link && <> · <Link className="underline underline-offset-2 hover:text-foreground" to={step.link.to}>{step.link.label}</Link></>}</div>
             {step.command && <CopyCommand command={step.command} />}
           </div>
         ))}

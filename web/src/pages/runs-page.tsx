@@ -1,4 +1,4 @@
-import { Headphones, Search, X } from 'lucide-react'
+import { Grid3x3, Headphones, Search, X } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { compareValues, SortHeader, type Sort } from '@/components/sort-header.tsx'
@@ -177,6 +177,7 @@ export function RunsPage() {
           {chosenSets.size > 1 && <span className="text-sm text-destructive">Choose runs of one set: these spoke {[...chosenSets].join(', ')}.</span>}
           <div className="ml-auto flex gap-2">
             <Button variant="ghost" size="sm" disabled={chosen.length === 0} onClick={() => setSelected(new Set())}><X />Clear</Button>
+            <Button variant="outline" size="sm" disabled={chosen.length === 0} onClick={() => navigate(`/neighbors?runs=${chosen.map((row) => row.id).join(',')}`)}><Grid3x3 />Neighbors</Button>
             <Button size="sm" disabled={chosen.length === 0 || chosenSets.size > 1} onClick={() => navigate(`/listen?runs=${chosen.map((row) => row.id).join(',')}`)}><Headphones />Listen</Button>
           </div>
         </div>

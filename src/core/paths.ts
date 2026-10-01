@@ -20,7 +20,6 @@ export const runsDir = (): string => path.join(dataDir(), 'runs')
 /** Named groups of runs, one experiment each. */
 export const campaignsDir = (): string => path.join(dataDir(), 'campaigns')
 /** The pages the listen, neighbors and voices commands write. */
-export const pagesDir = (): string => path.join(dataDir(), 'pages')
 /** Reference voices made from sets of synthesized takes, a WAVE file and its manifest each. */
 export const referencesDir = (): string => path.join(dataDir(), 'references')
 /** Irodori-TTS voice files made from reference voices, kept by the reference and the codec they encode. */

@@ -19,6 +19,7 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <RunsPage /> },
       { path: 'listen', lazy: async () => ({ Component: (await import('@/pages/listen/listen-page.tsx')).ListenPage }) },
+      { path: 'neighbors', lazy: async () => ({ Component: (await import('@/pages/neighbors/neighbors-page.tsx')).NeighborsPage }) },
       { path: 'voices', lazy: async () => ({ Component: (await import('@/pages/voices/voices-page.tsx')).VoicesPage }) },
       { path: 'voices/:id', lazy: async () => ({ Component: (await import('@/pages/voices/voice-page.tsx')).VoicePage }) }
     ]

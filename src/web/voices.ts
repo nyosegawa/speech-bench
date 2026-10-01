@@ -4,6 +4,7 @@ import { loadRecipes, recipeOf, type Choice } from '../make/recipes.ts'
 import { referenceFile, referenceManifest } from '../make/references.ts'
 import { candidatesOf, chooseCandidate, voiceRuns } from '../make/voice.ts'
 import { parseResultFile, type TtsRunRecord } from '../measure/results.ts'
+import { runIdOf } from '../measure/runs.ts'
 import { latestRuns, readTtsRuns, type UrlOf } from '../pages/listen.ts'
 import { voicesData } from '../pages/voices.ts'
 import type { ChosenVoices, TrySet, VoiceDetail, VoiceRow } from './api.ts'
@@ -54,7 +55,7 @@ export function voiceDetail(locale: string, id: string, setKey: string | null, e
   return {
     locale,
     recipe,
-    gathered: runs.gathered.length,
+    gathered: runs.gathered.map(runIdOf),
     candidates: candidatesOf(id).map((name) => {
       const manifest = referenceManifest(name)
       return { name, url: urlOf(referenceFile(name)), seconds: manifest.seconds, takes: manifest.takes.length, meanSimilarity: manifest.meanSimilarity, weakestPair: manifest.weakestPair }

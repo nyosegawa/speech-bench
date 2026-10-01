@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import http from 'node:http'
 import type { AddressInfo } from 'node:net'
 import path from 'node:path'
+import { embedGroups, neighborGroups } from '../analysis/neighbors.ts'
 import { SPEAKER_MODEL } from '../catalog/models.ts'
 import { dataDir } from '../core/paths.ts'
 import { readWav } from '../core/wav.ts'
@@ -12,7 +13,7 @@ import { listCampaigns } from '../measure/campaigns.ts'
 import { summarize } from '../measure/report.ts'
 import { allRunFiles, runFile, runIdOf } from '../measure/runs.ts'
 import { listeningData, readTtsRuns, type UrlOf } from '../pages/listen.ts'
-import type { ApiError, CampaignRow, ChooseAnswer, ChosenVoices, ListenData, RunRow, VoiceDetail, VoiceRow } from './api.ts'
+import type { ApiError, CampaignRow, ChooseAnswer, ChosenVoices, ListenData, NeighborsData, RunRow, VoiceDetail, VoiceRow } from './api.ts'
 import { choose, chosenVoices, voiceDetail, voiceRows } from './voices.ts'
 
 /** The built web app, which `npm run web:build` writes. */
@@ -64,6 +65,16 @@ const localeOf = (url: URL): string => {
   return locale
 }
 
+/** The result files of the runs a request names with runs=a,b, all of which must exist. */
+function namedRuns(url: URL): string[] {
+  const ids = (url.searchParams.get('runs') ?? '').split(',').filter(Boolean)
+  if (ids.length === 0) throw new RequestError('name the runs with runs=a,b')
+  const files = ids.map(runFile)
+  const missing = files.filter((file) => !fs.existsSync(file))
+  if (missing.length > 0) throw new RequestError(`there are no runs ${missing.map(runIdOf).join(', ')}`)
+  return files
+}
+
 function runRows(): RunRow[] {
   const campaignsOf = new Map<string, string[]>()
   for (const campaign of listCampaigns()) for (const run of campaign.runs) campaignsOf.set(run, [...(campaignsOf.get(run) ?? []), campaign.name])
@@ -85,11 +96,7 @@ export async function startWebServer(port: number): Promise<{ url: string; close
   }
 
   async function listen(url: URL): Promise<ListenData> {
-    const ids = (url.searchParams.get('runs') ?? '').split(',').filter(Boolean)
-    if (ids.length === 0) throw new RequestError('name the runs to listen to with runs=a,b')
-    const files = ids.map(runFile)
-    const missing = files.filter((file) => !fs.existsSync(file))
-    if (missing.length > 0) throw new RequestError(`there are no runs ${missing.map(runIdOf).join(', ')}`)
+    const files = namedRuns(url)
     const shared = await speakerEmbedder()
     const reference = url.searchParams.get('reference')
     const embeddingOf = referenceEmbedding(shared)
@@ -128,6 +135,11 @@ export async function startWebServer(port: number): Promise<{ url: string; close
       if (request.method === 'GET' && url.pathname === '/api/runs') return json(response, 200, runRows())
       if (request.method === 'GET' && url.pathname === '/api/campaigns') return json(response, 200, listCampaigns() satisfies CampaignRow[])
       if (request.method === 'GET' && url.pathname === '/api/listen') return json(response, 200, await listen(url))
+      if (request.method === 'GET' && url.pathname === '/api/neighbors') {
+        const groups = neighborGroups(embedGroups(namedRuns(url), await speakerEmbedder()), audioUrl)
+        if (groups.length === 0) throw new RequestError('the runs hold no voice with two or more takes long enough to compare')
+        return json(response, 200, groups satisfies NeighborsData)
+      }
       if (request.method === 'GET' && url.pathname === '/api/references') return json(response, 200, referenceNames(''))
       if (request.method === 'GET' && url.pathname === '/api/voice-locales') return json(response, 200, recipeLocales())
       if (request.method === 'GET' && url.pathname === '/api/voices') return json(response, 200, voiceRows(localeOf(url)) satisfies VoiceRow[])

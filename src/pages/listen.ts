@@ -1,5 +1,4 @@
 import fs from 'node:fs'
-import path from 'node:path'
 import { analyzeRun } from '../analysis/run-analysis.ts'
 import type { SpeakerEmbedder } from '../engines/speaker-embedding.ts'
 import { semitoneSpread } from '../analysis/pitch.ts'
@@ -27,9 +26,6 @@ export interface ListenedRun {
 
 /** The link a page plays an audio file by, which a page written to disk makes relative and the web server makes a route. */
 export type UrlOf = (file: string) => string
-
-/** Links relative to the folder of a page written at `page`, so that it opens from the file system. */
-export const relativeTo = (page: string): UrlOf => (file) => path.relative(path.dirname(page), file).split(path.sep).map(encodeURIComponent).join('/')
 
 /** The characters the recognizer heard wrong in the sentences, each at most all of its own, as a share of the characters they have. */
 export function heardErrorRate(records: readonly SentenceRecord[], locale: string): number {
