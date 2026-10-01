@@ -33,6 +33,16 @@ const manifestOf = (folder: RecordingFolder): string => path.join(folderOf(folde
 /** The WAV file of a recording. */
 export const recordingFile = (folder: RecordingFolder, entry: RecordingEntry): string => path.join(folderOf(folder), entry.audio)
 
+/** Every speaker with recordings, by locale, in the order of their folders' names. */
+export function recordedSpeakers(): RecordingFolder[] {
+  if (!fs.existsSync(recordingsDir())) return []
+  return fs.readdirSync(recordingsDir()).sort().flatMap((locale) => {
+    const folder = path.join(recordingsDir(), locale)
+    if (!fs.statSync(folder).isDirectory()) return []
+    return fs.readdirSync(folder).sort().filter((speaker) => fs.existsSync(path.join(folder, speaker, 'manifest.jsonl'))).map((speaker) => ({ locale, speaker }))
+  })
+}
+
 export function readManifest(folder: RecordingFolder): RecordingEntry[] {
   const manifest = manifestOf(folder)
   if (!fs.existsSync(manifest)) return []
@@ -48,7 +58,7 @@ export function readManifest(folder: RecordingFolder): RecordingEntry[] {
 export function recordingSet(folder: RecordingFolder): UtteranceSet {
   const { locale, speaker } = folder
   const entries = readManifest(folder)
-  if (entries.length === 0) throw new Error(`no recordings of ${speaker} in ${locale}: record some with "node src/cli.ts record --locale ${locale} --speaker ${speaker}"`)
+  if (entries.length === 0) throw new Error(`no recordings of ${speaker} in ${locale}: record some under Record in the web app, "node src/cli.ts web"`)
   return {
     name: `recordings-${locale}-${speaker}-${entries.length}`,
     locale,

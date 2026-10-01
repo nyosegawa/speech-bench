@@ -1,4 +1,6 @@
 import type { NeighborGroup } from '../analysis/neighbors.ts'
+import type { Prompt } from '../datasets/prompts.ts'
+import type { RecordingEntry } from '../datasets/recordings.ts'
 import type { Choice, Recipe } from '../make/recipes.ts'
 import type { Campaign } from '../measure/campaigns.ts'
 import type { AsrSummary, TtsSummary } from '../measure/report.ts'
@@ -96,6 +98,27 @@ export interface VoiceStepRequest {
   step: 'gather' | 'candidates' | 'try'
   voice: string
   locale: string
+}
+
+/** GET /api/record-locales: the locales the bench has prompts to record for. */
+export type RecordLocales = string[]
+
+/** GET /api/recordings: every speaker with recordings, by locale. */
+export interface SpeakerRow {
+  locale: string
+  speaker: string
+  recordings: number
+}
+
+/** A recording with the route its audio is served at. */
+export type SavedRecording = RecordingEntry & { url: string }
+
+/** GET /api/recordings/<locale>/<speaker>: the prompts to record and the recordings so far. */
+export interface RecordingSession {
+  locale: string
+  speaker: string
+  prompts: Prompt[]
+  recorded: SavedRecording[]
 }
 
 /** Any route that fails answers this, with a status of 400 for a request the bench cannot serve. */

@@ -5,7 +5,6 @@ import { migrateResults } from './measure/runs.ts'
 import { formatReport, readSummaries } from './measure/report.ts'
 import { analyze, asr, listModels, runFilesOf, tts } from './cli/measure.ts'
 import { web } from './cli/web.ts'
-import { record } from './cli/record.ts'
 import { reference, voice } from './cli/voices.ts'
 
 const USAGE = `usage:
@@ -15,7 +14,6 @@ const USAGE = `usage:
   node src/cli.ts tts --locale ja-JP --models qwen3-tts-0.6b,irodori-tts-v4-small [--voice ono_anna] [--seeds 1,2,3]
       [--designs young-woman-caption,young-man-caption] [--reference name] [--duration-scale 0.5] [--sentences sentences.json] [--only aizuchi-hai,reply-weather]
       [--campaign name]
-  node src/cli.ts record --locale ja-JP --speaker name [--prompts prompts.json]
   node src/cli.ts report [--campaign name | run.jsonl ...]
   node src/cli.ts analyze [--campaign name | run.jsonl ...]
   node src/cli.ts web [--port 5280]
@@ -34,7 +32,6 @@ async function main(): Promise<void> {
   if (command === 'models') listModels()
   else if (command === 'asr') await asr(rest)
   else if (command === 'tts') await tts(rest)
-  else if (command === 'record') await record(rest)
   else if (command === 'web') await web(rest)
   else if (command === 'analyze') await analyze(rest)
   else if (command === 'reference') await reference(rest)

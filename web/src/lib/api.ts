@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { ApiError } from '@bench/web/api.ts'
 
-export type { CampaignRow, ChooseAnswer, ChosenVoices, Job, ListenData, NeighborsData, RunRow, TrySet, VoiceDetail, VoiceLocales, VoiceRow, VoiceStepRequest } from '@bench/web/api.ts'
+export type { CampaignRow, ChooseAnswer, ChosenVoices, Job, ListenData, NeighborsData, RecordingSession, RecordLocales, RunRow, SavedRecording, SpeakerRow, TrySet, VoiceDetail, VoiceLocales, VoiceRow, VoiceStepRequest } from '@bench/web/api.ts'
 
 /** Reads a route of the bench's API, failing with the message its server gives. */
 export const getJson = <T>(route: string, signal?: AbortSignal): Promise<T> => answerOf<T>(route, fetch(route, { signal }))
 
+/** Sends a body to a route of the bench's API, failing with the message its server gives. */
+export const postBody = <T>(route: string, body: BodyInit, headers: Record<string, string>): Promise<T> =>
+  answerOf<T>(route, fetch(route, { method: 'POST', headers, body }))
+
 /** Sends a JSON body to a route of the bench's API, failing with the message its server gives. */
-export const postJson = <T>(route: string, body: unknown): Promise<T> =>
-  answerOf<T>(route, fetch(route, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }))
+export const postJson = <T>(route: string, body: unknown): Promise<T> => postBody<T>(route, JSON.stringify(body), { 'content-type': 'application/json' })
 
 async function answerOf<T>(route: string, request: Promise<Response>): Promise<T> {
   const response = await request

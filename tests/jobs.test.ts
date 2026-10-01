@@ -3,7 +3,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { Job } from '../src/web/api.ts'
-import { JobError, Jobs } from '../src/web/jobs.ts'
+import { Jobs } from '../src/web/jobs.ts'
+import { RequestError } from '../src/web/request-error.ts'
 
 let data: string
 beforeEach(() => {
@@ -24,7 +25,7 @@ describe('jobs', () => {
   it('runs one command at a time and keeps what it printed, in memory and in its log', async () => {
     const jobs = new Jobs()
     const job = jobs.start('models', ['models'])
-    expect(() => jobs.start('models again', ['models'])).toThrow(JobError)
+    expect(() => jobs.start('models again', ['models'])).toThrow(RequestError)
     const done = await ended(job)
     expect(done.state).toBe('done')
     expect(done.lines.length).toBeGreaterThan(0)

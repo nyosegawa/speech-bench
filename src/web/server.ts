@@ -13,8 +13,11 @@ import { listCampaigns } from '../measure/campaigns.ts'
 import { summarize } from '../measure/report.ts'
 import { allRunFiles, runFile, runIdOf } from '../measure/runs.ts'
 import { listeningData, readTtsRuns, type UrlOf } from '../pages/listen.ts'
-import type { ApiError, CampaignRow, ChooseAnswer, ChosenVoices, Job, ListenData, NeighborsData, RunRow, VoiceDetail, VoiceRow, VoiceStepRequest } from './api.ts'
-import { JobError, Jobs } from './jobs.ts'
+import { promptLocales } from '../datasets/prompts.ts'
+import type { ApiError, CampaignRow, ChooseAnswer, ChosenVoices, Job, ListenData, NeighborsData, RecordingSession, RecordLocales, RunRow, SavedRecording, SpeakerRow, VoiceDetail, VoiceRow, VoiceStepRequest } from './api.ts'
+import { folderOf, recordingSession, saveFrom, speakerRows } from './recordings.ts'
+import { RequestError } from './request-error.ts'
+import { Jobs } from './jobs.ts'
 import { choose, chosenVoices, voiceDetail, voiceRows } from './voices.ts'
 
 /** The built web app, which `npm run web:build` writes. */
@@ -31,8 +34,6 @@ export function audioFileOf(route: string): string | null {
   const file = path.resolve(dataDir(), ...relative)
   return file.startsWith(path.resolve(dataDir()) + path.sep) && file.endsWith('.wav') ? file : null
 }
-
-class RequestError extends Error {}
 
 const json = (response: http.ServerResponse, status: number, body: unknown): void => {
   response.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' })
@@ -165,6 +166,14 @@ export async function startWebServer(port: number): Promise<{ url: string; close
         await bodyOf(request)
         return json(response, 200, jobs.stop(stop[1]!) satisfies Job)
       }
+      if (request.method === 'GET' && url.pathname === '/api/record-locales') return json(response, 200, promptLocales('record') satisfies RecordLocales)
+      if (request.method === 'GET' && url.pathname === '/api/recordings') return json(response, 200, speakerRows() satisfies SpeakerRow[])
+      const recordings = /^\/api\/recordings\/([^/]+)\/([^/]+)(?:\/([^/]+))?$/.exec(url.pathname)
+      if (recordings) {
+        const folder = folderOf(decodeURIComponent(recordings[1]!), decodeURIComponent(recordings[2]!))
+        if (request.method === 'GET' && !recordings[3]) return json(response, 200, recordingSession(folder, audioUrl) satisfies RecordingSession)
+        if (request.method === 'POST' && recordings[3]) return json(response, 200, (await saveFrom(request, folder, decodeURIComponent(recordings[3]), audioUrl)) satisfies SavedRecording)
+      }
       const voice = /^\/api\/voices\/([a-z0-9_-]+)(\/choose)?$/.exec(url.pathname)
       if (voice && request.method === 'GET' && !voice[2]) {
         const embedder = await speakerEmbedder()
@@ -183,7 +192,7 @@ export async function startWebServer(port: number): Promise<{ url: string; close
       if (request.method === 'GET') return serveApp(response, url.pathname)
       throw new RequestError(`there is no route ${request.method} ${url.pathname}`)
     })().catch((error: unknown) => {
-      const status = error instanceof RequestError || error instanceof JobError ? 400 : 500
+      const status = error instanceof RequestError ? 400 : 500
       json(response, status, { error: error instanceof Error ? error.message : String(error) } satisfies ApiError)
     })
   })

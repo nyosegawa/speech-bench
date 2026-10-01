@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { logsDir } from '../core/paths.ts'
 import type { Job } from './api.ts'
+import { RequestError } from './request-error.ts'
 
 const CLI = path.join(import.meta.dirname, '..', 'cli.ts')
 
@@ -11,8 +12,6 @@ const KEPT_LINES = 200
 
 /** The jobs kept in memory for the app to list, newest first. */
 const KEPT_JOBS = 20
-
-export class JobError extends Error {}
 
 /**
  * Commands of the bench run for the web app, one at a time since each holds the GPU, with their output kept in a
@@ -29,7 +28,7 @@ export class Jobs {
 
   /** Starts `node src/cli.ts ...args`, or refuses while another job runs. */
   start(title: string, args: readonly string[]): Job {
-    if (this.running) throw new JobError(`${this.running.job.title} is running; wait for it or stop it first`)
+    if (this.running) throw new RequestError(`${this.running.job.title} is running; wait for it or stop it first`)
     const startedAt = new Date()
     this.started += 1
     const id = `${startedAt.toISOString().replace(/[:.]/g, '-')}-${this.started}`
@@ -65,7 +64,7 @@ export class Jobs {
   }
 
   stop(id: string): Job {
-    if (this.running?.job.id !== id) throw new JobError(`job ${id} is not running`)
+    if (this.running?.job.id !== id) throw new RequestError(`job ${id} is not running`)
     this.running.child.kill()
     return this.running.job
   }
