@@ -6,9 +6,9 @@ import { CrispAsr } from './engines/crispasr.ts'
 import type { AsrEngine } from './engines/engine.ts'
 import { LlamaServerAsr } from './engines/llama-server.ts'
 import { VoiceDetector } from './engines/voice-activity.ts'
-import { resultsDir } from './paths.ts'
 import { gpuDevice, machineInfo } from './platform.ts'
 import { RESULT_FORMAT, type AsrRunRecord, type AudioPreparation, type UtteranceRecord } from './results.ts'
+import { runFile } from './runs.ts'
 import { CRISPASR, ensureRuntime, LLAMA_CPP, type RuntimeSpec } from './runtimes.ts'
 import { ensurePinned } from './store.ts'
 import { durationSeconds, peakNormalize, readWav, trimAround, withTrailingSilence, type Pcm } from './wav.ts'
@@ -66,8 +66,8 @@ export async function runAsr(model: AsrModel, set: UtteranceSet, audio: AudioPre
     }
     if (!warmup) throw new Error(`the voice detector finds no voice in any utterance of ${set.name}; there is nothing to transcribe`)
     const warmupSeconds = (await engine.transcribe(warmup, set.locale)).seconds
-    fs.mkdirSync(resultsDir(), { recursive: true })
-    const file = path.join(resultsDir(), `asr-${stamp(startedAt)}-${machine.hostname}-${model.id}-${set.name}.jsonl`)
+    const file = runFile(`asr-${stamp(startedAt)}-${machine.hostname}-${model.id}-${set.name}`)
+    fs.mkdirSync(path.dirname(file), { recursive: true })
     const run: AsrRunRecord = {
       type: 'run',
       format: RESULT_FORMAT,

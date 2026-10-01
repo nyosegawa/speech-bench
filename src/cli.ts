@@ -10,11 +10,13 @@ import { loadDesigns } from './datasets/designs.ts'
 import { loadPrompts } from './datasets/prompts.ts'
 import { startRecordingServer } from './record/server.ts'
 import { isLanguageTag } from './language.ts'
-import { dataDir, recordingsDir, resultsDir } from './paths.ts'
+import { dataDir, pagesDir, recordingsDir } from './paths.ts'
+import { joinCampaign, readCampaign } from './campaigns.ts'
+import { allRunFiles, migrateResults, runFile, runIdOf } from './runs.ts'
 import { latestRuns, listeningPage, readTtsRuns } from './listen.ts'
 import { embedGroups, largestSet, neighborGroups, neighborsPage, similarityOf } from './neighbors.ts'
 import { candidateGroups, loadReference, referenceFile, referenceManifest, writeReference } from './references.ts'
-import { allResultFiles, formatReport, readSummaries } from './report.ts'
+import { formatReport, readSummaries } from './report.ts'
 import type { AudioPreparation, TtsRunRecord } from './results.ts'
 import { runAsr, TRIM_TO_VOICE } from './run-asr.ts'
 import { runTts } from './run-tts.ts'
@@ -24,15 +26,17 @@ import { readWav } from './wav.ts'
 const USAGE = `usage:
   node src/cli.ts models
   node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b,parakeet-tdt_ctc-0.6b-ja [--set fleurs [--count 100] | --set recordings --speaker name]
-      [--edges voice [--margin 0.2] | --edges as-recorded [--trailing-silence 0]]
+      [--edges voice [--margin 0.2] | --edges as-recorded [--trailing-silence 0]] [--campaign name]
   node src/cli.ts tts --locale ja-JP --models qwen3-tts-0.6b,irodori-tts-v4-small [--voice ono_anna] [--seeds 1,2,3]
       [--designs young-woman-caption,young-man-caption] [--reference name] [--duration-scale 0.5] [--sentences sentences.json] [--only aizuchi-hai,reply-weather]
+      [--campaign name]
   node src/cli.ts record --locale ja-JP --speaker name [--prompts prompts.json]
-  node src/cli.ts report [result.jsonl ...]
-  node src/cli.ts listen [--blind] [--set speak-ja-JP-20] [--page name] [--reference name] [result.jsonl ...]
-  node src/cli.ts neighbors [--page name] [result.jsonl ...]
+  node src/cli.ts report [--campaign name | run.jsonl ...]
+  node src/cli.ts listen [--blind] [--set speak-ja-JP-20] [--page name] [--reference name] [--campaign name | run.jsonl ...]
+  node src/cli.ts neighbors [--page name] [--campaign name | run.jsonl ...]
   node src/cli.ts reference --name name [--threshold 0.8] [--seconds 30] [--candidates 6 | --takes sentence@seed,...] result.jsonl ...
-  node src/cli.ts voices [--page name] [result.jsonl ...]
+  node src/cli.ts voices [--page name] [--campaign name | run.jsonl ...]
+  node src/cli.ts migrate
 
 Downloads, recordings and results go to ${dataDir()} (SPEECH_BENCH_DATA moves them).`
 
@@ -58,6 +62,13 @@ function audioPreparation(edges: string | undefined, margin: string | undefined,
   throw new Error('--edges is voice or as-recorded')
 }
 
+/** The result files a command reads: those named, those of a campaign, or every run. */
+function runFilesOf(named: readonly string[], campaign: string | undefined): string[] {
+  if (campaign === undefined) return named.length > 0 ? [...named] : allRunFiles()
+  if (named.length > 0) throw new Error('name runs or a campaign, not both')
+  return readCampaign(campaign).runs.map(runFile)
+}
+
 async function asr(args: string[]): Promise<void> {
   const { values } = parseArgs({
     args,
@@ -69,7 +80,8 @@ async function asr(args: string[]): Promise<void> {
       speaker: { type: 'string' },
       edges: { type: 'string', default: 'voice' },
       margin: { type: 'string' },
-      'trailing-silence': { type: 'string' }
+      'trailing-silence': { type: 'string' },
+      campaign: { type: 'string' }
     }
   })
   const locale = values.locale
@@ -93,7 +105,9 @@ async function asr(args: string[]): Promise<void> {
   const files: string[] = []
   for (const model of models) {
     process.stderr.write(`${model.id} on ${set.name}\n`)
-    files.push(await runAsr(model, set, audio))
+    const file = await runAsr(model, set, audio)
+    if (values.campaign !== undefined) joinCampaign(values.campaign, runIdOf(file))
+    files.push(file)
   }
   console.log(formatReport(readSummaries(files)))
   console.log(`\n${files.join('\n')}`)
@@ -111,7 +125,8 @@ async function tts(args: string[]): Promise<void> {
       reference: { type: 'string' },
       'duration-scale': { type: 'string' },
       sentences: { type: 'string' },
-      only: { type: 'string' }
+      only: { type: 'string' },
+      campaign: { type: 'string' }
     }
   })
   const locale = values.locale
@@ -138,7 +153,9 @@ async function tts(args: string[]): Promise<void> {
       for (const seed of seeds) {
         const how = [design === null ? '' : ` as ${design.id}`, seed === null ? '' : ` with seed ${seed}`].join('')
         process.stderr.write(`${model.id}${how} speaking ${sentences.length} sentences\n`)
-        files.push(await runTts(model, locale, sentences, { voice: values.voice, seed, design, reference, durationScale }))
+        const file = await runTts(model, locale, sentences, { voice: values.voice, seed, design, reference, durationScale })
+        if (values.campaign !== undefined) joinCampaign(values.campaign, runIdOf(file))
+        files.push(file)
       }
     }
   }
@@ -170,7 +187,7 @@ async function listen(args: string[]): Promise<void> {
   const { values, positionals } = parseArgs({
     args,
     allowPositionals: true,
-    options: { blind: { type: 'boolean', default: false }, set: { type: 'string' }, page: { type: 'string' }, reference: { type: 'string' } }
+    options: { blind: { type: 'boolean', default: false }, set: { type: 'string' }, page: { type: 'string' }, reference: { type: 'string' }, campaign: { type: 'string' } }
   })
   if (values.page !== undefined && !isSafeName(values.page)) throw new Error('--page names the page in lower-case letters, digits, - and _')
   const embedder = await SpeakerEmbedder.open(SPEAKER_MODEL)
@@ -181,31 +198,34 @@ async function listen(args: string[]): Promise<void> {
     return name === undefined ? undefined : embeddingOf(name)
   }
   const inSet = (run: TtsRunRecord): boolean => values.set === undefined || run.set.name === values.set
-  const runs = latestRuns(readTtsRuns(positionals.length > 0 ? positionals : allResultFiles(), embedder, inSet, referenceOf))
+  const runs = latestRuns(readTtsRuns(runFilesOf(positionals, values.campaign), embedder, inSet, referenceOf))
   if (runs.length === 0) throw new Error('there are no speech synthesis results to listen to; run "node src/cli.ts tts" first')
-  const page = path.join(resultsDir(), `listen-${values.page ?? runs[0]!.run.set.name}${values.blind ? '-blind' : ''}.html`)
+  const page = path.join(pagesDir(), `listen-${values.page ?? runs[0]!.run.set.name}${values.blind ? '-blind' : ''}.html`)
+  fs.mkdirSync(pagesDir(), { recursive: true })
   fs.writeFileSync(page, listeningPage(runs, page, values.blind, Math.random, values.reference ?? null))
   console.log(page)
 }
 
 async function voices(args: string[]): Promise<void> {
-  const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { page: { type: 'string' } } })
+  const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { page: { type: 'string' }, campaign: { type: 'string' } } })
   if (values.page !== undefined && !isSafeName(values.page)) throw new Error('--page names the page in lower-case letters, digits, - and _')
   const embedder = await SpeakerEmbedder.open(SPEAKER_MODEL)
   const embeddingOf = referenceEmbeddings(embedder)
-  const runs = latestRuns(readTtsRuns(positionals.length > 0 ? positionals : allResultFiles(), embedder, (run) => run.reference !== null, (run) => embeddingOf(run.reference!.name)))
+  const runs = latestRuns(readTtsRuns(runFilesOf(positionals, values.campaign), embedder, (run) => run.reference !== null, (run) => embeddingOf(run.reference!.name)))
   if (runs.length === 0) throw new Error('there are no runs that spoke like a reference voice; run "node src/cli.ts tts --reference name" first')
   const name = values.page ?? 'voices'
-  const page = path.join(resultsDir(), `voices-${name}.html`)
+  const page = path.join(pagesDir(), `voices-${name}.html`)
+  fs.mkdirSync(pagesDir(), { recursive: true })
   fs.writeFileSync(page, voicesPage(voicesData(runs, (reference) => ({ manifest: referenceManifest(reference), file: referenceFile(reference) }), page, name)))
   console.log(page)
 }
 
 async function neighbors(args: string[]): Promise<void> {
-  const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { page: { type: 'string' } } })
+  const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { page: { type: 'string' }, campaign: { type: 'string' } } })
   if (values.page !== undefined && !isSafeName(values.page)) throw new Error('--page names the page in lower-case letters, digits, - and _')
-  const page = path.join(resultsDir(), `neighbors-${values.page ?? 'voices'}.html`)
-  const groups = neighborGroups(embedGroups(positionals.length > 0 ? positionals : allResultFiles(), await SpeakerEmbedder.open(SPEAKER_MODEL)), page)
+  const page = path.join(pagesDir(), `neighbors-${values.page ?? 'voices'}.html`)
+  fs.mkdirSync(pagesDir(), { recursive: true })
+  const groups = neighborGroups(embedGroups(runFilesOf(positionals, values.campaign), await SpeakerEmbedder.open(SPEAKER_MODEL)), page)
   if (groups.length === 0) throw new Error('there are no synthesized voices with two or more sentences long enough to compare; run "node src/cli.ts tts" first')
   fs.writeFileSync(page, neighborsPage(groups))
   console.log(page)
@@ -270,7 +290,10 @@ async function main(): Promise<void> {
   else if (command === 'neighbors') await neighbors(rest)
   else if (command === 'voices') await voices(rest)
   else if (command === 'reference') await reference(rest)
-  else if (command === 'report') console.log(formatReport(readSummaries(rest.length > 0 ? rest : allResultFiles())))
+  else if (command === 'report') {
+    const { values, positionals } = parseArgs({ args: rest, allowPositionals: true, options: { campaign: { type: 'string' } } })
+    console.log(formatReport(readSummaries(runFilesOf(positionals, values.campaign))))
+  } else if (command === 'migrate') console.log(`moved ${migrateResults()} runs into ${path.join(dataDir(), 'runs')}`)
   else {
     console.error(USAGE)
     process.exitCode = 2

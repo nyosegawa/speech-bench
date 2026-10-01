@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest'
 import { latestRuns, listeningData, listeningPage, runNames, type ListenedRun } from '../src/listen.ts'
 import type { SentenceRecord, TtsRunRecord } from '../src/results.ts'
 
-const results = path.join(path.sep, 'data', 'results')
+const runs = path.join(path.sep, 'data', 'runs')
+const pages = path.join(path.sep, 'data', 'pages')
 const sentence: SentenceRecord = { type: 'sentence', id: 'aizuchi-hai', kind: 'aizuchi', text: 'はい。', audio: 'aizuchi-hai.wav', audioSeconds: 0.5, firstAudioSeconds: 0.05, totalSeconds: 0.2, transcript: 'はい。' }
 
 interface RunOptions { set?: string; seed?: number; design?: string; reference?: string; durationScale?: number; gpu?: string; transcript?: string; pitches?: number[]; likeness?: Array<number | null> }
@@ -22,7 +23,7 @@ function run(model: string, startedAt: string, options: RunOptions = {}): Listen
   const stem = `tts-${startedAt}-${model}${options.design === undefined ? '' : `-${options.design}`}${options.seed === undefined ? '' : `-seed${options.seed}`}`
   const likeness = options.likeness ?? pitches.map(() => 0.7)
   return {
-    file: path.join(results, `${stem}.jsonl`),
+    file: path.join(runs, stem, 'run.jsonl'),
     run: record,
     sentences,
     pitches: Object.fromEntries(sentences.map((spoken, index) => [spoken.id, pitches[index]!])),
@@ -81,11 +82,11 @@ describe('runNames', () => {
 })
 
 describe('listeningData', () => {
-  const page = path.join(results, 'listen.html')
+  const page = path.join(pages, 'listen.html')
 
-  it('links each sentence to the audio in the folder named after its result file', () => {
+  it('links each sentence to the audio in its run\'s folder, from the page', () => {
     const data = listeningData([run('a', '2026-09-30T01:00:00Z')], page, false)
-    expect(data.sentences[0]!.takes[0]!.url).toBe('tts-2026-09-30T01%3A00%3A00Z-a/aizuchi-hai.wav')
+    expect(data.sentences[0]!.takes[0]!.url).toBe('../runs/tts-2026-09-30T01%3A00%3A00Z-a/aizuchi-hai.wav')
     expect(data.runs[0]!.name).toBe('a label')
   })
 
@@ -121,7 +122,7 @@ describe('listeningData', () => {
 
 describe('listeningPage', () => {
   it('embeds a transcript that contains a closing script tag without ending the data early', () => {
-    const html = listeningPage([run('a', '2026-09-30T01:00:00Z', { transcript: '</script><script>alert(1)</script>' })], path.join(results, 'listen.html'), false)
+    const html = listeningPage([run('a', '2026-09-30T01:00:00Z', { transcript: '</script><script>alert(1)</script>' })], path.join(pages, 'listen.html'), false)
     expect(html.match(/<\/script>/g)).toHaveLength(2)
   })
 })

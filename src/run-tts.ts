@@ -8,10 +8,10 @@ import { AudioCppTts } from './engines/audiocpp.ts'
 import { irodoriVoiceFile } from './engines/irodori-voice.ts'
 import { WorkerTts } from './engines/worker.ts'
 import type { Synthesis, TtsEngine } from './engines/tts-engine.ts'
-import { resultsDir } from './paths.ts'
 import { gpuBackend, gpuDevice, machineInfo } from './platform.ts'
 import { RESULT_FORMAT, type SentenceRecord, type TtsRunRecord } from './results.ts'
 import { prepareAsr } from './run-asr.ts'
+import { runFile, runFolder } from './runs.ts'
 import { AUDIO_CPP, ensureRuntime, SPEECH_CPP, SPEECH_CPP_TOOLS, type RuntimeSpec } from './runtimes.ts'
 import { ensurePinned } from './store.ts'
 import { durationSeconds, encodeWav16, peakNormalize, resample } from './wav.ts'
@@ -94,7 +94,7 @@ export async function runTts(model: TtsModel, locale: string, sentences: readonl
   const machine = machineInfo()
   const setName = `speak-${locale}-${sentences.length}`
   const stem = `tts-${stamp(startedAt)}-${machine.hostname}-${model.id}${voice ? `-${voice}` : ''}${design === null ? '' : `-${design.id}`}${reference === null ? '' : `-ref-${reference.name}`}${durationScale === null ? '' : `-duration${durationScale}`}${seed === null ? '' : `-seed${seed}`}-${setName}`
-  const audioFolder = path.join(resultsDir(), stem)
+  const audioFolder = runFolder(stem)
   fs.mkdirSync(audioFolder, { recursive: true })
 
   const { engine, runtime, loadOptions } = await prepareTts(model, choice)
@@ -161,7 +161,7 @@ export async function runTts(model: TtsModel, locale: string, sentences: readonl
     loadSeconds,
     warmupSeconds
   }
-  const file = path.join(resultsDir(), `${stem}.jsonl`)
+  const file = runFile(stem)
   fs.writeFileSync(file, [run, ...records].map((record) => JSON.stringify(record)).join('\n') + '\n')
   return file
 }

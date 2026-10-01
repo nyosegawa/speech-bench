@@ -5,8 +5,8 @@ import type { ReferenceManifest } from '../src/references.ts'
 import type { SentenceRecord, TtsRunRecord } from '../src/results.ts'
 import { splitShared, voicesData } from '../src/voices.ts'
 
-const results = path.join(path.sep, 'data', 'results')
-const page = path.join(results, 'voices-voices.html')
+const runs = path.join(path.sep, 'data', 'runs')
+const page = path.join(path.sep, 'data', 'pages', 'voices-voices.html')
 
 /** A run that spoke like `reference`, one sentence per embedding, heard as said unless `misheard` names one. */
 function run(reference: string, seed: number, embeddings: number[][], options: { set?: string; misheard?: number; durationScale?: number } = {}): ListenedRun {
@@ -20,7 +20,7 @@ function run(reference: string, seed: number, embeddings: number[][], options: {
     transcript: index === options.misheard ? 'いいえ、ちがいます。' : 'はい、わかりました。'
   }))
   return {
-    file: path.join(results, `tts-${reference}-seed${seed}.jsonl`),
+    file: path.join(runs, `tts-${reference}-seed${seed}`, 'run.jsonl'),
     run: record,
     sentences,
     pitches: Object.fromEntries(sentences.map((sentence) => [sentence.id, 220])),
@@ -42,7 +42,7 @@ describe('voicesData', () => {
     expect(data.shared).toBe('Irodori')
     expect(data.voices.map((voice) => [voice.name, voice.candidates.map((index) => data.candidates[index]!.name)])).toEqual([['a', ['a-1', 'a-2']], ['b', ['b-1']]])
     expect(data.candidates[0]!.runs).toEqual(['seed 1', 'seed 2'])
-    expect(data.sentences[0]!.takes[0]!.map((take) => take?.url)).toEqual(['tts-a-1-seed1/s0.wav', 'tts-a-1-seed2/s0.wav'])
+    expect(data.sentences[0]!.takes[0]!.map((take) => take?.url)).toEqual(['../runs/tts-a-1-seed1/s0.wav', '../runs/tts-a-1-seed2/s0.wav'])
   })
 
   it('picks the candidate with the smallest share of broken takes, then the most alike takes across its seeds', () => {
