@@ -64,14 +64,14 @@ export function readTtsRuns(files: readonly string[], embedder: SpeakerEmbedder,
 }
 
 /**
- * The newest run of each model, voice, description, reference, length factor and seed on each machine, since a model
+ * The newest run of each model and runtime, voice, description, reference, length factor and seed on each machine, since a model
  * measured again replaces its earlier speech on the page. Runs are compared only within one set of sentences.
  */
 export function latestRuns(runs: readonly ListenedRun[]): ListenedRun[] {
   const latest = new Map<string, ListenedRun>()
   for (const entry of runs) {
     const { run } = entry
-    const key = [run.set.name, run.model.id, run.voice ?? '', run.design?.id ?? '', run.reference?.name ?? '', run.durationScale ?? '', run.seed ?? '', run.machine.hostname].join('\u0000')
+    const key = [run.set.name, run.model.id, run.runtime.id, run.voice ?? '', run.design?.id ?? '', run.reference?.name ?? '', run.durationScale ?? '', run.seed ?? '', run.machine.hostname].join('\u0000')
     const known = latest.get(key)
     if (!known || known.run.startedAt < entry.run.startedAt) latest.set(key, entry)
   }
@@ -80,6 +80,7 @@ export function latestRuns(runs: readonly ListenedRun[]): ListenedRun[] {
 
 const describe: Array<(entry: ListenedRun) => string | null> = [
   (entry) => entry.run.model.label,
+  (entry) => `${entry.run.runtime.id} ${entry.run.runtime.version}`,
   (entry) => entry.run.voice,
   (entry) => entry.run.design?.id ?? null,
   (entry) => (entry.run.reference ? `reference ${entry.run.reference.name}` : null),

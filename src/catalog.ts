@@ -111,13 +111,13 @@ export interface TtsVoice {
 }
 
 /**
- * Where a synthesis model runs: the Qwen3-TTS worker of qwen3-tts-ggml, told the language by the model's own
- * name for it, or audio.cpp's server with the family it loads as, the options it is loaded with on each GPU
- * interface, the request options every sentence is sent with, and whether it takes a voice described in
- * words (`instruction`) and a reference voice to speak like.
+ * Where a synthesis model runs: speech.cpp's worker, with the sampler's steps when not the model's own and
+ * whether it speaks like a reference voice, or audio.cpp's server with the family it loads as, the options it
+ * is loaded with on each GPU interface, the request options every sentence is sent with, and whether it takes
+ * a voice described in words (`instruction`) and a reference voice to speak like.
  */
 export type TtsRuntime =
-  | { runtime: 'qwen3-tts-worker'; languageNames: Readonly<Record<string, string>> }
+  | { runtime: 'speech-worker'; steps: number | null; voiceReference: boolean }
   | {
       runtime: 'audio.cpp'
       family: string
@@ -140,13 +140,35 @@ export type TtsModel = TtsRuntime & {
   license: string
 }
 
-const QWEN3_TTS = ['sakasegawa/qwen3-tts-ggml', 'c014bc3b717c001aa7ac870178656acc30b78f09'] as const
+/** The talkers converted with their languages as BCP 47 tags, which speech.cpp v0.3.0 needs. */
+const QWEN3_TTS = ['sakasegawa/qwen3-tts-ggml', '3fa3234ee65c9a70fd23a7b7843722a0284b8027'] as const
 const QWEN3_TTS_CODEC = model(...QWEN3_TTS, 'qwen3-tts-codec-12hz-f16.gguf', 245_553_152, '38763be32099ad36b7b4345fc852ac379fb4fde0782ff85929d2b984b4bc22c1')
 
-/** Qwen3-TTS takes the language by an English name of its own. It has no Hindi and no Indonesian. */
-const QWEN3_TTS_LANGUAGES: Readonly<Record<string, string>> = {
-  zh: 'chinese', en: 'english', ja: 'japanese', ko: 'korean', de: 'german', fr: 'french', ru: 'russian', pt: 'portuguese', es: 'spanish', it: 'italian'
-}
+/** Qwen3-TTS has no Hindi and no Indonesian. */
+const QWEN3_TTS_LANGUAGES = ['zh', 'en', 'ja', 'ko', 'de', 'fr', 'ru', 'pt', 'es', 'it']
+
+const IRODORI_V4_1 = ['sakasegawa/irodori-tts-ggml', '8a45f617775ebc1c71b047b8b80c8350ec010617'] as const
+const IRODORI_V4_1_CODEC = model(...IRODORI_V4_1, 'semantic-dacvae-japanese-32dim-f32.gguf', 370_670_496, '43ef3084cedd88b73113db2663f1741d5deed97ae9a72d84dff4ff593374f125')
+
+/**
+ * Irodori-TTS v4.1 Small in speech.cpp: MF, the MeanFlow distillation that samples in 4 steps, and RF, the
+ * rectified flow it was distilled from, 40 steps unless fewer are asked for. It has no voice of its own and
+ * speaks like the reference voice of the run, given to the worker as a voice file made on the CPU, which
+ * holds the official encoder's latent to 99 dB (speech.cpp's README, 2026-10-01).
+ */
+const irodoriV41 = (id: string, label: string, file: PinnedFile, steps: number | null): TtsModel => ({
+  id,
+  label,
+  runtime: 'speech-worker',
+  steps,
+  voiceReference: true,
+  files: [file, IRODORI_V4_1_CODEC],
+  languages: ['ja'],
+  voices: [],
+  license: 'MIT'
+})
+const IRODORI_V4_1_MF = model(...IRODORI_V4_1, 'irodori-tts-v4.1-small-mf-f16.gguf', 1_514_765_472, '30b230256ce19a08b8769c582ca1afad0954a7c1f5d37b47c47e520b21d06262')
+const IRODORI_V4_1_RF = model(...IRODORI_V4_1, 'irodori-tts-v4.1-small-f16.gguf', 1_500_347_520, '4a1d3e68e3647e48a8ba001a54caa7c6cc221fd3b8a2492a3087c93af4bbee74')
 
 /** The CustomVoice speakers; each speaks every language of the model, most naturally its own. */
 const QWEN3_TTS_VOICES: readonly TtsVoice[] = [
@@ -192,23 +214,28 @@ export const TTS_MODELS: readonly TtsModel[] = [
   {
     id: 'qwen3-tts-0.6b',
     label: 'Qwen3-TTS 0.6B CustomVoice Q8_0',
-    runtime: 'qwen3-tts-worker',
-    languageNames: QWEN3_TTS_LANGUAGES,
-    files: [model(...QWEN3_TTS, 'qwen3-tts-0.6b-customvoice-q8_0.gguf', 967_979_232, '11b6d52c4ec154041aee90dbcb10b269f17a27b1643bfa02ca38bb9fb9ee01c1'), QWEN3_TTS_CODEC],
-    languages: Object.keys(QWEN3_TTS_LANGUAGES),
+    runtime: 'speech-worker',
+    steps: null,
+    voiceReference: false,
+    files: [model(...QWEN3_TTS, 'qwen3-tts-0.6b-customvoice-q8_0.gguf', 967_979_712, '4a819d1c9d9c6358bd5dc1ded15f93db970fbaeac9f0a021dfae62c242682baf'), QWEN3_TTS_CODEC],
+    languages: QWEN3_TTS_LANGUAGES,
     voices: QWEN3_TTS_VOICES,
     license: 'Apache-2.0'
   },
   {
     id: 'qwen3-tts-1.7b',
     label: 'Qwen3-TTS 1.7B CustomVoice Q8_0',
-    runtime: 'qwen3-tts-worker',
-    languageNames: QWEN3_TTS_LANGUAGES,
-    files: [model(...QWEN3_TTS, 'qwen3-tts-1.7b-customvoice-q8_0.gguf', 2_042_224_992, 'c3faf095ecc9b4cf503ffef38ae936eca794fbc4f104fac8c6e9deb72c51b943'), QWEN3_TTS_CODEC],
-    languages: Object.keys(QWEN3_TTS_LANGUAGES),
+    runtime: 'speech-worker',
+    steps: null,
+    voiceReference: false,
+    files: [model(...QWEN3_TTS, 'qwen3-tts-1.7b-customvoice-q8_0.gguf', 2_042_225_472, 'fb6e79b6ae51c1fe5fe8313cf9a69e5c6f4e34a9869b478a576ed954b3d314e1'), QWEN3_TTS_CODEC],
+    languages: QWEN3_TTS_LANGUAGES,
     voices: QWEN3_TTS_VOICES,
     license: 'Apache-2.0'
   },
+  irodoriV41('irodori-tts-v4.1-small-mf', 'Irodori-TTS v4.1 Small MF F16', IRODORI_V4_1_MF, null),
+  irodoriV41('irodori-tts-v4.1-small-16steps', 'Irodori-TTS v4.1 Small F16, 16 steps', IRODORI_V4_1_RF, 16),
+  irodoriV41('irodori-tts-v4.1-small', 'Irodori-TTS v4.1 Small F16, 40 steps', IRODORI_V4_1_RF, null),
   irodori(40),
   irodori(16),
   irodori(8)

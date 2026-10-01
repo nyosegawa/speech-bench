@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { ttsModel, ttsVoiceFor } from '../src/catalog.ts'
 import { audioCppConfig } from '../src/engines/audiocpp.ts'
-import { decodeChunk, parseWorkerLine } from '../src/engines/qwen3-tts-worker.ts'
+import { decodeChunk, parseWorkerLine } from '../src/engines/worker.ts'
+import { speechWorkerArgs } from '../src/run-tts.ts'
 
-describe('the Qwen3-TTS worker protocol', () => {
+describe('the worker protocol', () => {
   it('reads a message after the prefix and ignores other output', () => {
     expect(parseWorkerLine('ASIST_JSON:{"type":"ready","sampleRate":24000}')).toEqual({ type: 'ready', sampleRate: 24000 })
     expect(parseWorkerLine('ggml_metal_init: loaded kernel')).toBeNull()
@@ -14,6 +15,17 @@ describe('the Qwen3-TTS worker protocol', () => {
     bytes.writeInt16LE(16384, 0)
     bytes.writeInt16LE(-32768, 2)
     expect([...decodeChunk(bytes.toString('base64'))]).toEqual([0.5, -1])
+  })
+})
+
+describe('speechWorkerArgs', () => {
+  it('starts speech.cpp\'s worker on the model, its codec and the device, with nothing else for a model of built-in voices', () => {
+    expect(speechWorkerArgs(['/m/talker.gguf', '/m/codec.gguf'], 'MTL0', null, null, null)).toEqual(['/m/talker.gguf', '/m/codec.gguf', '--device', 'MTL0'])
+  })
+
+  it('gives the seed, the sampler\'s steps and the reference voice that every request names', () => {
+    const args = speechWorkerArgs(['/m/rf.gguf', '/m/codec.gguf'], 'Vulkan0', 3, 16, '/v/voice.gguf')
+    expect(args.slice(4)).toEqual(['--seed', '3', '--steps', '16', '--voice', 'reference=/v/voice.gguf'])
   })
 })
 
