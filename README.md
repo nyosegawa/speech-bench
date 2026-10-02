@@ -40,6 +40,9 @@ node src/cli.ts tts --locale ja-JP --models irodori-tts-v4.1-small-mf-official -
 node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-16steps --seeds 1,2,3,4,5 \
   --only aizuchi-hai,aizuchi-naruhodo,reply-weather,reply-meeting,reply-sorry,number-date,mixed-github,question-which,long-plan,long-cause
 
+# The test split of Common Voice 8.0 Japanese, which Japanese models report their rates on (4,483 clips)
+node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b --set common-voice --count 4483
+
 # Measure on your own utterances, recorded under Record in the web app (see below)
 node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b --set recordings --speaker guest
 
@@ -62,8 +65,10 @@ folder `SPEECH_BENCH_DATA` names.
 ```text
 ~/speech-bench-data/
   models/      model files from Hugging Face, by repository and revision
-  datasets/    FLEURS transcriptions and audio archives
+  datasets/    FLEURS transcriptions and audio archives, and the copy of Common Voice 8.0
   fleurs/      the FLEURS recordings unpacked for measuring
+  common-voice/ the Common Voice clips decoded to 16 kHz WAVE for measuring
+  spellings/   the work directories of annotating accepted spellings
   runtimes/    llama.cpp, CrispASR, speech.cpp and audio.cpp releases
   recordings/  your recordings, <locale>/<speaker>/manifest.jsonl
   references/  reference voices made from synthesized takes, <name>.wav and <name>.json
@@ -159,8 +164,8 @@ node src/cli.ts spellings annotate --source fleurs-ja-JP --sessions 4
 node src/cli.ts spellings merge ~/speech-bench-data/spellings/fleurs-ja-JP/<work directory>
 ```
 
-The sources are `fleurs-<locale>`, the test split of FLEURS, and `record-<locale>`, the prompts of the Record
-page. Each work directory, under `spellings/<source>/` of the data folder, holds the sentences, the agent's
+The sources are `fleurs-<locale>`, the test split of FLEURS, `common-voice-8-<locale>`, the test split of Common
+Voice 8.0, and `record-<locale>`, the prompts of the Record page. Each work directory, under `spellings/<source>/` of the data folder, holds the sentences, the agent's
 draft and its log; a draft is merged into `spellings/<source>.jsonl` only when every sentence has a line that
 reads, with the agent, its model, the commit of the skill and the day. The skill must be committed first.
 
@@ -299,6 +304,9 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 | audio.cpp | v0.8.2-audio8-perf-hotfix |
 | Irodori-TTS v4 Small | audio-cpp/audio.cpp-gguf Q8_0 |
 | sherpa-onnx | 1.13.8, the Node addon of its npm packages for macOS arm64 and Windows x64, for speaker embeddings and the VAD |
+| Common Voice 8.0 | japanese-asr/ja_asr.common_voice_8_0 at revision bf8819e8: the test split of ja-JP, one Parquet file of MP3 clips and sentences, copied from Mozilla's release (CC0) |
+| hyparquet | 1.31.2, its npm package, which reads the Parquet file |
+| mpg123-decoder | 1.0.3 with the packages it imports, mpg123 in WebAssembly, which decodes the MP3 to the same samples on every machine |
 | 3D-Speaker ERes2NetV2 | csukuangfj/speaker-embedding-models, the speaker embedding model |
 | Silero VAD v4 | csukuangfj/vad, which finds the voice of an utterance |
 

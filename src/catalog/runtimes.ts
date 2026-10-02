@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { downloadVerified, extractArchive } from './download.ts'
 import { runtimesDir } from '../core/paths.ts'
 import { platformKey, type PlatformKey } from '../core/platform.ts'
@@ -132,6 +133,82 @@ export const SHERPA_ONNX: RuntimeSpec = {
       executable: 'package/sherpa-onnx.node'
     }
   }
+}
+
+/** One npm package taken as its tarball and pinned by its sha256, whose sha512 matched the registry's integrity. */
+interface NpmPackage {
+  name: string
+  version: string
+  sha256: string
+}
+
+/**
+ * A JavaScript library run in this process with every package it imports, each pinned as its npm tarball and
+ * unpacked into a node_modules tree, so that Node resolves the imports among them and the bench keeps no runtime
+ * dependency. It runs alike on every system.
+ */
+export interface LibrarySpec {
+  id: string
+  version: string
+  /** The package the library is imported from first, then those it imports. */
+  packages: NpmPackage[]
+}
+
+const tarballUrl = (npm: NpmPackage): string => `https://registry.npmjs.org/${npm.name}/-/${npm.name.split('/').at(-1)}-${npm.version}.tgz`
+
+/** hyparquet, which reads Parquet files in plain JavaScript, Snappy included, for the copy of Common Voice. Hashes of 2026-10-02. */
+export const HYPARQUET: LibrarySpec = {
+  id: 'hyparquet',
+  version: '1.31.2',
+  packages: [{ name: 'hyparquet', version: '1.31.2', sha256: '13ccf3c38db5fc94151092783790d6a8550561f99828d57a014dfbf7c8b9d1f7' }]
+}
+
+/**
+ * mpg123 built to WebAssembly, which decodes the MP3 of Common Voice to the same samples on every machine, where a
+ * decoder built for each system could differ. Hashes of 2026-10-02.
+ */
+export const MPG123_DECODER: LibrarySpec = {
+  id: 'mpg123-decoder',
+  version: '1.0.3',
+  packages: [
+    { name: 'mpg123-decoder', version: '1.0.3', sha256: '5207b35109ec884e7d47ab89b670bc86438399f681e1a6c26716003b3949cc5c' },
+    { name: '@wasm-audio-decoders/common', version: '9.0.7', sha256: '052220a48a739f2de5419d35dd393ebd89b06ffa2b69f4e9cd6742bfd7c37070' },
+    { name: '@eshaz/web-worker', version: '1.2.2', sha256: '92af6282372f58bba0bc3afbb6df63136e3efd9ab9afa4262be0de0d6ccb682d' },
+    { name: 'simple-yenc', version: '1.0.4', sha256: '52151d29797654e08019f3d45e5f22c16ebc3c356258b00926aa4db636012fbd' }
+  ]
+}
+
+/**
+ * The URL of a module that exports what the library's first package exports, downloading and unpacking its
+ * packages first when they are not there. The folder is renamed into place only once complete.
+ */
+export async function ensureLibrary(spec: LibrarySpec): Promise<string> {
+  const folder = path.join(runtimesDir(), `${spec.id}-${spec.version}`)
+  const entry = path.join(folder, 'entry.mjs')
+  if (fs.existsSync(folder)) {
+    if (!fs.existsSync(entry)) throw new Error(`${folder} has no entry.mjs; remove the folder to unpack the library again`)
+    return pathToFileURL(entry).href
+  }
+  process.stderr.write(`  downloading ${spec.id} ${spec.version}\n`)
+  fs.mkdirSync(runtimesDir(), { recursive: true })
+  const work = fs.mkdtempSync(path.join(runtimesDir(), '.work-'))
+  try {
+    const staged = path.join(work, 'library')
+    for (const [index, npm] of spec.packages.entries()) {
+      const archive = path.join(work, `${index}.tgz`)
+      await downloadVerified(tarballUrl(npm), archive, npm.sha256)
+      const unpacked = path.join(work, `unpacked-${index}`)
+      extractArchive(archive, unpacked)
+      const target = path.join(staged, 'node_modules', ...npm.name.split('/'))
+      fs.mkdirSync(path.dirname(target), { recursive: true })
+      fs.renameSync(path.join(unpacked, 'package'), target)
+    }
+    fs.writeFileSync(path.join(staged, 'entry.mjs'), `export * from '${spec.packages[0]!.name}'\n`)
+    fs.renameSync(staged, folder)
+  } finally {
+    fs.rmSync(work, { recursive: true, force: true })
+  }
+  return pathToFileURL(entry).href
 }
 
 /**

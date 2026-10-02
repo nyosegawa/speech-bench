@@ -26,8 +26,8 @@ behavior.
   through sherpa-onnx (speaker embeddings, Silero VAD) are engines too. `adapters/` holds the adapters that run a
   model's official implementation behind speech.cpp's worker protocol, each a uv project with a lock file;
   `src/engines/adapter.ts` installs and starts them.
-- `src/datasets/` turns a source (FLEURS, the user's recordings, the prompt lists) into utterances with
-  references or sentences to speak.
+- `src/datasets/` turns a source (FLEURS, Common Voice, the user's recordings, the prompt lists) into utterances
+  with references or sentences to speak.
 - `src/measure/` runs a model over a set and writes the result (`run-asr.ts`, `run-tts.ts`), owns the form of
   result files and their upgrades (`results.ts`), where a run is kept (`runs.ts`), the campaigns
   (`campaigns.ts`), the scoring of recognized texts (`scoring.ts`, with the kanji forms of `kanji-forms.ts`, and

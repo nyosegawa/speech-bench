@@ -4,6 +4,7 @@ import { ASR_MODELS, asrModel, SPEAKER_MODEL, TTS_MODELS, ttsModel } from '../ca
 import { analyzeRun } from '../analysis/run-analysis.ts'
 import { SpeakerEmbedder } from '../engines/speaker-embedding.ts'
 import { fleursLocales, fleursTestSet } from '../datasets/fleurs.ts'
+import { commonVoiceLocales, commonVoiceTestSet } from '../datasets/common-voice.ts'
 import type { UtteranceSet } from '../datasets/item.ts'
 import { recordingSet } from '../datasets/recordings.ts'
 import { loadDesigns } from '../make/recipes.ts'
@@ -84,12 +85,17 @@ export async function asr(args: string[]): Promise<void> {
     const count = Number(values.count ?? 100)
     if (!Number.isInteger(count) || count < 1) throw new Error('--count is a whole number of utterances')
     set = await fleursTestSet(locale, count)
+  } else if (values.set === 'common-voice') {
+    if (values.speaker !== undefined) throw new Error('--speaker goes with --set recordings')
+    const count = Number(values.count ?? 100)
+    if (!Number.isInteger(count) || count < 1) throw new Error('--count is a whole number of utterances')
+    set = await commonVoiceTestSet(locale, count)
   } else if (values.set === 'recordings') {
     if (values.count !== undefined) throw new Error('--count goes with --set fleurs; a speaker\'s recordings are measured whole')
     if (!values.speaker) throw new Error('--set recordings needs --speaker, the name the recordings were made under')
     set = recordingSet({ locale, speaker: values.speaker })
   } else {
-    throw new Error(`--set is fleurs (pinned for ${fleursLocales().join(', ')}) or recordings`)
+    throw new Error(`--set is fleurs (pinned for ${fleursLocales().join(', ')}), common-voice (${commonVoiceLocales().join(', ')}) or recordings`)
   }
   const files: string[] = []
   for (const model of models) {

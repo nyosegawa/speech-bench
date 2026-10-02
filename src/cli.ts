@@ -10,7 +10,7 @@ import { spellings } from './cli/spellings.ts'
 
 const USAGE = `usage:
   node src/cli.ts models
-  node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b,parakeet-tdt_ctc-0.6b-ja [--set fleurs [--count 100] | --set recordings --speaker name]
+  node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b,parakeet-tdt_ctc-0.6b-ja [--set fleurs|common-voice [--count 100] | --set recordings --speaker name]
       [--edges voice [--margin 0.2] | --edges as-recorded [--trailing-silence 0]] [--campaign name]
   node src/cli.ts tts --locale ja-JP --models qwen3-tts-0.6b,irodori-tts-v4-small [--voice ono_anna] [--seeds 1,2,3]
       [--designs young-woman-caption,young-man-caption] [--reference name] [--duration-scale 0.5] [--sentences sentences.json] [--only aizuchi-hai,reply-weather]
