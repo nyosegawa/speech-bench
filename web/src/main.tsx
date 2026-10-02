@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createBrowserRouter, RouterProvider } from 'react-router'
+import { AppError } from '@/components/app-error.tsx'
 import { AppLayout } from '@/components/app-layout.tsx'
 import { TooltipProvider } from '@/components/ui/tooltip.tsx'
 import { RunsPage } from '@/pages/runs-page.tsx'
@@ -16,6 +17,7 @@ dark.addEventListener('change', followScheme)
 const router = createBrowserRouter([
   {
     element: <AppLayout />,
+    errorElement: <AppError />,
     children: [
       { index: true, element: <RunsPage /> },
       { path: 'listen', lazy: async () => ({ Component: (await import('@/pages/listen/listen-page.tsx')).ListenPage }) },
