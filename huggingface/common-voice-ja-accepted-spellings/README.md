@@ -134,6 +134,14 @@ speakers who withdrew their consent after its release; Mozilla now hands out Com
 The sentences are those of the copy. 4,481 of them end in a `.`, after their own punctuation where they have it, as
 in `。.`; no score counts it.
 
+## OpenAI's terms
+
+The annotations are output of an OpenAI model, gpt-6.1-sol, made through Codex under OpenAI's Terms of Use
+(effective 2026-01-01). Under those terms the output belongs to the person who made it, who dedicates it to the
+public domain with CC0. The same terms say that output may be inaccurate and has to be checked for its use, and
+they forbid their user to present output as made by a person or to use it to develop models that compete with
+OpenAI. This dataset is made for scoring speech recognition; weigh those terms before you train a model on it.
+
 ## License
 
 CC0 1.0, as Common Voice.

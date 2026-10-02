@@ -6,7 +6,8 @@ count errors against them. The dataset has a config for each version of Common V
 clip: the clip's file name, which is the same in Mozilla's release and in the copy the bench reads, the sentence and
 its sha256, the annotation in the notation of docs/adr/0013, the same read into stretches of pieces with their
 readings and other spellings, the note, and who made it with which skill when. They are CC0, as Common Voice is, so
-joining them with the clips adds no condition.
+joining them with the clips adds no condition. They are output of an OpenAI model made under OpenAI's Terms of Use,
+which give the output to its user and forbid using it to develop models that compete with OpenAI; the card says so.
 
 `score.py` beside them counts in Python, with nothing but its standard library, as the bench does: as written and
 with accepted spellings. A test runs it against the bench on annotated sentences of FLEURS and transcriptions made
