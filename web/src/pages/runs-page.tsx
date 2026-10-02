@@ -86,6 +86,8 @@ const ASR_COLUMNS: Array<Column<AsrRow>> = [
 
 const ALL = 'all'
 
+type Task = RunRow['run']['task']
+
 const matches = (row: RunRow, words: readonly string[]): boolean => {
   const text = [row.id, row.run.model.id, row.run.model.label, runtimeOf(row), optionsOf(row), machineOf(row), row.run.set.name, ...row.campaigns, isTts(row) ? voiceOf(row) : preparationOf(row)].join(' ').toLowerCase()
   return words.every((word) => text.includes(word))
@@ -95,7 +97,6 @@ export function RunsPage() {
   const runs = useApi<RunRow[]>('/api/runs')
   const campaigns = useApi<CampaignRow[]>('/api/campaigns')
   const [params, setParams] = useSearchParams()
-  const task = params.get('task') === 'asr' ? 'asr' : 'tts'
   const set = params.get('set') ?? ALL
   const campaign = params.get('campaign') ?? ALL
   const query = params.get('q') ?? ''
@@ -113,16 +114,21 @@ export function RunsPage() {
   }
 
   const all = runs.state === 'loaded' ? runs.data : []
+  const filtered = useMemo(() => {
+    const words = query.toLowerCase().split(/\s+/).filter(Boolean)
+    return all.filter((row) => (set === ALL || row.run.set.name === set) && (campaign === ALL || row.campaigns.includes(campaign)) && matches(row, words))
+  }, [all, set, campaign, query])
+  const matching = { tts: filtered.filter(isTts).length, asr: filtered.filter((row) => !isTts(row)).length }
+  // A link that names a campaign or a set but no tab opens on the tab whose runs it names.
+  const named = params.get('task')
+  const task: Task = named === 'asr' || named === 'tts' ? named : matching.tts === 0 && matching.asr > 0 ? 'asr' : 'tts'
   const ofTask = useMemo(() => all.filter((row) => row.run.task === task), [all, task])
   const sets = useMemo(() => [...new Set(ofTask.map((row) => row.run.set.name))].sort(), [ofTask])
   const columns = (task === 'tts' ? TTS_COLUMNS : ASR_COLUMNS) as Array<Column<RunRow>>
   const shown = useMemo(() => {
-    const words = query.toLowerCase().split(/\s+/).filter(Boolean)
     const column = columns.find((candidate) => candidate.key === sort.key) ?? columns[0]!
-    return ofTask
-      .filter((row) => (set === ALL || row.run.set.name === set) && (campaign === ALL || row.campaigns.includes(campaign)) && matches(row, words))
-      .sort((a, b) => compareValues(column.value(a), column.value(b)) * (sort.descending ? -1 : 1))
-  }, [ofTask, set, campaign, query, sort, columns])
+    return filtered.filter((row) => row.run.task === task).sort((a, b) => compareValues(column.value(a), column.value(b)) * (sort.descending ? -1 : 1))
+  }, [filtered, task, sort, columns])
 
   const chosen = all.filter((row) => selected.has(row.id))
   const chosenIds = chosen.map((row) => row.id).join(',')
@@ -142,10 +148,10 @@ export function RunsPage() {
           <h1 className="text-xl font-semibold">Runs</h1>
           <p className="text-sm text-muted-foreground">Every measurement in the data folder. Choose runs of one set to hear or read them side by side.</p>
         </div>
-        <Tabs value={task} onValueChange={(value) => { setSelected(new Set()); update({ task: value === 'tts' ? null : value, set: null }) }}>
+        <Tabs value={task} onValueChange={(value) => { setSelected(new Set()); update({ task: value, set: null }) }}>
           <TabsList>
-            <TabsTrigger value="tts">Synthesis</TabsTrigger>
-            <TabsTrigger value="asr">Recognition</TabsTrigger>
+            <TabsTrigger value="tts">Synthesis{runs.state === 'loaded' && <span className="text-muted-foreground tabular-nums">{matching.tts}</span>}</TabsTrigger>
+            <TabsTrigger value="asr">Recognition{runs.state === 'loaded' && <span className="text-muted-foreground tabular-nums">{matching.asr}</span>}</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
