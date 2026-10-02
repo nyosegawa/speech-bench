@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { downloadVerified, extractArchive } from './download.ts'
+import { renameImport } from './pe.ts'
 import { runtimesDir } from '../core/paths.ts'
 import { platformKey, type PlatformKey } from '../core/platform.ts'
 
@@ -10,6 +11,11 @@ interface RuntimeAsset {
   url: string
   sha256: string
   executable: string
+  /**
+   * A DLL the archive ships that Windows would replace with its own copy in System32, renamed on unpacking: the
+   * module that imports it, the name it imports and the name it is given beside that module.
+   */
+  renamedDll?: { importer: string; dll: string; as: string }
 }
 
 export interface RuntimeSpec {
@@ -130,7 +136,10 @@ export const SHERPA_ONNX: RuntimeSpec = {
     'win32-x64': {
       url: 'https://registry.npmjs.org/sherpa-onnx-win-x64/-/sherpa-onnx-win-x64-1.13.8.tgz',
       sha256: 'fe522f02a5c113c2567a43982107ef41ae517f9a431931e90731e7e4d4341073',
-      executable: 'package/sherpa-onnx.node'
+      executable: 'package/sherpa-onnx.node',
+      // Windows 11 keeps ONNX Runtime 1.17 as System32\onnxruntime.dll and loads it in place of the 1.28.2 beside
+      // the addon, wherever the addon is loaded from, which then stops at the API version sherpa-onnx asks for.
+      renamedDll: { importer: 'package/sherpa-onnx-c-api.dll', dll: 'onnxruntime.dll', as: 'sherpa-ort.dll' }
     }
   }
 }
@@ -219,8 +228,11 @@ export async function ensureRuntime(spec: RuntimeSpec): Promise<string> {
   const asset = spec.assets[platformKey()]
   const folder = path.join(runtimesDir(), `${spec.id}-${spec.version}`)
   const executable = path.join(folder, asset.executable)
+  const renamed = asset.renamedDll ? { ...asset.renamedDll, file: path.join(path.dirname(asset.renamedDll.importer), asset.renamedDll.as) } : null
   if (fs.existsSync(folder)) {
-    if (!fs.existsSync(executable)) throw new Error(`${folder} has no ${asset.executable}; remove the folder to unpack the release again`)
+    for (const file of [asset.executable, ...(renamed ? [renamed.file] : [])]) {
+      if (!fs.existsSync(path.join(folder, file))) throw new Error(`${folder} has no ${file}; remove the folder to unpack the release again`)
+    }
     return executable
   }
   process.stderr.write(`  downloading ${spec.id} ${spec.version}\n`)
@@ -235,6 +247,10 @@ export async function ensureRuntime(spec: RuntimeSpec): Promise<string> {
     if (!fs.existsSync(path.join(unpacked, asset.executable))) throw new Error(`${asset.url} has no ${asset.executable}`)
     // audio.cpp's macOS archive stores its binaries without the executable bit (v0.8.2).
     fs.chmodSync(path.join(unpacked, asset.executable), 0o755)
+    if (renamed) {
+      renameImport(path.join(unpacked, renamed.importer), renamed.dll, renamed.as)
+      fs.renameSync(path.join(unpacked, path.dirname(renamed.importer), renamed.dll), path.join(unpacked, renamed.file))
+    }
     fs.renameSync(unpacked, folder)
   } finally {
     fs.rmSync(work, { recursive: true, force: true })

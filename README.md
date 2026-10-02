@@ -303,7 +303,7 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 | Irodori-TTS v4.1 Small, MF and RF | sakasegawa/irodori-tts-ggml F16 and the F32 codec |
 | audio.cpp | v0.8.2-audio8-perf-hotfix |
 | Irodori-TTS v4 Small | audio-cpp/audio.cpp-gguf Q8_0 |
-| sherpa-onnx | 1.13.8, the Node addon of its npm packages for macOS arm64 and Windows x64, for speaker embeddings and the VAD |
+| sherpa-onnx | 1.13.8, the Node addon of its npm packages for macOS arm64 and Windows x64, for speaker embeddings and the VAD; on Windows its ONNX Runtime is renamed so that Windows ML's copy in System32 is not loaded in its place (docs/adr/0018) |
 | Common Voice 8.0 | japanese-asr/ja_asr.common_voice_8_0 at revision bf8819e8: the test split of ja-JP, one Parquet file of MP3 clips and sentences, copied from Mozilla's release (CC0) |
 | hyparquet | 1.31.2, its npm package, which reads the Parquet file |
 | mpg123-decoder | 1.0.3 with the packages it imports, mpg123 in WebAssembly, which decodes the MP3 to the same samples on every machine |
