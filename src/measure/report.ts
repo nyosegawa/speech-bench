@@ -3,7 +3,8 @@ import { scoredByCharacter } from '../core/language.ts'
 import { sentenceKey, spellingsReader, type Spellings } from '../spellings/files.ts'
 import { countAcceptedErrors } from './accepted.ts'
 import { isDropped, parseResultFile, type AsrRunRecord, type AudioPreparation, type HeardUtterance, type TtsRunRecord } from './results.ts'
-import { countErrors, countHeardErrors, heardAsSaid, type ErrorCount } from './scoring.ts'
+import { countHeardErrors, heardAsSaid } from './heard.ts'
+import { countErrors, type ErrorCount } from './scoring.ts'
 
 /** What one speech recognition result file adds up to. */
 export interface AsrSummary {

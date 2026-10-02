@@ -30,6 +30,10 @@ describe('readSpellings', () => {
     expect(spellings.get(sentenceKey('はい'))?.record.note).toBe('nothing to accept')
   })
 
+  it('reads the annotation files of the bench', () => {
+    expect(() => readSpellings('ja-JP')).not.toThrow()
+  })
+
   it('stops at a sentence annotated twice, even in two files', () => {
     const folder = folderWith({ 'a-ja-JP.jsonl': [{ line: 'はい', ...made }], 'b-ja-JP.jsonl': [{ line: 'はい', ...made }] })
     expect(() => readSpellings('ja-JP', folder)).toThrow(/b-ja-JP\.jsonl/)

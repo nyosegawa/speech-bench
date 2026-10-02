@@ -1,5 +1,8 @@
 # A Japanese long vowel mark is read as the vowel it lengthens
 
+Speech recognition no longer reads the mark as a vowel (docs/adr/0015); the scoring of synthesized speech
+still does.
+
 In Japanese, each long vowel mark ー is written as the vowel of the kana before it, in that kana's script,
 before a reference and a transcription are compared: あー counts as ああ and コーヒー as コオヒイ. The rule
 applies to speech recognition and to the speech a synthesis model made alike, and, as with numbers

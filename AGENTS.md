@@ -30,8 +30,9 @@ behavior.
   references or sentences to speak.
 - `src/measure/` runs a model over a set and writes the result (`run-asr.ts`, `run-tts.ts`), owns the form of
   result files and their upgrades (`results.ts`), where a run is kept (`runs.ts`), the campaigns
-  (`campaigns.ts`), the scoring of texts (`scoring.ts`, and against accepted spellings `accepted.ts`) and the
-  report (`report.ts`).
+  (`campaigns.ts`), the scoring of recognized texts (`scoring.ts`, with the kanji forms of `kanji-forms.ts`, and
+  against accepted spellings `accepted.ts`) and of synthesized speech as heard (`heard.ts`), and the report
+  (`report.ts`).
 - `src/spellings/` handles the annotations of reference sentences in `spellings/`: the notation of readings
   and accepted spellings (`notation.ts`), the files (`files.ts`), the sentences of each source (`sources.ts`),
   the agent's draft (`draft.ts`) and the work directories it annotates in (`work.ts`). `skills/accepted-spellings/`

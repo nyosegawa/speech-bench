@@ -118,8 +118,9 @@ which shows how a model takes long silences.
 ### Speech recognition
 
 - **Error rate**: characters (CER) for Japanese, Korean and Chinese, words (WER) for the other languages,
-  after NFKC and with punctuation and symbols removed; Japanese numbers are compared as Arabic digits, so
-  that 一ドル and 1ドル are equal, and a long vowel mark as the vowel it lengthens, so that あー and ああ are equal. The errors of the whole set are divided by the length of its references,
+  compared as written after folding only what never changes the word: NFKC, case, traditional kanji forms into
+  the forms in use, spaces and the punctuation that is not read. Marks that are read stay (27% and 27 differ),
+  and 一ドル against 1ドル or あー against ああ count as written (docs/adr/0015). The errors of the whole set are divided by the length of its references,
   rather than averaging the rates of single utterances. Errors are counted when a report is made, from the
   texts the result files keep, so that every result is scored by the same rules.
 - **Error rate with accepted spellings**: for Japanese, the errors left when a transcription may write any part
@@ -165,8 +166,10 @@ reads, with the agent, its model, the commit of the skill and the day. The skill
   last.
 - **Real-time factor**: the synthesis time over the length of the speech.
 - **Heard error rate**: the speech is transcribed by Qwen3-ASR 1.7B, after the synthesis model has
-  stopped, and compared with the sentence as for recognition, except that a sentence counts at most all of
-  its characters as errors, so that one take that runs on cannot decide the rate of a voice. It counts
+  stopped, and compared with the sentence after NFKC and without punctuation, symbols and spaces, Japanese
+  numbers read as Arabic digits and a long vowel mark as the vowel it lengthens (docs/adr/0002, 0006). A
+  sentence counts at most all of its characters as errors, so that one take that runs on cannot decide the
+  rate of a voice. It counts
   misreadings, dropped or repeated words, and speech that runs on past the sentence.
 - **Heard as said**: the sentences the recognizer heard as they were written, apart from how it spells them
   (in Japanese katakana or hiragana, small or full-size vowels, あー or ああ), but not shorter, longer or with a
