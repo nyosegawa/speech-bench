@@ -122,6 +122,12 @@ which shows how a model takes long silences.
   that 一ドル and 1ドル are equal, and a long vowel mark as the vowel it lengthens, so that あー and ああ are equal. The errors of the whole set are divided by the length of its references,
   rather than averaging the rates of single utterances. Errors are counted when a report is made, from the
   texts the result files keep, so that every result is scored by the same rules.
+- **Error rate with accepted spellings**: for Japanese, the errors left when a transcription may write any part
+  of the reference in the kana of its reading, hiragana or katakana, and a stretch as one of the other spellings
+  the sentence is annotated with (三時 as 3時, 打ち合わせ as 打合せ). Another kanji with the same sound stays an
+  error. The annotations are in `spellings/<source>-<locale>.jsonl`, one sentence per line, readings written
+  `明日《あした》` and other spellings `［九《く》時《じ》／9時］` (docs/adr/0013). A run gets the rate once every
+  utterance it heard is annotated; until then the report says how many are.
 - **Time**: from sending the whole utterance to receiving its text, which is what a speaker waits for once
   an application's VAD has closed the utterance. The first utterance is transcribed once more, untimed, because it pays
   for the GPU's first use.

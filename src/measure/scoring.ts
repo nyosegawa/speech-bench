@@ -76,6 +76,43 @@ export function normalizeForScoring(text: string, locale: string): string {
   return byCharacter ? bare.replace(/\p{Z}|\s/gu, '') : bare.replace(/[\p{Z}\s]+/gu, ' ').trim()
 }
 
+/** One character a text is compared in, with the code-point range of the written text it comes from. */
+export interface Unit {
+  text: string
+  start: number
+  end: number
+}
+
+const graphemes = new Intl.Segmenter('ja', { granularity: 'grapheme' })
+/** Marks read aloud wherever they stand, after NFKC. */
+const READ_MARKS = new Set(['%', '‰', '°', '¥', '$', '€', '£', '&'])
+/** Marks read aloud between two numerals: 6.5, 12:00, 1~3, 6-6, 1/2. */
+const BETWEEN_NUMERALS = new Set(['.', ':', '~', '〜', '-', '−', '/'])
+const NUMERAL = /^[\p{Nd}〇一二三四五六七八九十百千万億兆]$/u
+
+/**
+ * The characters a text is compared in when it is scored against accepted spellings, each with the range of the
+ * grapheme it comes from: NFKC and lower case, without spaces, apostrophes, and the punctuation and symbols that
+ * are not read aloud. A mark that is read stays, so that 27% and 27 differ: %, currency signs, ° and & anywhere,
+ * and . : ~ - / between two numerals; a comma grouping digits goes.
+ */
+export function characterUnits(text: string): Unit[] {
+  const clusters: Array<{ start: number; end: number; folded: string }> = []
+  let at = 0
+  for (const { segment } of graphemes.segment(text)) {
+    const length = [...segment].length
+    clusters.push({ start: at, end: at + length, folded: segment.normalize('NFKC').toLowerCase() })
+    at += length
+  }
+  const numeral = (index: number): boolean => NUMERAL.test(clusters[index]?.folded ?? '')
+  return clusters.flatMap((cluster, index) => [...cluster.folded].flatMap((character) => {
+    if (/[\p{Z}\s'’]/u.test(character)) return []
+    const read = READ_MARKS.has(character) || (BETWEEN_NUMERALS.has(character) && numeral(index - 1) && numeral(index + 1))
+    if (/[\p{P}\p{S}]/u.test(character) && !read) return []
+    return [{ text: character, start: cluster.start, end: cluster.end }]
+  }))
+}
+
 /** The Levenshtein distance between two sequences. */
 export function editDistance<T>(reference: readonly T[], hypothesis: readonly T[]): number {
   let previous = Array.from({ length: hypothesis.length + 1 }, (_, index) => index)

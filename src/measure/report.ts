@@ -1,5 +1,7 @@
 import fs from 'node:fs'
 import { scoredByCharacter } from '../core/language.ts'
+import { sentenceKey, spellingsReader, type Spellings } from '../spellings/files.ts'
+import { countAcceptedErrors } from './accepted.ts'
 import { isDropped, parseResultFile, type AsrRunRecord, type AudioPreparation, type HeardUtterance, type TtsRunRecord } from './results.ts'
 import { countErrors, countHeardErrors, heardAsSaid, type ErrorCount } from './scoring.ts'
 
@@ -11,6 +13,10 @@ export interface AsrSummary {
   dropped: number
   /** Errors over the utterances heard divided by their reference length, as the public benchmarks count them. */
   errorRate: number
+  /** Utterances heard whose reference is annotated with its readings and accepted spellings. */
+  annotated: number
+  /** The error rate with the readings and accepted spellings, once every utterance heard is annotated, or null. */
+  acceptedErrorRate: number | null
   empty: number
   medianSeconds: number
   p90Seconds: number
@@ -49,7 +55,22 @@ const sum = <T>(items: readonly T[], pick: (item: T) => number): number => items
  */
 const corpusErrorRate = (counts: readonly ErrorCount[]): number => sum(counts, (count) => count.errors) / sum(counts, (count) => count.referenceLength)
 
-export function summarize(lines: readonly string[]): Summary {
+/**
+ * The error rate of the utterances heard with the readings and accepted spellings of their references, and how
+ * many are annotated. A rate over part of a set would not compare with the plain one, so it waits for all of it.
+ */
+function accepted(heard: readonly HeardUtterance[], locale: string, spellingsOf: (locale: string) => Spellings): { annotated: number; acceptedErrorRate: number | null } {
+  if (!scoredByCharacter(locale)) return { annotated: 0, acceptedErrorRate: null }
+  const spellings = spellingsOf(locale)
+  const counts = heard.flatMap((record) => {
+    const sentence = spellings.get(sentenceKey(record.reference))
+    return sentence ? [countAcceptedErrors(sentence.reference, sentence.segments, record.text)] : []
+  })
+  return { annotated: counts.length, acceptedErrorRate: counts.length === heard.length && heard.length > 0 ? corpusErrorRate(counts) : null }
+}
+
+/** What a result file adds up to, its errors counted from its texts with the annotations `spellingsOf` reads. */
+export function summarize(lines: readonly string[], spellingsOf: (locale: string) => Spellings): Summary {
   const file = parseResultFile(lines)
   if ('utterances' in file) {
     const { run, utterances } = file
@@ -60,6 +81,7 @@ export function summarize(lines: readonly string[]): Summary {
       utterances: utterances.length,
       dropped: utterances.length - heard.length,
       errorRate: corpusErrorRate(heard.map((record) => countErrors(record.reference, record.text, run.set.locale))),
+      ...accepted(heard, run.set.locale, spellingsOf),
       empty: heard.filter((record) => record.text.trim() === '').length,
       medianSeconds: quantile(seconds, 0.5),
       p90Seconds: quantile(seconds, 0.9),
@@ -81,7 +103,8 @@ export function summarize(lines: readonly string[]): Summary {
 }
 
 export function readSummaries(files: readonly string[]): Summary[] {
-  return files.map((file) => summarize(fs.readFileSync(file, 'utf8').split('\n')))
+  const spellingsOf = spellingsReader()
+  return files.map((file) => summarize(fs.readFileSync(file, 'utf8').split('\n'), spellingsOf))
 }
 
 
@@ -100,12 +123,19 @@ const runtimeOf = (summary: Summary): string => {
 }
 const percent = (rate: number): string => `${(rate * 100).toFixed(2)}%`
 
+/** The rate with accepted spellings, or how many of the utterances heard are annotated while some are not. */
+const acceptedCell = (row: AsrSummary): string =>
+  row.acceptedErrorRate === null ? `${row.annotated} of ${row.utterances - row.dropped} annotated` : percent(row.acceptedErrorRate)
+
 function asrTable(rows: readonly AsrSummary[]): string[] {
-  const metric = scoredByCharacter(rows[0]!.run.set.locale) ? 'CER' : 'WER'
+  const byCharacter = scoredByCharacter(rows[0]!.run.set.locale)
+  const metric = byCharacter ? 'CER' : 'WER'
+  const accepted = byCharacter ? ' CER, accepted spellings |' : ''
   return [
-    `| Model | GPU, system | Runtime | N | Dropped by VAD | ${metric} | Empty | Median s | p90 s | RTF | Load s |`,
-    '|---|---|---|---|---|---|---|---|---|---|---|',
-    ...rows.map((row) => `| ${[row.run.model.label, machineOf(row), runtimeOf(row), row.utterances, row.dropped, percent(row.errorRate), row.empty,
+    `| Model | GPU, system | Runtime | N | Dropped by VAD | ${metric} |${accepted} Empty | Median s | p90 s | RTF | Load s |`,
+    `|---|---|---|---|---|---|${byCharacter ? '---|' : ''}---|---|---|---|---|`,
+    ...rows.map((row) => `| ${[row.run.model.label, machineOf(row), runtimeOf(row), row.utterances, row.dropped, percent(row.errorRate),
+      ...(byCharacter ? [acceptedCell(row)] : []), row.empty,
       row.medianSeconds.toFixed(3), row.p90Seconds.toFixed(3), row.realTimeFactor.toFixed(3), row.run.loadSeconds.toFixed(1)].join(' | ')} |`)
   ]
 }
