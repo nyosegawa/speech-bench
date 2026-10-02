@@ -69,6 +69,10 @@ export function readSpellings(locale: string, folder = SPELLINGS): Spellings {
   return annotated
 }
 
+/** The sources the bench has annotations of, by the names of their files. */
+export const spellingSources = (folder = SPELLINGS): string[] =>
+  fs.existsSync(folder) ? fs.readdirSync(folder).filter((name) => name.endsWith('.jsonl')).map((name) => name.slice(0, -'.jsonl'.length)).sort() : []
+
 /** The annotation file of a source, such as `fleurs-ja-JP`. */
 export const spellingsFile = (source: string, folder = SPELLINGS): string => path.join(folder, `${source}.jsonl`)
 

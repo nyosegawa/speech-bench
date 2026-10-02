@@ -11,12 +11,13 @@ import { recipeLocales, recipeOf } from '../make/recipes.ts'
 import { referenceFile, referenceNames } from '../make/references.ts'
 import { listCampaigns } from '../measure/campaigns.ts'
 import { summarize } from '../measure/report.ts'
-import { spellingsReader } from '../spellings/files.ts'
+import { spellingSources, spellingsReader } from '../spellings/files.ts'
+import { spellingsData } from '../pages/spellings.ts'
 import { allRunFiles, runFile, runIdOf } from '../measure/runs.ts'
 import { listeningData, readTtsRuns, type UrlOf } from '../pages/listen.ts'
 import { promptLocales } from '../datasets/prompts.ts'
 import { transcriptsData } from '../pages/transcripts.ts'
-import type { ApiError, CampaignRow, ChooseAnswer, ChosenVoices, Job, ListenData, NeighborsData, RecordingSession, RecordLocales, RunRow, SavedRecording, SpeakerRow, Transcripts, VoiceDetail, VoiceRow, VoiceStepRequest } from './api.ts'
+import type { ApiError, CampaignRow, Spellings, ChooseAnswer, ChosenVoices, Job, ListenData, NeighborsData, RecordingSession, RecordLocales, RunRow, SavedRecording, SpeakerRow, Transcripts, VoiceDetail, VoiceRow, VoiceStepRequest } from './api.ts'
 import { folderOf, recordingSession, saveFrom, speakerRows } from './recordings.ts'
 import { RequestError } from './request-error.ts'
 import { Jobs } from './jobs.ts'
@@ -144,6 +145,13 @@ export async function startWebServer(port: number): Promise<{ url: string; close
       if (request.method === 'GET' && url.pathname === '/api/campaigns') return json(response, 200, listCampaigns() satisfies CampaignRow[])
       if (request.method === 'GET' && url.pathname === '/api/listen') return json(response, 200, await listen(url))
       if (request.method === 'GET' && url.pathname === '/api/transcripts') return json(response, 200, transcriptsData(namedRuns(url)) satisfies Transcripts)
+      if (request.method === 'GET' && url.pathname === '/api/spellings') {
+        const sources = spellingSources()
+        const source = url.searchParams.get('source') ?? sources[0]
+        if (source === undefined) throw new RequestError('the bench has no annotations of accepted spellings yet; make them with spellings annotate')
+        if (!sources.includes(source)) throw new RequestError(`there are no annotations of ${source}; the sources are ${sources.join(', ')}`)
+        return json(response, 200, spellingsData(sources, source) satisfies Spellings)
+      }
       if (request.method === 'GET' && url.pathname === '/api/neighbors') {
         const groups = neighborGroups(embedGroups(namedRuns(url), await speakerEmbedder()), audioUrl)
         if (groups.length === 0) throw new RequestError('the runs hold no voice with two or more takes long enough to compare')

@@ -12,17 +12,25 @@ import { cn } from '@/lib/utils.ts'
 
 type Utterance = Transcripts['utterances'][number]
 type Heard = NonNullable<Utterance['heard'][number]>
-type Aligned = Extract<Heard, { alignment: unknown }>['alignment'][number]
+type HeardText = Extract<Heard, { alignment: unknown }>
+type Aligned = HeardText['alignment'][number]
+type AcceptedStep = NonNullable<HeardText['accepted']>['alignment'][number]
 
-const errorsOf = (heard: Heard | null): number => (heard && 'errors' in heard ? heard.errors : 0)
+/** How the transcriptions are scored on the page: as written, or with the readings and accepted spellings of the sentence. */
+type Mode = 'written' | 'accepted'
+
+const errorsOf = (heard: Heard | null, mode: Mode): number => {
+  if (!heard || !('errors' in heard)) return 0
+  return mode === 'accepted' && heard.accepted ? heard.accepted.errors : heard.errors
+}
 
 /** Whether the runs heard an utterance differently from each other, dropped ones included. */
 const disagree = (utterance: Utterance): boolean => new Set(utterance.heard.map((heard) => (heard === null ? '' : 'text' in heard ? heard.alignment.map((step) => step.hypothesis ?? '').join('') : heard.droppedBy))).size > 1
 
 const FILTERS = {
   all: { label: 'Every utterance', keep: () => true },
-  errors: { label: 'Heard wrong by a run', keep: (utterance: Utterance) => utterance.heard.some((heard) => errorsOf(heard) > 0 || (heard !== null && 'droppedBy' in heard)) },
-  disagree: { label: 'Heard differently by the runs', keep: disagree }
+  errors: { label: 'Heard wrong by a run', keep: (utterance: Utterance, mode: Mode) => utterance.heard.some((heard) => errorsOf(heard, mode) > 0 || (heard !== null && 'droppedBy' in heard)) },
+  disagree: { label: 'Heard differently by the runs', keep: (utterance: Utterance) => disagree(utterance) }
 } as const
 
 /** A transcription as it was scored, with what it got wrong marked against the reference. */
@@ -40,22 +48,42 @@ function AlignedText({ alignment, words }: { alignment: Aligned[]; words: boolea
   )
 }
 
+/**
+ * A transcription lined up with the closest way through the readings and accepted spellings of its sentence: what it
+ * wrote in a reading or another spelling is marked, with the stretch as written in its title.
+ */
+function AcceptedText({ steps }: { steps: AcceptedStep[] }) {
+  return (
+    <span className="leading-loose">
+      {steps.map((step, index) => {
+        const taken = step.taken ? `${step.taken.written} as ${step.taken.as}` : null
+        if (step.right) return taken ? <span key={index} className="rounded-sm bg-emerald-500/15 px-0.5" title={taken}>{step.hypothesis}</span> : <span key={index}>{step.hypothesis}</span>
+        if (step.hypothesis === null) return <del key={index} className="rounded-sm bg-red-500/10 px-0.5 text-red-700/70 dark:text-red-400/70" title={taken ? `not heard (${taken})` : 'not heard'}>{step.reference}</del>
+        if (step.reference === null) return <ins key={index} className="rounded-sm bg-amber-500/20 px-0.5 no-underline" title="heard, not said">{step.hypothesis}</ins>
+        return <mark key={index} className="rounded-sm bg-red-500/20 px-0.5 text-inherit" title={`heard for ${step.reference}${taken ? ` (${taken})` : ''}`}>{step.hypothesis}</mark>
+      })}
+    </span>
+  )
+}
+
 /** Recognition runs of one set side by side: what each heard of every utterance, aligned with the reference. */
 export function TranscriptsPage() {
   const [params] = useSearchParams()
   const data = useApi<Transcripts>(`/api/transcripts?runs=${params.get('runs') ?? ''}`)
   const [filter, setFilter] = useState<keyof typeof FILTERS>('errors')
   const [order, setOrder] = useState<'set' | 'errors'>('set')
+  const [chosenMode, setMode] = useState<Mode | null>(null)
+  const mode: Mode = chosenMode ?? (data.state === 'loaded' && data.data.annotated ? 'accepted' : 'written')
   const shown = useMemo(() => {
     if (data.state !== 'loaded') return []
-    const kept = data.data.utterances.filter(FILTERS[filter].keep)
-    const total = (utterance: Utterance): number => utterance.heard.reduce((sum, heard) => sum + errorsOf(heard), 0)
+    const kept = data.data.utterances.filter((utterance) => FILTERS[filter].keep(utterance, mode))
+    const total = (utterance: Utterance): number => utterance.heard.reduce((sum, heard) => sum + errorsOf(heard, mode), 0)
     return order === 'errors' ? [...kept].sort((a, b) => total(b) - total(a)) : kept
-  }, [data, filter, order])
+  }, [data, filter, order, mode])
 
   if (data.state === 'failed') return <main className="mx-auto max-w-screen-xl px-4 py-6"><Failure error={data.error} /></main>
   if (data.state === 'loading') return <main className="mx-auto max-w-screen-xl px-4 py-6"><Skeleton className="h-96 w-full" /></main>
-  const { set, locale, shared, runs, utterances, byCharacter } = data.data
+  const { set, locale, shared, runs, utterances, byCharacter, annotated } = data.data
   const words = !byCharacter
   return (
     <main className="mx-auto max-w-screen-xl space-y-4 px-4 py-6">
@@ -70,6 +98,7 @@ export function TranscriptsPage() {
               <TableRow>
                 <TableHead className="pl-4">Run</TableHead>
                 <TableHead className="text-right">{words ? 'WER' : 'CER'}</TableHead>
+                {annotated && <TableHead className="text-right">Accepted CER</TableHead>}
                 <TableHead className="text-right">Dropped</TableHead>
               </TableRow>
             </TableHeader>
@@ -78,6 +107,11 @@ export function TranscriptsPage() {
                 <TableRow key={run.id} style={runColor(index)}>
                   <TableCell className="border-l-4 border-l-(--run) pl-4 font-medium whitespace-normal">{run.name}</TableCell>
                   <TableCell className="text-right tabular-nums">{percent(run.errorRate)}</TableCell>
+                  {annotated && (
+                    <TableCell className="text-right tabular-nums">
+                      {run.acceptedErrorRate === null ? <span className="text-muted-foreground" title="utterances heard whose sentence is annotated">{run.annotated} / {run.utterances - run.dropped}</span> : percent(run.acceptedErrorRate)}
+                    </TableCell>
+                  )}
                   <TableCell className="text-right tabular-nums">{run.dropped} / {run.utterances}</TableCell>
                 </TableRow>
               ))}
@@ -97,11 +131,21 @@ export function TranscriptsPage() {
             <SelectItem value="errors">Most errors first</SelectItem>
           </SelectContent>
         </Select>
+        {annotated && (
+          <Select value={mode} onValueChange={(value) => setMode(value as Mode)}>
+            <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="accepted">With accepted spellings</SelectItem>
+              <SelectItem value="written">As written</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
         <span className="text-sm text-muted-foreground">{shown.length} of {utterances.length} utterances</span>
         <span className="ml-auto flex gap-3 text-xs text-muted-foreground">
           <mark className="rounded-sm bg-red-500/20 px-1 text-inherit">heard for another</mark>
           <ins className="rounded-sm bg-amber-500/20 px-1 no-underline">heard, not said</ins>
           <del className="rounded-sm bg-red-500/10 px-1">not heard</del>
+          {mode === 'accepted' && <span className="rounded-sm bg-emerald-500/15 px-1">a reading or spelling accepted</span>}
         </span>
       </div>
       {shown.map((utterance) => (
@@ -114,12 +158,12 @@ export function TranscriptsPage() {
             {utterance.heard.map((heard, index) => (
               <div key={index} style={runColor(index)} className="grid grid-cols-[minmax(8rem,14rem)_4.5rem_1fr] items-baseline gap-3 border-l-4 border-l-(--run) pl-3 text-sm">
                 <span className="truncate text-xs text-muted-foreground" title={runs[index]!.name}>{runs[index]!.name}</span>
-                <span className={cn('text-right text-xs tabular-nums', errorsOf(heard) > 0 ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground')}>
-                  {heard && 'errors' in heard ? `${heard.errors} / ${heard.referenceLength}` : ''}
+                <span className={cn('text-right text-xs tabular-nums', errorsOf(heard, mode) > 0 ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground')}>
+                  {heard && 'errors' in heard ? `${errorsOf(heard, mode)} / ${heard.referenceLength}` : ''}
                 </span>
                 {heard === null && <span className="text-muted-foreground">not in this run</span>}
                 {heard && 'droppedBy' in heard && <span className="text-muted-foreground">dropped: {heard.droppedBy === 'no-voice' ? 'no voice found' : "ASIST's VAD kept nothing"}</span>}
-                {heard && 'alignment' in heard && <AlignedText alignment={heard.alignment} words={words} />}
+                {heard && 'alignment' in heard && (mode === 'accepted' && heard.accepted ? <AcceptedText steps={heard.accepted.alignment} /> : <AlignedText alignment={heard.alignment} words={words} />)}
               </div>
             ))}
           </CardContent>

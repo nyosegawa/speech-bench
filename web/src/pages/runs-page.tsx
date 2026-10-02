@@ -78,6 +78,16 @@ const ASR_COLUMNS: Array<Column<AsrRow>> = [
   common.set,
   common.machine,
   { key: 'cer', label: 'CER', numeric: true, hint: 'Errors over the utterances heard divided by their reference length.', value: (row) => row.errorRate, cell: (row) => number(percent(row.errorRate)) },
+  {
+    key: 'accepted',
+    label: 'Accepted CER',
+    numeric: true,
+    hint: 'The CER when a transcription may write the reference in the readings and other spellings its sentence is annotated with; given once every utterance heard is annotated.',
+    value: (row) => row.acceptedErrorRate ?? Number.POSITIVE_INFINITY,
+    cell: (row) => row.acceptedErrorRate !== null
+      ? number(percent(row.acceptedErrorRate))
+      : <span className="tabular-nums whitespace-nowrap text-muted-foreground" title="utterances heard whose sentence is annotated">{row.annotated === 0 ? '—' : `${row.annotated} / ${row.utterances - row.dropped}`}</span>
+  },
   { key: 'dropped', label: 'Dropped', numeric: true, hint: 'Utterances in which the VAD found no voice; the other figures leave them out.', value: (row) => row.dropped, cell: (row) => number(`${row.dropped} / ${row.utterances}`) },
   { key: 'empty', label: 'Empty', numeric: true, hint: 'Utterances the model heard nothing in.', value: (row) => row.empty, cell: (row) => number(String(row.empty)) },
   { key: 'time', label: 'Time', numeric: true, hint: 'Seconds to transcribe an utterance: median, and the 90th percentile below.', value: (row) => row.medianSeconds, cell: (row) => <div className="tabular-nums whitespace-nowrap">{seconds(row.medianSeconds)}<div className="text-xs text-muted-foreground">p90 {seconds(row.p90Seconds)}</div></div> },
