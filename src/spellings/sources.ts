@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { commonVoiceLocales, commonVoiceTestSentences } from '../datasets/common-voice.ts'
 import { fleursTestSentences, fleursLocales } from '../datasets/fleurs.ts'
 import { parsePrompts, promptLocales, promptsFile } from '../datasets/prompts.ts'
 
@@ -12,6 +13,7 @@ export interface Source {
 
 const SOURCES: ReadonlyArray<{ prefix: string; locales: () => string[]; sentences: (locale: string) => Promise<string[]> }> = [
   { prefix: 'fleurs', locales: fleursLocales, sentences: fleursTestSentences },
+  { prefix: 'common-voice-8', locales: commonVoiceLocales, sentences: commonVoiceTestSentences },
   {
     prefix: 'record',
     locales: () => promptLocales('record'),
@@ -19,7 +21,10 @@ const SOURCES: ReadonlyArray<{ prefix: string; locales: () => string[]; sentence
   }
 ]
 
-/** The sources of annotations: the FLEURS test split of a locale, `fleurs-ja-JP`, and the prompts read on the recording page, `record-ja-JP`. */
+/**
+ * The sources of annotations: the test splits of FLEURS, `fleurs-ja-JP`, and of Common Voice 8.0, `common-voice-8-ja-JP`,
+ * and the prompts read on the recording page, `record-ja-JP`.
+ */
 export function sourceOf(name: string): Source {
   for (const source of SOURCES) {
     if (!name.startsWith(`${source.prefix}-`)) continue
