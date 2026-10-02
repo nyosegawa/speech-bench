@@ -4,11 +4,13 @@ import { describeError } from '../src/core/errors.ts'
 
 describe('describeError', () => {
   it('names why a request to a local server failed, which fetch keeps only in its cause', async () => {
-    const closed = net.createServer((socket) => socket.destroy())
-    await new Promise<void>((resolve) => closed.listen(0, '127.0.0.1', resolve))
-    const { port } = closed.address() as net.AddressInfo
+    // Answering the request with what is not HTTP fails fetch on both systems. Closing the connection at once left
+    // fetch waiting past the test's timeout on GitHub's windows-2025 (2026-10-02).
+    const server = net.createServer((socket) => socket.once('data', () => socket.end('not http\r\n\r\n')))
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+    const { port } = server.address() as net.AddressInfo
     const error = await fetch(`http://127.0.0.1:${port}/`).then(() => null, (failed: unknown) => failed)
-    closed.close()
+    server.close()
     const wrapped = new Error(`qwen3-asr-0.6b failed: ${(error as Error).message}`, { cause: error })
     const described = describeError(wrapped)
     expect(described.startsWith('qwen3-asr-0.6b failed: fetch failed')).toBe(true)
