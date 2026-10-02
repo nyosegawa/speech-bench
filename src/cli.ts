@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { parseArgs } from 'node:util'
+import { describeError } from './core/errors.ts'
 import { dataDir } from './core/paths.ts'
 import { migrateResults } from './measure/runs.ts'
 import { formatReport, readSummaries } from './measure/report.ts'
@@ -51,6 +52,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : error)
+  console.error(describeError(error))
   process.exitCode = 1
 })
