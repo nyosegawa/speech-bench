@@ -22,8 +22,9 @@ FLEURS is.
 ## Measured
 
 2026-10-02, on an Apple M5: the copy matched its pinned sha256; all 4,483 clips are mono MP3 at 48 or 32 kHz,
-6.48 hours in all, and decoded without error in 13 s. 2,745 of the sentences end in 。. and none holds a digit:
-the sentences write numbers in kanji.
+6.48 hours in all, and decoded without error in 13 s. 4,481 of the sentences end in a `.`, after their own
+punctuation where they have it, as in `。.`, which is not scored. None holds a digit: the sentences write numbers in
+kanji.
 
 ## Known limits
 
