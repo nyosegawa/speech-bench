@@ -19,8 +19,8 @@ behavior.
   (`paths.ts`), the system and machine (`platform.ts`, decided once, so the rest never checks the system
   itself) and BCP 47 tags (`language.ts`).
 - `src/catalog/` lists the models with their pinned files, their runtimes and the languages of their model
-  cards (`models.ts`), pins the releases of the runtimes (`runtimes.ts`), and fetches and verifies pinned
-  files (`store.ts`, `download.ts`).
+  cards (`models.ts`), pins the releases of the runtimes (`runtimes.ts`), fetches and verifies pinned
+  files (`store.ts`, `download.ts`), and renames a DLL a Windows module imports (`pe.ts`).
 - `src/engines/` holds one engine per runtime. An engine starts its process, transcribes an utterance or
   speaks a sentence, and stops; it knows nothing about datasets or scoring. The models run in this process
   through sherpa-onnx (speaker embeddings, Silero VAD) are engines too. `adapters/` holds the adapters that run a
