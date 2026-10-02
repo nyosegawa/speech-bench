@@ -11,6 +11,7 @@ import { recipeLocales, recipeOf } from '../make/recipes.ts'
 import { referenceFile, referenceNames } from '../make/references.ts'
 import { listCampaigns } from '../measure/campaigns.ts'
 import { summarize } from '../measure/report.ts'
+import { spellingsReader } from '../spellings/files.ts'
 import { allRunFiles, runFile, runIdOf } from '../measure/runs.ts'
 import { listeningData, readTtsRuns, type UrlOf } from '../pages/listen.ts'
 import { promptLocales } from '../datasets/prompts.ts'
@@ -83,7 +84,8 @@ function namedRuns(url: URL): string[] {
 function runRows(): RunRow[] {
   const campaignsOf = new Map<string, string[]>()
   for (const campaign of listCampaigns()) for (const run of campaign.runs) campaignsOf.set(run, [...(campaignsOf.get(run) ?? []), campaign.name])
-  return allRunFiles().map((file) => ({ ...summarize(fs.readFileSync(file, 'utf8').split('\n')), id: runIdOf(file), campaigns: campaignsOf.get(runIdOf(file)) ?? [] }))
+  const spellingsOf = spellingsReader()
+  return allRunFiles().map((file) => ({ ...summarize(fs.readFileSync(file, 'utf8').split('\n'), spellingsOf), id: runIdOf(file), campaigns: campaignsOf.get(runIdOf(file)) ?? [] }))
 }
 
 /**

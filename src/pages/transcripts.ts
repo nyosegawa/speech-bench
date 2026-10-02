@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import { describeAudio, summarize, type AsrSummary } from '../measure/report.ts'
 import { isDropped, parseResultFile, type AsrRunRecord, type UtteranceRecord } from '../measure/results.ts'
 import { runIdOf } from '../measure/runs.ts'
+import { spellingsReader } from '../spellings/files.ts'
 import { align, countErrors, type Aligned } from '../measure/scoring.ts'
 import { scoredByCharacter } from '../core/language.ts'
 import { namesApart } from './naming.ts'
@@ -39,11 +40,12 @@ const heardOf = (record: UtteranceRecord, locale: string): Heard =>
 
 /** Recognition runs of one set side by side, utterance by utterance, each transcription aligned with its reference. */
 export function transcriptsData(files: readonly string[]): TranscriptsData {
+  const spellingsOf = spellingsReader()
   const runs = files.map((file) => {
     const lines = fs.readFileSync(file, 'utf8').split('\n')
     const parsed = parseResultFile(lines)
     if (!('utterances' in parsed)) throw new Error(`${runIdOf(file)} is not a speech recognition run`)
-    return { id: runIdOf(file), run: parsed.run, utterances: parsed.utterances, summary: summarize(lines) as AsrSummary }
+    return { id: runIdOf(file), run: parsed.run, utterances: parsed.utterances, summary: summarize(lines, spellingsOf) as AsrSummary }
   })
   const sets = new Set(runs.map((entry) => entry.run.set.name))
   if (sets.size !== 1) throw new Error(`the runs heard different sets (${[...sets].join(', ')}); choose runs of one set`)
