@@ -60,6 +60,13 @@ export function parseFleursTsv(text: string): FleursRow[] {
   })
 }
 
+/** The sentences of the test split, each once, in the order of its TSV; several speakers read most of them. */
+export async function fleursTestSentences(locale: string): Promise<string[]> {
+  const split = TEST_SPLITS[locale]
+  if (!split) throw new Error(`FLEURS is pinned for ${fleursLocales().join(', ')}, not ${locale}`)
+  return [...new Set(parseFleursTsv(fs.readFileSync(await ensurePinned(split.tsv), 'utf8')).map((row) => row.transcription))]
+}
+
 /**
  * The first `count` recordings of the test split in the order of its TSV, which is fixed by the pinned
  * revision, so every machine measures the same utterances. Only those recordings are unpacked.

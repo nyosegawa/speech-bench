@@ -138,6 +138,25 @@ each utterance, as it was scored, with what it heard for another unit, heard but
 marked against the reference, its errors beside it. It shows the utterances some run heard wrong, or those the runs
 heard differently, in the set's order or the most errors first.
 
+### Annotating accepted spellings
+
+The annotations behind the error rate with accepted spellings are made by Codex with the skill in
+`skills/accepted-spellings/`, from the reference sentences alone (docs/adr/0014). It needs the Codex CLI, 0.160
+or later for gpt-6.1-sol.
+
+```sh
+# Annotate the sentences of a source no annotation file holds yet, in work directories of up to 1,000
+node src/cli.ts spellings annotate --source fleurs-ja-JP --sessions 4
+
+# Merge a work directory whose session stopped, once its draft is whole
+node src/cli.ts spellings merge ~/speech-bench-data/spellings/fleurs-ja-JP/<work directory>
+```
+
+The sources are `fleurs-<locale>`, the test split of FLEURS, and `record-<locale>`, the prompts of the Record
+page. Each work directory, under `spellings/<source>/` of the data folder, holds the sentences, the agent's
+draft and its log; a draft is merged into `spellings/<source>.jsonl` only when every sentence has a line that
+reads, with the agent, its model, the commit of the skill and the day. The skill must be committed first.
+
 ### Speech synthesis
 
 - **First audio**: from sending a sentence to receiving its first audio. speech.cpp's Qwen3-TTS streams audio

@@ -6,6 +6,7 @@ import { formatReport, readSummaries } from './measure/report.ts'
 import { analyze, asr, listModels, runFilesOf, tts } from './cli/measure.ts'
 import { web } from './cli/web.ts'
 import { reference, voice } from './cli/voices.ts'
+import { spellings } from './cli/spellings.ts'
 
 const USAGE = `usage:
   node src/cli.ts models
@@ -23,6 +24,8 @@ const USAGE = `usage:
   node src/cli.ts voice candidates <voice> --locale ja-JP [--threshold 0.8] [--seconds 10] [--count 3]
   node src/cli.ts voice try <voice> --locale ja-JP [--model irodori-tts-v4.1-small-mf] [--seeds 1,2]
   node src/cli.ts voice choose <voice> <candidate> --locale ja-JP
+  node src/cli.ts spellings annotate --source fleurs-ja-JP [--size 1000] [--sessions 4] [--model gpt-6.1-sol] [--effort medium]
+  node src/cli.ts spellings merge <work directory> ...
   node src/cli.ts migrate
 
 Downloads, recordings and results go to ${dataDir()} (SPEECH_BENCH_DATA moves them).`
@@ -36,6 +39,7 @@ async function main(): Promise<void> {
   else if (command === 'analyze') await analyze(rest)
   else if (command === 'reference') await reference(rest)
   else if (command === 'voice') await voice(rest)
+  else if (command === 'spellings') await spellings(rest)
   else if (command === 'report') {
     const { values, positionals } = parseArgs({ args: rest, allowPositionals: true, options: { campaign: { type: 'string' } } })
     console.log(formatReport(readSummaries(runFilesOf(positionals, values.campaign))))
