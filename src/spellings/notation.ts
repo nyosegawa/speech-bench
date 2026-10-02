@@ -27,7 +27,7 @@ export interface Annotated {
 
 const KANA = /^[\p{Script=Hiragana}\p{Script=Katakana}ー]+$/u
 /** The characters of the notation, which a reference annotated in it cannot contain. */
-const NOTATION_CHARACTERS = /[《》［］／｜]/u
+export const NOTATION_CHARACTERS = /[《》［］／｜]/u
 
 /** Katakana as the hiragana of the same sound, so that ネコ and ねこ, or スラック and すらっく, compare equal. */
 export const foldKana = (text: string): string => text.replace(/[ァ-ヶヽヾ]/gu, (kana) => String.fromCodePoint(kana.codePointAt(0)! - 0x60))

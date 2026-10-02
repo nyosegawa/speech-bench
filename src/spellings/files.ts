@@ -69,6 +69,25 @@ export function readSpellings(locale: string, folder = SPELLINGS): Spellings {
   return annotated
 }
 
+/** The annotation file of a source, such as `fleurs-ja-JP`. */
+export const spellingsFile = (source: string, folder = SPELLINGS): string => path.join(folder, `${source}.jsonl`)
+
+/** The records of one annotation file in the order they stand, or none when it does not exist yet. */
+export function readSpellingRecords(file: string): SpellingRecord[] {
+  if (!fs.existsSync(file)) return []
+  return fs.readFileSync(file, 'utf8').split('\n').flatMap((text, index) => {
+    if (text.trim() === '') return []
+    const record = recordOf(JSON.parse(text))
+    if (typeof record === 'string') throw new Error(`${file} line ${index + 1} ${record}`)
+    return [record]
+  })
+}
+
+export function writeSpellingRecords(file: string, records: readonly SpellingRecord[]): void {
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, records.map((record) => JSON.stringify(record)).join('\n') + '\n')
+}
+
 /** A reader that reads the annotations of each locale once. */
 export function spellingsReader(folder = SPELLINGS): (locale: string) => Spellings {
   const read = new Map<string, Spellings>()

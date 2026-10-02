@@ -32,8 +32,11 @@ behavior.
   result files and their upgrades (`results.ts`), where a run is kept (`runs.ts`), the campaigns
   (`campaigns.ts`), the scoring of texts (`scoring.ts`, and against accepted spellings `accepted.ts`) and the
   report (`report.ts`).
-- `src/spellings/` reads the annotations of reference sentences in `spellings/`: the notation of readings and
-  accepted spellings (`notation.ts`) and the files (`files.ts`).
+- `src/spellings/` handles the annotations of reference sentences in `spellings/`: the notation of readings
+  and accepted spellings (`notation.ts`), the files (`files.ts`), the sentences of each source (`sources.ts`),
+  the agent's draft (`draft.ts`) and the work directories it annotates in (`work.ts`). `skills/accepted-spellings/`
+  is the skill the agent annotates with; its scripts stay thin over `draft.ts`, and it is linked into work
+  directories rather than kept in `.agents/skills`.
 - `src/analysis/` reads speech: speaker embeddings and their comparisons (`speaker.ts`), pitch (`pitch.ts`),
   sets of takes of one voice (`neighbors.ts`), and the analysis kept beside a run (`run-analysis.ts`).
 - `src/make/` makes voices: the recipes in `prompts/voices-<locale>.json` (`recipes.ts`), the steps from
