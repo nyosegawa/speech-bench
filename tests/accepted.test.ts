@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countAcceptedErrors } from '../src/measure/accepted.ts'
+import { alignAccepted, countAcceptedErrors } from '../src/measure/accepted.ts'
 import { characterUnits, editDistance } from '../src/measure/scoring.ts'
 import { parseAnnotated } from '../src/spellings/notation.ts'
 
@@ -51,6 +51,36 @@ describe('countAcceptedErrors', () => {
       const asWritten = editDistance(characterUnits(reference).map((unit) => unit.text), characterUnits(hypothesis).map((unit) => unit.text))
       expect(errors(line, hypothesis)).toBeLessThanOrEqual(asWritten)
     }
+  })
+})
+
+describe('alignAccepted', () => {
+  const aligned = (line: string, hypothesis: string) => {
+    const { reference, segments } = parseAnnotated(line)
+    return alignAccepted(reference, segments, hypothesis)
+  }
+
+  it('says which reading or spelling each step was read as, and makes as many wrong steps as errors', () => {
+    const cases: Array<[string, string]> = [
+      ['明日《あした》は［九《く》時《じ》／9時］', 'あしたは9じ'],
+      ['［えーと／えっと／］、明日《あした》は［九《く》時《じ》／9時］', 'えっと明日は九時半'],
+      ['子《こ》供《ども》の｜USB《ユーエスビー》', 'こどものゆーえすびー'],
+      ['直《なお》る', '治る']
+    ]
+    for (const [line, hypothesis] of cases) {
+      const { steps, errors } = aligned(line, hypothesis)
+      expect(steps.filter((step) => !step.right)).toHaveLength(errors)
+      expect(steps.flatMap((step) => step.hypothesis ?? []).join('')).toBe(characterUnits(hypothesis).map((unit) => unit.text).join(''))
+    }
+    const { steps } = aligned('明日《あした》は［九《く》時《じ》／9時］', 'あしたは9時')
+    expect(steps.every((step) => step.right)).toBe(true)
+    expect(steps[0]!.taken).toEqual({ written: '明日', as: 'あした' })
+    expect(steps.at(-1)!.taken).toEqual({ written: '九時', as: '9時' })
+  })
+
+  it('takes the reference as written where another way is as close', () => {
+    const { steps } = aligned('明日《あした》', '明日')
+    expect(steps.some((step) => step.taken)).toBe(false)
   })
 })
 

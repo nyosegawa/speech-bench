@@ -137,7 +137,13 @@ which shows how a model takes long silences.
 Recognition runs of one set, chosen on the web app's runs page, open the transcripts page: what every run heard of
 each utterance, as it was scored, with what it heard for another unit, heard but was not said, and did not hear
 marked against the reference, its errors beside it. It shows the utterances some run heard wrong, or those the runs
-heard differently, in the set's order or the most errors first.
+heard differently, in the set's order or the most errors first. Where the sentences are annotated, it lines each
+transcription up with their readings and accepted spellings and marks what passed as one, with the stretch as
+written in its title; a switch shows the alignment as written. The runs page and the transcripts page give the
+error rate with accepted spellings beside the plain one.
+
+The Spellings page shows the annotations of each source: every sentence with its readings above the parts they
+read, the other spellings after each bracketed stretch, its note, and the agent, skill and day that made it.
 
 ### Annotating accepted spellings
 

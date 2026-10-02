@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { transcriptsData } from '../src/pages/transcripts.ts'
+import { readSpellings } from '../src/spellings/files.ts'
 
 let folder: string
 beforeEach(() => {
@@ -39,6 +40,19 @@ describe('transcriptsData', () => {
     expect(parakeet).toMatchObject({ errors: 0 })
     expect(data.utterances[1]!.heard[1]).toEqual({ droppedBy: 'no-voice' })
     expect(data.runs[1]).toMatchObject({ dropped: 1, errorRate: 0 })
+  })
+
+  it('lines up what was heard with the readings and accepted spellings of an annotated sentence', () => {
+    const spellings = path.join(folder, 'spellings')
+    fs.mkdirSync(spellings)
+    fs.writeFileSync(path.join(spellings, 'test-ja-JP.jsonl'), JSON.stringify({ line: '今日《きょう》は［九《く》時《じ》／9時］', by: 'test', skill: 'test', at: '2026-10-02' }) + '\n')
+    const a = writeRun('asr-a', 'qwen', 'fleurs-ja', [['u1', '今日は九時', 'きょうは9時'], ['u2', 'こんにちは', 'こんにちは']])
+    const data = transcriptsData([a], (locale) => readSpellings(locale, spellings))
+    const [heard] = data.utterances[0]!.heard
+    expect(heard).toMatchObject({ errors: 4, accepted: { errors: 0 } })
+    expect(data.utterances[1]!.heard[0]).toMatchObject({ accepted: null })
+    expect(data.runs[0]).toMatchObject({ annotated: 1, acceptedErrorRate: null })
+    expect(data.annotated).toBe(true)
   })
 
   it('stops at runs that heard different sets, whose utterances do not line up', () => {
