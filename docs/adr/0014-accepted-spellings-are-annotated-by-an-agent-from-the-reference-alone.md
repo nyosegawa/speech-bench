@@ -38,6 +38,10 @@ FLEURS ja, the 321 sentences of the test split, 2026-10-02, one session for all 
 Two runs of one skill differed by at most 0.07 points on each of the four models measured; their readings agreed
 on 306 to 307 of the 321 sentences.
 
+Common Voice 8.0 ja, the 4,483 sentences of the test split, 2026-10-02: five sessions at once, four of 1,000
+sentences and one of 483. Those of 1,000 took 16 to 30 minutes and 144,000 to 207,000 tokens each, 786,000 tokens in
+all with the fifth, and every draft merged whole when its session ended.
+
 ## Known limits
 
 - No person reviews the annotations; only the checks of the notation do.
