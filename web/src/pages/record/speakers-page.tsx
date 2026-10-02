@@ -37,7 +37,7 @@ export function SpeakersPage() {
             event.preventDefault()
             if (chosenLocale && SPEAKER.test(speaker)) navigate(`/record/${chosenLocale}/${speaker}`)
           }}>
-            <div className="space-y-1.5">
+            <div className="grid gap-1.5">
               <Label>Locale</Label>
               {locales.state === 'loaded' && chosenLocale ? (
                 <Select value={chosenLocale} onValueChange={setLocale}>
@@ -46,7 +46,7 @@ export function SpeakersPage() {
                 </Select>
               ) : <div className="h-9 w-32 rounded-lg border" />}
             </div>
-            <div className="space-y-1.5">
+            <div className="grid gap-1.5">
               <Label htmlFor="speaker">Speaker</Label>
               <Input id="speaker" className="w-56" placeholder="lower-case name" value={speaker} onChange={(event) => setSpeaker(event.target.value)} aria-invalid={speaker !== '' && !SPEAKER.test(speaker)} />
             </div>
