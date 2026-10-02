@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { parseArgs } from 'node:util'
+import { exportPublished, PUBLISHED_DATASET, publishedFolder } from '../spellings/publish.ts'
 import { sourceOf } from '../spellings/sources.ts'
 import { annotate, mergeWork, type WorkRecord } from '../spellings/work.ts'
 
@@ -25,7 +26,11 @@ export async function spellings(args: string[]): Promise<void> {
       const { merged, replaced } = mergeWork(directory, await sourceOf(work.source).sentences(), new Date().toISOString().slice(0, 10))
       console.log(`merged ${merged} sentences from ${directory}${replaced > 0 ? `, ${replaced} of them annotated before` : ''}`)
     }
+  } else if (action === 'export') {
+    const { values } = parseArgs({ args: rest, options: { out: { type: 'string', default: publishedFolder() } } })
+    for (const file of await exportPublished(values.out)) console.log(`wrote ${file}`)
+    console.log(`upload it with: hf upload ${PUBLISHED_DATASET} ${values.out} . --repo-type dataset`)
   } else {
-    throw new Error('spellings annotate --source <source> [--size 1000] [--sessions 4] [--model gpt-6.1-sol] [--effort medium], or spellings merge <work directory> ...')
+    throw new Error('spellings annotate --source <source> [--size 1000] [--sessions 4] [--model gpt-6.1-sol] [--effort medium], spellings merge <work directory> ..., or spellings export [--out <folder>]')
   }
 }

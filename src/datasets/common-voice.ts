@@ -66,9 +66,14 @@ async function readClips(locale: string, withAudio: boolean): Promise<Clip[]> {
   })
 }
 
+/** The file name and sentence of each clip of the test split, in its order. */
+export async function commonVoiceTestClips(locale: string): Promise<Array<{ clip: string; sentence: string }>> {
+  return (await readClips(locale, false)).map(({ clip, sentence }) => ({ clip, sentence }))
+}
+
 /** The sentences of the test split in its order; each clip has a sentence of its own. */
 export async function commonVoiceTestSentences(locale: string): Promise<string[]> {
-  return [...new Set((await readClips(locale, false)).map((clip) => clip.sentence))]
+  return [...new Set((await commonVoiceTestClips(locale)).map((clip) => clip.sentence))]
 }
 
 /** Channels as one, each sample the mean of theirs; the clips of the split are all mono, which mpg123-decoder gives as two equal channels. */
