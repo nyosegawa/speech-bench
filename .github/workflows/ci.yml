@@ -24,6 +24,10 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             web/package-lock.json
+      # The tests run the scorer published with the annotations of Common Voice against the bench's.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
       - run: npm ci
       - run: npm --prefix web ci
       - run: npm run typecheck

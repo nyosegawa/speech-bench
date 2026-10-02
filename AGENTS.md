@@ -35,7 +35,9 @@ behavior.
   (`report.ts`).
 - `src/spellings/` handles the annotations of reference sentences in `spellings/`: the notation of readings
   and accepted spellings (`notation.ts`), the files (`files.ts`), the sentences of each source (`sources.ts`),
-  the agent's draft (`draft.ts`) and the work directories it annotates in (`work.ts`). `skills/accepted-spellings/`
+  the agent's draft (`draft.ts`), the work directories it annotates in (`work.ts`) and the rows published on
+  Hugging Face (`publish.ts`), whose card and Python scorer are in `huggingface/`; the scorer counts as
+  `scoring.ts` and `accepted.ts` do, so a change to how they count changes it too. `skills/accepted-spellings/`
   is the skill the agent annotates with; its scripts stay thin over `draft.ts`, and it is linked into work
   directories rather than kept in `.agents/skills`.
 - `src/analysis/` reads speech: speaker embeddings and their comparisons (`speaker.ts`), pitch (`pitch.ts`),

@@ -69,6 +69,7 @@ folder `SPEECH_BENCH_DATA` names.
   fleurs/      the FLEURS recordings unpacked for measuring
   common-voice/ the Common Voice clips decoded to 16 kHz WAVE for measuring
   spellings/   the work directories of annotating accepted spellings
+  huggingface/ the annotations of Common Voice as they are uploaded to Hugging Face
   runtimes/    llama.cpp, CrispASR, speech.cpp and audio.cpp releases
   recordings/  your recordings, <locale>/<speaker>/manifest.jsonl
   references/  reference voices made from synthesized takes, <name>.wav and <name>.json
@@ -168,6 +169,18 @@ The sources are `fleurs-<locale>`, the test split of FLEURS, `common-voice-8-<lo
 Voice 8.0, and `record-<locale>`, the prompts of the Record page. Each work directory, under `spellings/<source>/` of the data folder, holds the sentences, the agent's
 draft and its log; a draft is merged into `spellings/<source>.jsonl` only when every sentence has a line that
 reads, with the agent, its model, the commit of the skill and the day. The skill must be committed first.
+
+The annotations of the test split of Common Voice 8.0 Japanese are published on Hugging Face as
+[sakasegawa/common-voice-ja-accepted-spellings](https://huggingface.co/datasets/sakasegawa/common-voice-ja-accepted-spellings),
+CC0 like Common Voice: a row for each clip with its sentence and annotation, and `score.py`, which counts in
+Python as the bench does (docs/adr/0017). The card and the scorer are kept in
+`huggingface/common-voice-ja-accepted-spellings/`; `spellings export` writes them with the rows into the data folder,
+ready to upload:
+
+```sh
+node src/cli.ts spellings export
+hf upload sakasegawa/common-voice-ja-accepted-spellings ~/speech-bench-data/huggingface/common-voice-ja-accepted-spellings . --repo-type dataset
+```
 
 ### Speech synthesis
 

@@ -27,6 +27,7 @@ const USAGE = `usage:
   node src/cli.ts voice choose <voice> <candidate> --locale ja-JP
   node src/cli.ts spellings annotate --source fleurs-ja-JP [--size 1000] [--sessions 4] [--model gpt-6.1-sol] [--effort medium]
   node src/cli.ts spellings merge <work directory> ...
+  node src/cli.ts spellings export [--out folder]
   node src/cli.ts migrate
 
 Downloads, recordings and results go to ${dataDir()} (SPEECH_BENCH_DATA moves them).`
