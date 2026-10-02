@@ -42,7 +42,7 @@ compare equal.
 FLEURS ja, the 650 recordings of the test split's 321 sentences, on an Apple M5, 2026-10-02, with annotations
 made by gpt-6.1-sol from the references alone in two runs of the same instructions:
 
-| Model | Plain CER | Accepted spellings, two runs |
+| Model | Plain CER, numbers read as digits | Accepted spellings, two runs |
 |---|---|---|
 | parakeet-tdt_ctc-0.6b-ja | 5.48% | 3.39%, 3.33% |
 | Qwen3-ASR 1.7B | 5.56% | 3.70%, 3.71% |
@@ -51,9 +51,6 @@ made by gpt-6.1-sol from the references alone in two runs of the same instructio
 
 ## Known limits
 
-- The plain rate still reads kanji numerals as digits and long vowel marks as vowels (docs/adr/0002, 0006),
-  and drops the marks that are read; the rate with accepted spellings does neither. On the same utterance it
-  can therefore count more errors than the plain one.
 - A speaker who says something other than the reference, 思ってる for 思っている, is counted as an error for
   every model alike.
 - The annotations are only as good as the agent that made them; nothing reviews them but the checks of the

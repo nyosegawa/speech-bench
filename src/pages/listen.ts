@@ -4,7 +4,7 @@ import type { SpeakerEmbedder } from '../engines/speaker-embedding.ts'
 import { semitoneSpread } from '../analysis/pitch.ts'
 import { parseResultFile, type SentenceRecord, type TtsRunRecord } from '../measure/results.ts'
 import { takeFile } from '../measure/runs.ts'
-import { countHeardErrors } from '../measure/scoring.ts'
+import { countHeardErrors } from '../measure/heard.ts'
 import { namesApart } from './naming.ts'
 import { cosine, likenessToTheRest } from '../analysis/speaker.ts'
 

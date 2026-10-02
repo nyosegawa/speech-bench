@@ -1,5 +1,8 @@
 # Errors are counted when reporting, with Japanese numbers read as digits
 
+Speech recognition no longer reads numbers as digits (docs/adr/0015); the scoring of synthesized speech still
+does. Errors are still counted when reporting.
+
 A result file keeps the reference and the text of every utterance or sentence, and the report counts the
 errors from them each time it runs. When the scoring rules change, every result, however old, is scored by
 the new rules, and results measured before and after the change stay comparable. The errors formats 1 to 3
