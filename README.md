@@ -217,7 +217,7 @@ descriptions of the voices in `prompts/voices-<locale>.json` (Irodori-TTS's `ins
 Runtimes run as a process, speech.cpp's worker among them, are reached through speech.cpp's worker protocol
 (docs/adr/0008): JSON lines, a request per line, the speech streamed back in base64 16-bit chunks. Irodori-TTS
 v4.1 in speech.cpp has no voice of its own and needs `--reference`; the reference goes to the worker as a voice
-file, which speech.cpp's `irodori-tts --make-voice` makes once on the CPU and `voice-files/` keeps.
+file, which speech.cpp's `speech-tts make-voice` makes once on the CPU and `voice-files/` keeps.
 
 A model's official implementation runs in an adapter of the bench's own that speaks the same protocol
 (docs/adr/0012): `adapters/irodori-tts/` runs Irodori-TTS v4.1's official PyTorch runtime at FP32 on the Mac's
@@ -323,7 +323,7 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 | Qwen3-ASR 1.7B and 0.6B | ggml-org Q8_0 |
 | parakeet-tdt-0.6b-v3, parakeet-tdt_ctc-0.6b-ja, ReazonSpeech NeMo v2 | cstr Q8_0 |
 | FLEURS | google/fleurs at revision 70bb2e84: ja-JP, en-US, fr-FR, de-DE, hi-IN, id-ID, it-IT, ko-KR, pt-BR and es-419 (it has no Spanish of Spain) |
-| speech.cpp | v0.4.0, the worker and, to make voice files, the tools |
+| speech.cpp | v0.5.0, the worker and, to make voice files, the tools |
 | Qwen3-TTS 0.6B and 1.7B CustomVoice | sakasegawa/qwen3-tts-ggml Q8_0 and the F16 codec, converted with BCP 47 language tags |
 | Irodori-TTS v4.1 Small, MF and RF | sakasegawa/irodori-tts-ggml F16 and the F32 codec |
 | audio.cpp | v0.9.0 |
