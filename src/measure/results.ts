@@ -1,8 +1,8 @@
 import type { MachineInfo } from '../core/platform.ts'
 
 /**
- * The version of the form of a result file, written in its run line. A file of another version is refused;
- * raising it means rewriting the data folder's results to the new form and a sample of it in tests/fixtures.
+ * The version of the form of a result file, written in its run line. Raising it needs an upgrade in
+ * `upgradeRun` and a sample of the new version in tests/fixtures.
  */
 export const RESULT_FORMAT = 12
 
@@ -104,6 +104,12 @@ export interface SentenceRecord {
 
 export type RunRecord = AsrRunRecord | TtsRunRecord
 
+/** Brings a run line of an earlier format to the current one. Format 12 is the earliest the bench reads. */
+export function upgradeRun(raw: Record<string, unknown>): RunRecord {
+  if (raw.format !== RESULT_FORMAT) throw new Error(`result format ${String(raw.format)} is not known; this version reads formats 12 to ${RESULT_FORMAT}`)
+  return raw as unknown as RunRecord
+}
+
 /** A result file as its run line and the records after it. */
 export type ResultFile =
   | { run: AsrRunRecord; utterances: UtteranceRecord[] }
@@ -113,8 +119,7 @@ export function parseResultFile(lines: readonly string[]): ResultFile {
   const records = lines.filter((line) => line.trim() !== '').map((line) => JSON.parse(line) as Record<string, unknown>)
   const first = records.find((record) => record.type === 'run')
   if (!first) throw new Error('a result file starts with a run line')
-  if (first.format !== RESULT_FORMAT) throw new Error(`the result file is of format ${String(first.format)}, and this version reads format ${RESULT_FORMAT} only`)
-  const run = first as unknown as RunRecord
+  const run = upgradeRun(first)
   if (run.task === 'asr') return { run, utterances: records.filter((record) => record.type === 'utterance') as unknown as UtteranceRecord[] }
   return { run, sentences: records.filter((record) => record.type === 'sentence') as unknown as SentenceRecord[] }
 }
