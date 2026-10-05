@@ -1,15 +1,19 @@
-import fs from 'node:fs'
 import type { SpeakerEmbedder } from '../engines/speaker-embedding.ts'
 import { loadRecipes, recipeOf, type Choice } from '../make/recipes.ts'
 import { referenceFile, referenceManifest } from '../make/references.ts'
 import { candidatesOf, chooseCandidate, voiceRuns } from '../make/voice.ts'
-import { parseResultFile, type TtsRunRecord } from '../measure/results.ts'
+import { readResultFile } from '../measure/result-file/file.ts'
+import type { TtsRunRecord } from '../measure/result-file/format.ts'
 import { runIdOf } from '../measure/runs.ts'
 import { latestRuns, readTtsRuns, type UrlOf } from '../pages/listen.ts'
 import { voicesData } from '../pages/voices.ts'
 import type { ChosenVoices, TrySet, VoiceDetail, VoiceRow } from './api.ts'
 
-const runOf = (file: string): TtsRunRecord => parseResultFile(fs.readFileSync(file, 'utf8').split('\n')).run as TtsRunRecord
+function runOf(file: string): TtsRunRecord {
+  const { run } = readResultFile(file)
+  if (run.task !== 'tts') throw new Error(`${file} is not a speech synthesis run`)
+  return run
+}
 
 /** The sentences tried and the length factor, which the tries compared on one page share. */
 const trySetOf = (run: TtsRunRecord): Omit<TrySet, 'runs' | 'references'> => ({

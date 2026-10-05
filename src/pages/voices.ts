@@ -1,8 +1,8 @@
 import { takeFile } from '../measure/runs.ts'
 import { heardErrorRate, type ListenedRun, type UrlOf } from './listen.ts'
 import { semitoneSpread } from '../analysis/pitch.ts'
-import type { ReferenceManifest } from '../make/references.ts'
-import type { SentenceRecord } from '../measure/results.ts'
+import type { ReferenceManifest } from '../make/reference-manifest/format.ts'
+import type { SentenceRecord } from '../measure/result-file/format.ts'
 import { across, pairwise } from '../analysis/speaker.ts'
 
 /** A sentence heard with more than this share of its characters wrong has broken down, as on the listening page. */

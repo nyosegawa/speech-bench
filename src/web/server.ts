@@ -11,6 +11,7 @@ import { recipeLocales, recipeOf } from '../make/recipes.ts'
 import { referenceFile, referenceNames } from '../make/references.ts'
 import { listCampaigns } from '../measure/campaigns.ts'
 import { summarize } from '../measure/report.ts'
+import { readResultFile } from '../measure/result-file/file.ts'
 import { spellingSources, spellingsReader } from '../spellings/files.ts'
 import { spellingsData } from '../pages/spellings.ts'
 import { allRunFiles, runFile, runIdOf } from '../measure/runs.ts'
@@ -86,7 +87,7 @@ function runRows(): RunRow[] {
   const campaignsOf = new Map<string, string[]>()
   for (const campaign of listCampaigns()) for (const run of campaign.runs) campaignsOf.set(run, [...(campaignsOf.get(run) ?? []), campaign.name])
   const spellingsOf = spellingsReader()
-  return allRunFiles().map((file) => ({ ...summarize(fs.readFileSync(file, 'utf8').split('\n'), spellingsOf), id: runIdOf(file), campaigns: campaignsOf.get(runIdOf(file)) ?? [] }))
+  return allRunFiles().map((file) => ({ ...summarize(readResultFile(file), spellingsOf), id: runIdOf(file), campaigns: campaignsOf.get(runIdOf(file)) ?? [] }))
 }
 
 /**
@@ -142,7 +143,7 @@ export async function startWebServer(port: number): Promise<{ url: string; close
         throw new RequestError(`the bench answers only requests to 127.0.0.1:${listening}, not ${String(request.headers.host)}`)
       }
       if (request.method === 'GET' && url.pathname === '/api/runs') return json(response, 200, runRows())
-      if (request.method === 'GET' && url.pathname === '/api/campaigns') return json(response, 200, listCampaigns() satisfies CampaignRow[])
+      if (request.method === 'GET' && url.pathname === '/api/campaigns') return json(response, 200, listCampaigns().map(({ name, runs }) => ({ name, runs })) satisfies CampaignRow[])
       if (request.method === 'GET' && url.pathname === '/api/listen') return json(response, 200, await listen(url))
       if (request.method === 'GET' && url.pathname === '/api/transcripts') return json(response, 200, transcriptsData(namedRuns(url)) satisfies Transcripts)
       if (request.method === 'GET' && url.pathname === '/api/spellings') {

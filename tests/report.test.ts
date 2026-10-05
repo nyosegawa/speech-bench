@@ -1,11 +1,13 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { formatReport, summarize, type AsrSummary, type Summary, type TtsSummary } from '../src/measure/report.ts'
+import { formatReport, summarize as summarizeFile, type AsrSummary, type Summary, type TtsSummary } from '../src/measure/report.ts'
+import { parseResultFile } from '../src/measure/result-file/file.ts'
 import { sentenceKey, type Spellings } from '../src/spellings/files.ts'
 import { parseAnnotated } from '../src/spellings/notation.ts'
+import { asrRun as asrRunOf, ttsRun as ttsRunOf } from './run-records.ts'
 
-const asrRun = { type: 'run', format: 12, task: 'asr', set: { name: 'set', locale: 'ja-JP', size: 3 }, audio: { edges: 'energy-vad', hangoverMs: 600 }, loadSeconds: 1, warmupSeconds: 1 }
+const asrRun = asrRunOf({ set: { name: 'set', locale: 'ja-JP', size: 3 }, audio: { edges: 'energy-vad', hangoverMs: 600 } })
 const utterance = (reference: string, text: string, seconds: number, audioSeconds: number) =>
   JSON.stringify({ type: 'utterance', id: `${reference}-${text}`, reference, text, seconds, audioSeconds })
 
@@ -18,7 +20,8 @@ const tts = (summary: Summary): TtsSummary => {
   return summary as TtsSummary
 }
 const noSpellings = (): Spellings => new Map()
-const fixture = (name: string): string[] => fs.readFileSync(path.join(import.meta.dirname, 'fixtures', name), 'utf8').split('\n')
+const fixture = (name: string): string[] => fs.readFileSync(path.join(import.meta.dirname, 'fixtures', 'result-file', name), 'utf8').split('\n')
+const summarize = (lines: readonly string[], spellingsOf: (locale: string) => Spellings): Summary => summarizeFile(parseResultFile(lines.join('\n'), 'run.jsonl'), spellingsOf)
 
 describe('summarize a speech recognition run', () => {
   it('divides the errors of the whole set by its reference length', () => {
@@ -43,14 +46,8 @@ describe('summarize a speech recognition run', () => {
     expect(asr(summarize([JSON.stringify(asrRun), utterance('あいう', '', 0.1, 1), utterance('あいう', 'あいう', 0.1, 1)], noSpellings)).empty).toBe(1)
   })
 
-  it('refuses a file without its run line, and a file of any other format', () => {
-    expect(() => summarize([utterance('あ', 'あ', 0.1, 1)], noSpellings)).toThrow()
-    expect(() => summarize([JSON.stringify({ ...asrRun, format: 999 }), utterance('あ', 'あ', 0.1, 1)], noSpellings)).toThrow(/format 999/)
-    expect(() => summarize([JSON.stringify({ ...asrRun, format: 11 }), utterance('あ', 'あ', 0.1, 1)], noSpellings)).toThrow(/format 11/)
-  })
-
   it('reads a run trimmed to the voice, with an utterance in which no voice was found', () => {
-    const run = asr(summarize(fixture('result-format-12-asr.jsonl'), noSpellings))
+    const run = asr(summarize(fixture('v12-asr.jsonl'), noSpellings))
     expect(run.run.audio).toEqual({ edges: 'voice', detector: 'silero-vad-v4', marginSeconds: 0.2 })
     expect(run.dropped).toBe(1)
     expect(formatReport([run])).toContain('trimmed to the voice silero-vad-v4 finds, with 0.2 s around it')
@@ -87,12 +84,12 @@ describe('the error rate with accepted spellings', () => {
 
 describe('summarize a speech synthesis run', () => {
   it('reads a speech synthesis run spoken like a reference voice at a scaled length', () => {
-    const summary = tts(summarize(fixture('result-format-12-tts.jsonl'), noSpellings))
+    const summary = tts(summarize(fixture('v12-tts.jsonl'), noSpellings))
     expect(summary.sentences).toBe(3)
     expect(summary.run.durationScale).toBe(0.5)
   })
 
-  const ttsRun = { type: 'run', format: 12, task: 'tts', set: { name: 'speak', locale: 'ja-JP', size: 2 }, voice: 'ono_anna', seed: null, design: null, reference: null, durationScale: null, recognizer: { id: 'r', label: 'R' }, loadSeconds: 1, warmupSeconds: 1 }
+  const ttsRun = ttsRunOf({ set: { name: 'speak', locale: 'ja-JP', size: 2 }, voice: 'ono_anna' })
   const sentence = (text: string, transcript: string, firstAudioSeconds: number, totalSeconds: number, audioSeconds: number) =>
     JSON.stringify({ type: 'sentence', id: text, kind: 'reply', text, audio: `${text}.wav`, audioSeconds, firstAudioSeconds, totalSeconds, transcript })
 

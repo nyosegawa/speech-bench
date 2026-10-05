@@ -20,5 +20,5 @@ export const campaignsDir = (): string => path.join(dataDir(), 'campaigns')
 /** The pages the listen, neighbors and voices commands write. */
 /** Reference voices made from sets of synthesized takes, a WAVE file and its manifest each. */
 export const referencesDir = (): string => path.join(dataDir(), 'references')
-/** Irodori-TTS voice files made from reference voices, kept by the reference and the codec they encode. */
+/** Irodori-TTS voice files made from reference voices, kept by the reference, the codec they encode and the release that made them. */
 export const voiceFilesDir = (): string => path.join(dataDir(), 'voice-files')

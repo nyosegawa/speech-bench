@@ -6,6 +6,7 @@ import { analyzeRun } from '../src/analysis/run-analysis.ts'
 import { joinCampaign, readCampaign } from '../src/measure/campaigns.ts'
 import { runFile } from '../src/measure/runs.ts'
 import { encodeWav16 } from '../src/core/wav.ts'
+import { ttsRun as ttsRunOf } from './run-records.ts'
 
 let data: string
 beforeEach(() => {
@@ -18,7 +19,7 @@ afterEach(() => {
 })
 
 const ttsRun = (id: string): string => [
-  JSON.stringify({ type: 'run', format: 12, task: 'tts', set: { name: 'speak', locale: 'ja-JP', size: 1 }, voice: null, seed: 1, design: null, reference: null, durationScale: null, recognizer: { id: 'r', label: 'R' }, loadSeconds: 1, warmupSeconds: 1 }),
+  JSON.stringify(ttsRunOf({ set: { name: 'speak', locale: 'ja-JP', size: 1 }, seed: 1 })),
   JSON.stringify({ type: 'sentence', id, kind: 'reply', text: 'はい。', audio: `${id}.wav`, audioSeconds: 2, firstAudioSeconds: 0.1, totalSeconds: 0.5, transcript: 'はい。' })
 ].join('\n')
 
@@ -55,5 +56,19 @@ describe('analyzeRun', () => {
     const other = embedderOf('model-b')
     analyzeRun(runFile('tts-run'), other)
     expect(other.calls).toBe(1)
+  })
+
+  it('makes the analysis again when it holds other takes than the run, or does not have the form of an analysis', () => {
+    fs.mkdirSync(path.dirname(runFile('tts-run')), { recursive: true })
+    fs.writeFileSync(runFile('tts-run'), ttsRun('s0'))
+    fs.writeFileSync(path.join(path.dirname(runFile('tts-run')), 's0.wav'), tone)
+    const stored = path.join(path.dirname(runFile('tts-run')), 'analysis.json')
+    const embedder = embedderOf('model-a')
+    fs.writeFileSync(stored, JSON.stringify({ version: 1, speakerModel: 'model-a', takes: { other: { voicedSeconds: 2, pitchHz: 200, embedding: null } } }))
+    expect(Object.keys(analyzeRun(runFile('tts-run'), embedder))).toEqual(['s0'])
+    expect(embedder.calls).toBe(1)
+    fs.writeFileSync(stored, JSON.stringify({ version: 1, speakerModel: 'model-a', takes: { s0: { pitchHz: 200 } } }))
+    analyzeRun(runFile('tts-run'), embedder)
+    expect(embedder.calls).toBe(2)
   })
 })

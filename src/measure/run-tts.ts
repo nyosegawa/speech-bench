@@ -11,7 +11,8 @@ import { irodoriVoiceFile } from '../engines/irodori-voice.ts'
 import { WorkerTts } from '../engines/worker.ts'
 import type { Synthesis, TtsEngine } from '../engines/tts-engine.ts'
 import { gpuBackend, gpuDevice, machineInfo, platformKey } from '../core/platform.ts'
-import { RESULT_FORMAT, type SentenceRecord, type TtsRunRecord } from './results.ts'
+import { resultText } from './result-file/file.ts'
+import { RESULT_FORMAT, type SentenceRecord, type TtsRunRecord } from './result-file/format.ts'
 import { prepareAsr } from './run-asr.ts'
 import { runFile, runFolder } from './runs.ts'
 import { AUDIO_CPP, ensureRuntime, SPEECH_CPP, SPEECH_CPP_TOOLS } from '../catalog/runtimes.ts'
@@ -62,7 +63,7 @@ async function prepareTts(model: TtsModel, { seed, design, reference, durationSc
     const [weights, codec] = files
     const codecFile = model.files[1]
     if (!weights || !codec || !codecFile) throw new Error(`${model.id} needs a model and a codec`)
-    const voiceFile = reference === null ? null : await irodoriVoiceFile(await ensureRuntime(SPEECH_CPP_TOOLS), weights, codec, codecFile.sha256, reference)
+    const voiceFile = reference === null ? null : await irodoriVoiceFile({ executable: await ensureRuntime(SPEECH_CPP_TOOLS), version: SPEECH_CPP_TOOLS.version }, weights, codec, codecFile.sha256, reference)
     const engine = new WorkerTts({ name: model.id, executable: await ensureRuntime(SPEECH_CPP), args: speechWorkerArgs(files, gpuDevice(), seed, model.steps, voiceFile), voice: voiceFile === null ? null : REFERENCE_VOICE })
     return { engine, runtime: SPEECH_CPP, loadOptions: voiceFile === null ? {} : { voice: 'voice file made on the CPU' } }
   }
@@ -178,7 +179,7 @@ export async function runTts(model: TtsModel, locale: string, sentences: readonl
     warmupSeconds
   }
   const file = runFile(stem)
-  fs.writeFileSync(file, [run, ...records].map((record) => JSON.stringify(record)).join('\n') + '\n')
+  fs.writeFileSync(file, resultText({ run, sentences: records }))
   // Analyzed now, a run's speech is never analyzed while someone waits for a page.
   process.stderr.write(`  analyzing the speech with ${SPEAKER_MODEL.id}\n`)
   analyzeRun(file, await SpeakerEmbedder.open(SPEAKER_MODEL))

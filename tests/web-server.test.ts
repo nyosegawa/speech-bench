@@ -40,7 +40,7 @@ function rawRequest(route: string, options: { method?: string; headers: Record<s
 
 function writeRun(id: string): void {
   fs.mkdirSync(path.dirname(runFile(id)), { recursive: true })
-  fs.copyFileSync(path.join(import.meta.dirname, 'fixtures', 'result-format-12-tts.jsonl'), runFile(id))
+  fs.copyFileSync(path.join(import.meta.dirname, 'fixtures', 'result-file', 'v12-tts.jsonl'), runFile(id))
   fs.writeFileSync(path.join(path.dirname(runFile(id)), 'take.wav'), take)
 }
 

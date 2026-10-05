@@ -1,8 +1,8 @@
-import fs from 'node:fs'
 import { scoredByCharacter } from '../core/language.ts'
 import { sentenceKey, spellingsReader, type Spellings } from '../spellings/files.ts'
 import { countAcceptedErrors } from './accepted.ts'
-import { isDropped, parseResultFile, type AsrRunRecord, type AudioPreparation, type HeardUtterance, type TtsRunRecord } from './results.ts'
+import { readResultFile } from './result-file/file.ts'
+import { isDropped, type AsrRunRecord, type AudioPreparation, type HeardUtterance, type ResultFile, type TtsRunRecord } from './result-file/format.ts'
 import { countHeardErrors, heardAsSaid } from './heard.ts'
 import { countErrors, type ErrorCount } from './scoring.ts'
 
@@ -71,8 +71,7 @@ function accepted(heard: readonly HeardUtterance[], locale: string, spellingsOf:
 }
 
 /** What a result file adds up to, its errors counted from its texts with the annotations `spellingsOf` reads. */
-export function summarize(lines: readonly string[], spellingsOf: (locale: string) => Spellings): Summary {
-  const file = parseResultFile(lines)
+export function summarize(file: ResultFile, spellingsOf: (locale: string) => Spellings): Summary {
   if ('utterances' in file) {
     const { run, utterances } = file
     const heard = utterances.filter((record): record is HeardUtterance => !isDropped(record))
@@ -105,7 +104,7 @@ export function summarize(lines: readonly string[], spellingsOf: (locale: string
 
 export function readSummaries(files: readonly string[]): Summary[] {
   const spellingsOf = spellingsReader()
-  return files.map((file) => summarize(fs.readFileSync(file, 'utf8').split('\n'), spellingsOf))
+  return files.map((file) => summarize(readResultFile(file), spellingsOf))
 }
 
 

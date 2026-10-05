@@ -1,8 +1,8 @@
 import type { NeighborGroup } from '../analysis/neighbors.ts'
 import type { Prompt } from '../datasets/prompts.ts'
-import type { RecordingEntry } from '../datasets/recordings.ts'
+import type { RecordingEntry } from '../datasets/recording-manifest/format.ts'
 import type { Choice, Recipe } from '../make/recipes.ts'
-import type { Campaign } from '../measure/campaigns.ts'
+import type { Campaign } from '../measure/campaign-file/format.ts'
 import type { AsrSummary, TtsSummary } from '../measure/report.ts'
 import type { PageData } from '../pages/listen.ts'
 import type { SpellingsData } from '../pages/spellings.ts'
@@ -18,7 +18,7 @@ import type { VoicesPageData } from '../pages/voices.ts'
 export type RunRow = (AsrSummary | TtsSummary) & { id: string; campaigns: string[] }
 
 /** GET /api/campaigns */
-export type CampaignRow = Campaign
+export type CampaignRow = Omit<Campaign, 'format'>
 
 /** GET /api/listen?runs=a,b[&reference=name][&blind=1]: the synthesis runs named, sentence by sentence. */
 export type ListenData = PageData

@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { runsDir } from '../core/paths.ts'
-import type { SentenceRecord } from './results.ts'
+import type { SentenceRecord } from './result-file/format.ts'
 
 /**
  * Where runs are kept: a folder per run, named by the run, holding its result file `run.jsonl`, for synthesis

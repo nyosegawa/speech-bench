@@ -4,6 +4,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { transcriptsData } from '../src/pages/transcripts.ts'
 import { readSpellings } from '../src/spellings/files.ts'
+import { asrRun } from './run-records.ts'
 
 let folder: string
 beforeEach(() => {
@@ -13,12 +14,7 @@ afterEach(() => fs.rmSync(folder, { recursive: true, force: true }))
 
 /** A recognition run of `model` on `set` that heard each utterance as `heard` says, or dropped it for null. */
 function writeRun(id: string, model: string, set: string, heard: Array<[string, string, string | null]>): string {
-  const run = {
-    type: 'run', format: 12, task: 'asr', startedAt: '2026-10-01T00:00:00.000Z', set: { name: set, locale: 'ja-JP', size: heard.length },
-    model: { id: model, label: `${model} label`, license: 'MIT', files: [] }, runtime: { id: 'llama.cpp', version: 'b1', options: {} },
-    machine: { platform: 'darwin-arm64', hostname: 'mac', os: 'macOS', cpu: 'M5', memoryGb: 32, gpus: ['Apple M5'] },
-    audio: { edges: 'voice', detector: 'silero-vad-v4', marginSeconds: 0.2 }, loadSeconds: 1, warmupSeconds: 1
-  }
+  const run = asrRun({ set: { name: set, locale: 'ja-JP', size: heard.length }, model: { id: model, label: `${model} label`, license: 'MIT', files: [] } })
   const records = heard.map(([utterance, reference, text]) => (text === null
     ? { type: 'utterance', id: utterance, reference, droppedBy: 'no-voice' }
     : { type: 'utterance', id: utterance, audioSeconds: 2, reference, text, seconds: 0.1 }))

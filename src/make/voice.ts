@@ -1,11 +1,11 @@
-import fs from 'node:fs'
 import { campaignRuns, joinCampaign } from '../measure/campaigns.ts'
 import { SPEAKER_MODEL, type TtsModel } from '../catalog/models.ts'
 import type { Prompt } from '../datasets/prompts.ts'
 import { SpeakerEmbedder } from '../engines/speaker-embedding.ts'
 import { embedGroups } from '../analysis/neighbors.ts'
-import { copyReference, loadReference, referenceNames, writeCandidates, type ReferenceManifest } from './references.ts'
-import { parseResultFile } from '../measure/results.ts'
+import { copyReference, loadReference, referenceNames, writeCandidates } from './references.ts'
+import type { ReferenceManifest } from './reference-manifest/format.ts'
+import { readResultFile } from '../measure/result-file/file.ts'
 import { runFile, runIdOf } from '../measure/runs.ts'
 import { runTts } from '../measure/run-tts.ts'
 import { recordChoice, type Recipe } from './recipes.ts'
@@ -28,7 +28,7 @@ export const voiceReference = (id: string): string => `voice-${id}`
 export function voiceRuns(id: string): { gathered: string[]; tried: string[] } {
   const runs = { gathered: [] as string[], tried: [] as string[] }
   for (const file of campaignRuns(voiceCampaign(id)).map(runFile)) {
-    const { run } = parseResultFile(fs.readFileSync(file, 'utf8').split('\n'))
+    const { run } = readResultFile(file)
     if (run.task !== 'tts') throw new Error(`${runIdOf(file)} in campaign ${voiceCampaign(id)} is not a speech synthesis run`)
     runs[run.reference === null ? 'gathered' : 'tried'].push(file)
   }

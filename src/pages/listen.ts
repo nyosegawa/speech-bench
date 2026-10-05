@@ -1,8 +1,8 @@
-import fs from 'node:fs'
 import { analyzeRun } from '../analysis/run-analysis.ts'
 import type { SpeakerEmbedder } from '../engines/speaker-embedding.ts'
 import { semitoneSpread } from '../analysis/pitch.ts'
-import { parseResultFile, type SentenceRecord, type TtsRunRecord } from '../measure/results.ts'
+import { readResultFile } from '../measure/result-file/file.ts'
+import type { SentenceRecord, TtsRunRecord } from '../measure/result-file/format.ts'
 import { takeFile } from '../measure/runs.ts'
 import { countHeardErrors } from '../measure/heard.ts'
 import { namesApart } from './naming.ts'
@@ -40,7 +40,7 @@ export function heardErrorRate(records: readonly SentenceRecord[], locale: strin
  */
 export function readTtsRuns(files: readonly string[], embedder: SpeakerEmbedder, keep: (run: TtsRunRecord) => boolean = () => true, referenceOf: (run: TtsRunRecord) => Float32Array | undefined = () => undefined): ListenedRun[] {
   return files.flatMap((file) => {
-    const parsed = parseResultFile(fs.readFileSync(file, 'utf8').split('\n'))
+    const parsed = readResultFile(file)
     if (!('sentences' in parsed) || !keep(parsed.run)) return []
     const analysis = analyzeRun(file, embedder)
     const pitches = Object.fromEntries(parsed.sentences.map((record) => [record.id, analysis[record.id]?.pitchHz ?? null]))
