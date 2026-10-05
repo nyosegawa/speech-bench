@@ -29,7 +29,7 @@ behavior.
 - `src/datasets/` turns a source (FLEURS, Common Voice, the user's recordings, the prompt lists) into utterances
   with references or sentences to speak.
 - `src/measure/` runs a model over a set and writes the result (`run-asr.ts`, `run-tts.ts`), owns the form of
-  result files (`results.ts`), where a run is kept (`runs.ts`), the campaigns
+  result files and their upgrades (`results.ts`), where a run is kept (`runs.ts`), the campaigns
   (`campaigns.ts`), the scoring of recognized texts (`scoring.ts`, with the kanji forms of `kanji-forms.ts`, and
   against accepted spellings `accepted.ts`) and of synthesized speech as heard (`heard.ts`), and the report
   (`report.ts`).
@@ -66,10 +66,9 @@ another one.
   than the defect, or needs a choice only the user can make, stop and ask instead of patching.
 - Every download is pinned: a release by URL and sha256, a Hugging Face file by repository, revision,
   size and sha256. A file is renamed into place only after its hash matches.
-- A result file carries the version of its form (`format` in its run line), and the bench reads the current
-  version only. Any change to the form, an added field included, raises the version and replaces the sample in
-  `tests/fixtures/`; the results already in the data folders are rewritten to the new form by a script run once
-  outside the repository, so the code carries no upgrade from an earlier version.
+- A result file carries the version of its form (`format` in its run line). Any change to the form, an
+  added field included, raises the version, adds an upgrade from the previous version, and adds a sample
+  of the new version to `tests/fixtures/`. Upgrades are never removed.
 - A model lists the languages of its model card as BCP 47 tags. A tag without a region covers every
   region of the language.
 - Extract code only when it creates a coherent responsibility, a reusable boundary or an independently
