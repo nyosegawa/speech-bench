@@ -141,7 +141,7 @@ export type TtsModel = TtsRuntime & {
   license: string
 }
 
-/** The talkers converted with their languages as BCP 47 tags, which speech.cpp v0.3.0 needs. */
+/** The talkers converted with their languages as BCP 47 tags, which speech.cpp needs from v0.3.0 on. */
 const QWEN3_TTS = ['sakasegawa/qwen3-tts-ggml', '3fa3234ee65c9a70fd23a7b7843722a0284b8027'] as const
 const QWEN3_TTS_CODEC = model(...QWEN3_TTS, 'qwen3-tts-codec-12hz-f16.gguf', 245_553_152, '38763be32099ad36b7b4345fc852ac379fb4fde0782ff85929d2b984b4bc22c1')
 

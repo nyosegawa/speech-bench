@@ -2,13 +2,13 @@
 // answers each request with two chunks of one sample each, the length of the text and then the length of the voice.
 import readline from 'node:readline'
 
-const send = (message) => console.log(`ASIST_JSON:${JSON.stringify(message)}`)
+const send = (message) => console.log(JSON.stringify(message))
 const sample = (value) => {
   const bytes = Buffer.alloc(2)
   bytes.writeInt16LE(value)
   return bytes.toString('base64')
 }
-console.log('loading the model')
+console.error('loading the model')
 send({ type: 'ready', sampleRate: Number(process.env.FAKE_WORKER_RATE) })
 readline.createInterface({ input: process.stdin }).on('line', (line) => {
   const request = JSON.parse(line)

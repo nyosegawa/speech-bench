@@ -6,8 +6,6 @@ import readline from 'node:readline'
 import { logsDir } from '../core/paths.ts'
 import type { Synthesis, TtsEngine } from './tts-engine.ts'
 
-const PROTOCOL_PREFIX = 'ASIST_JSON:'
-
 /**
  * Loading the model and compiling GPU kernels comes before `ready`. After a GPU driver update the Vulkan
  * shaders took 12.6 s to compile on an RTX 2080 (2026-09-29), and an Irodori-TTS worker's first start
@@ -15,11 +13,16 @@ const PROTOCOL_PREFIX = 'ASIST_JSON:'
  */
 const READY_TIMEOUT_MS = 180_000
 
-/** A protocol message of the worker, or null for a line of other output. */
-export function parseWorkerLine(line: string): Record<string, unknown> | null {
-  const marker = line.indexOf(PROTOCOL_PREFIX)
-  if (marker < 0) return null
-  return JSON.parse(line.slice(marker + PROTOCOL_PREFIX.length)) as Record<string, unknown>
+/** A protocol message of the worker. Its stdout carries JSON objects alone, so any other line is the worker's defect. */
+export function parseWorkerLine(line: string): Record<string, unknown> {
+  let message: unknown
+  try {
+    message = JSON.parse(line)
+  } catch {
+    throw new Error(`the worker wrote a line on stdout that is not JSON: ${line.slice(0, 200)}`)
+  }
+  if (typeof message !== 'object' || message === null || Array.isArray(message)) throw new Error(`the worker wrote a line on stdout that is not a JSON object: ${line.slice(0, 200)}`)
+  return message as Record<string, unknown>
 }
 
 /** A chunk's base64 16-bit little-endian mono samples as floats. */
@@ -49,8 +52,8 @@ export interface WorkerCommand {
 }
 
 /**
- * A synthesis model in a process that speaks speech.cpp's worker protocol over JSON lines, each line it writes
- * prefixed with `ASIST_JSON:`: a request per line on stdin (`id`, `text`, `voice`, `language` as a BCP 47 tag),
+ * A synthesis model in a process that speaks speech.cpp's worker protocol (v0.4.0) over JSON Lines, one JSON object
+ * per line and nothing else on stdout: a request per line on stdin (`id`, `text`, `voice`, `language` as a BCP 47 tag),
  * and on stdout `ready`, then `chunk` messages with base64 16-bit PCM and `end` for each request, `error` for
  * a request that failed and `fatal` for a worker that could not start. speech.cpp's `speech-worker` speaks it,
  * and so does any adapter written for a runtime that does not.
@@ -84,8 +87,12 @@ export class WorkerTts implements TtsEngine {
       child.once('error', fail)
       child.once('exit', (code) => fail(new Error(`the worker exited with code ${String(code)}; see ${log}`)))
       readline.createInterface({ input: child.stdout }).on('line', (line) => {
-        const message = parseWorkerLine(line)
-        if (!message) return
+        let message: Record<string, unknown>
+        try {
+          message = parseWorkerLine(line)
+        } catch (error) {
+          return fail(new Error(`${(error as Error).message}; see ${log}`))
+        }
         if (message.type === 'ready') {
           clearTimeout(timeout)
           if (typeof message.sampleRate !== 'number') return fail(new Error('the worker reported no sample rate'))

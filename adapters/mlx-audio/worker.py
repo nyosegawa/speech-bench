@@ -14,18 +14,23 @@ waveform it was given and hands it back, so `generate()` runs as released otherw
 import argparse
 import base64
 import json
+import os
 import random
 import sys
 
-import mlx.core as mx
-import numpy as np
-from mlx_audio.tts.utils import load_model
+# The protocol keeps the stdout the bench gave; descriptor 1 then writes to stderr, so whatever a package prints
+# to stdout while it loads or runs lands in the log instead of between two messages.
+PROTOCOL = os.fdopen(os.dup(1), "w", encoding="utf-8")
+os.dup2(2, 1)
+sys.stdout = sys.stderr
 
-PREFIX = "ASIST_JSON:"
+import mlx.core as mx  # noqa: E402
+import numpy as np  # noqa: E402
+from mlx_audio.tts.utils import load_model  # noqa: E402
 
 
 def send(message):
-    print(PREFIX + json.dumps(message, ensure_ascii=False), flush=True)
+    print(json.dumps(message, ensure_ascii=False), file=PROTOCOL, flush=True)
 
 
 def pcm16(audio):

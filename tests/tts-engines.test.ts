@@ -8,9 +8,10 @@ import { decodeChunk, parseWorkerLine, WorkerTts } from '../src/engines/worker.t
 import { speechWorkerArgs } from '../src/measure/run-tts.ts'
 
 describe('the worker protocol', () => {
-  it('reads a message after the prefix and ignores other output', () => {
-    expect(parseWorkerLine('ASIST_JSON:{"type":"ready","sampleRate":24000}')).toEqual({ type: 'ready', sampleRate: 24000 })
-    expect(parseWorkerLine('ggml_metal_init: loaded kernel')).toBeNull()
+  it('reads a JSON object per line and refuses any other line', () => {
+    expect(parseWorkerLine('{"type":"ready","sampleRate":24000}')).toEqual({ type: 'ready', sampleRate: 24000 })
+    expect(() => parseWorkerLine('ggml_metal_init: loaded kernel')).toThrow(/not JSON/)
+    expect(() => parseWorkerLine('[1]')).toThrow(/not a JSON object/)
   })
 
   it('decodes 16-bit little-endian samples', () => {
