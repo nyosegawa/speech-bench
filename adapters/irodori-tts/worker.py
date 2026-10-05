@@ -21,14 +21,18 @@ import os
 import sys
 import tempfile
 
-import torch
-from irodori_tts import inference_runtime as ir
+# The protocol keeps the stdout the bench gave; descriptor 1 then writes to stderr, so whatever a package prints
+# to stdout while it loads or runs lands in the log instead of between two messages.
+PROTOCOL = os.fdopen(os.dup(1), "w", encoding="utf-8")
+os.dup2(2, 1)
+sys.stdout = sys.stderr
 
-PREFIX = "ASIST_JSON:"
+import torch  # noqa: E402
+from irodori_tts import inference_runtime as ir  # noqa: E402
 
 
 def send(message):
-    print(PREFIX + json.dumps(message, ensure_ascii=False), flush=True)
+    print(json.dumps(message, ensure_ascii=False), file=PROTOCOL, flush=True)
 
 
 def pcm16(audio):

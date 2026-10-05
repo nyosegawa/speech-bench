@@ -1,7 +1,7 @@
 # A runtime run as a process speaks speech.cpp's worker protocol
 
 A synthesis runtime that runs as a process of its own is reached through one protocol: speech.cpp's worker
-protocol, JSON lines on stdin and stdout, each line the worker writes prefixed with `ASIST_JSON:`. A request
+protocol, JSON Lines on stdin and stdout with nothing else on stdout (speech.cpp v0.4.0 on). A request
 names `id`, `text`, `voice` and `language` as a BCP 47 tag; the worker answers `ready` once, then `chunk`
 messages of base64 16-bit PCM and `end` for each request, `error` for a request that failed and `fatal` for a
 worker that could not start. One engine, `WorkerTts`, speaks it. speech.cpp's `speech-worker` speaks it
