@@ -216,8 +216,9 @@ file, which speech.cpp's `irodori-tts --make-voice` makes once on the CPU and `v
 
 A model's official implementation runs in an adapter of the bench's own that speaks the same protocol
 (docs/adr/0012): `adapters/irodori-tts/` runs Irodori-TTS v4.1's official PyTorch runtime at FP32 on the Mac's
-GPU, from the revisions of the checkpoints speech.cpp's GGUFs were converted from, with the reference voice given
-as its WAVE file. uv installs the packages the adapter's lock file pins into `adapters/` of the data folder on the
+GPU, from the revisions of the checkpoints speech.cpp's GGUFs were converted from. The adapter encodes the
+reference voice's WAVE file once, as the runtime would, and gives every sentence the latent, as speech.cpp's
+worker is given a voice file. uv installs the packages the adapter's lock file pins into `adapters/` of the data folder on the
 first run, before the timing starts. The official runtime does not stream, so its first audio arrives with the
 last.
 
