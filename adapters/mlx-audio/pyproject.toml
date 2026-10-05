@@ -1,0 +1,13 @@
+[project]
+name = "speech-bench-mlx-audio"
+version = "0"
+description = "mlx-audio's Irodori-TTS behind speech.cpp's worker protocol, for speech-bench"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "mlx-audio @ git+https://github.com/Blaizzy/mlx-audio@94c7716212b2228f178d2f9c7619a591fd1b0b78",
+  "sentencepiece",
+  "numpy",
+]
+
+[tool.uv]
+package = false

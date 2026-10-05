@@ -10,7 +10,7 @@ voices for models that have none built in, from a description and lines in chara
 
 - macOS on Apple Silicon, or Windows x64 with a discrete GPU
 - Node.js 22.18 or later (TypeScript runs directly through type stripping)
-- [uv](https://docs.astral.sh/uv/), only for the official implementations the adapters run (Irodori-TTS's)
+- [uv](https://docs.astral.sh/uv/), only for the implementations the adapters run (Irodori-TTS's official one and mlx-audio)
 
 ```sh
 npm install
@@ -35,6 +35,9 @@ node src/cli.ts tts --locale ja-JP --models irodori-tts-v4.1-small-mf,irodori-tt
 
 # The same in Irodori-TTS's official PyTorch runtime, to check speech.cpp's port against it (on a Mac, through uv)
 node src/cli.ts tts --locale ja-JP --models irodori-tts-v4.1-small-mf-official --reference voice-bright-young-woman --seeds 1
+
+# The same in mlx-audio's port, on a Mac through MLX
+node src/cli.ts tts --locale ja-JP --models irodori-tts-v4.1-small-mf-mlx --reference voice-bright-young-woman --seeds 1
 
 # Ten of those sentences from each of five seeds, to hear which seed gives a voice worth keeping
 node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-16steps --seeds 1,2,3,4,5 \
@@ -221,6 +224,12 @@ reference voice's WAVE file once, as the runtime would, and gives every sentence
 worker is given a voice file. uv installs the packages the adapter's lock file pins into `adapters/` of the data folder on the
 first run, before the timing starts. The official runtime does not stream, so its first audio arrives with the
 last.
+
+`adapters/mlx-audio/` runs mlx-audio's port of Irodori-TTS v4.1 on the Mac's GPU through MLX, from
+mlx-community's FP16 conversions. `generate()` encodes the reference for every sentence, so the adapter keeps
+the latent of the voice it loaded and hands it back; mlx-audio does not stream Irodori-TTS either. Called in one
+process, without the worker protocol, mlx-audio's MF took 1.41 s at the median over the 20 sentences, against
+the 1.44 s the bench measured (Apple M5, 2026-10-05).
 
 On a Mac, audio.cpp's Irodori-TTS v4 Small runs its codec on the CPU. audio.cpp's Metal codec (v0.8.2) adds a distorted copy of the
 voice, heard as a doubled voice with a low hum, which its CPU and Vulkan codecs do not; the CPU codec takes 4 to
