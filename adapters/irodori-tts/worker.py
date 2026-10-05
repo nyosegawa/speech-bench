@@ -8,12 +8,18 @@ The tokenizer is read from the folder `tokenizer/` beside the checkpoint, as the
 runtime does not stream, so each sentence is sent as one chunk once it is spoken. SilentCipher's watermark is left
 out, as speech.cpp leaves it out: the runtime applies it whenever the package is installed, and Irodori-TTS lists
 the package as a dependency.
+
+Each voice's WAVE file is encoded once, before `ready`, the way the runtime encodes a `ref_wav`, and every request
+is given the latent as a `ref_latent`. Given the WAVE file, the runtime encodes it again for every sentence, which
+speech.cpp's worker, given a voice file, does not. The runtime's own timings of each stage go to stderr.
 """
 
 import argparse
 import base64
 import json
+import os
 import sys
+import tempfile
 
 import torch
 from irodori_tts import inference_runtime as ir
@@ -31,6 +37,20 @@ def pcm16(audio):
     return base64.b64encode(samples.numpy().astype("<i2").tobytes()).decode("ascii")
 
 
+def encode_voice(runtime, wav_path, folder):
+    """A voice's latent saved where a request can name it, encoded with the settings `SamplingRequest` defaults to."""
+    request = ir.SamplingRequest(text="")
+    wav, rate = ir._load_audio(wav_path)
+    if runtime.default_max_ref_seconds > 0:
+        wav = wav[:, : max(1, int(runtime.default_max_ref_seconds * rate))]
+    latent = runtime.codec.encode_waveform(
+        wav.unsqueeze(0), sample_rate=int(rate), normalize_db=request.ref_normalize_db, ensure_max=request.ref_ensure_max
+    ).cpu()
+    path = os.path.join(folder, f"{len(os.listdir(folder))}.pt")
+    torch.save(latent, path)
+    return path
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", required=True)
@@ -40,7 +60,7 @@ def main():
     parser.add_argument("--steps", type=int)
     parser.add_argument("--voice", action="append", default=[])
     args = parser.parse_args()
-    voices = dict(voice.split("=", 1) for voice in args.voice)
+    latents = tempfile.TemporaryDirectory()
 
     try:
         ir.SilentCipherWatermarker._load_backend = staticmethod(lambda **_: None)
@@ -49,6 +69,7 @@ def main():
         )
         if runtime.watermarker.ready:
             raise RuntimeError("the watermark could not be left out, so the speech would differ from speech.cpp's")
+        voices = {name: encode_voice(runtime, path, latents.name) for name, path in (voice.split("=", 1) for voice in args.voice)}
     except Exception as error:
         send({"type": "fatal", "error": str(error)})
         return 1
@@ -64,7 +85,8 @@ def main():
                 raise ValueError(f"Irodori-TTS speaks Japanese, not {request['language']}")
             if request["voice"] not in voices:
                 raise ValueError(f"there is no voice {request['voice']}; the worker was given {', '.join(voices) or 'none'}")
-            result = runtime.synthesize(ir.SamplingRequest(text=request["text"], ref_wav=voices[request["voice"]], seed=seed, num_steps=args.steps))
+            result = runtime.synthesize(ir.SamplingRequest(text=request["text"], ref_latent=voices[request["voice"]], seed=seed, num_steps=args.steps))
+            print(json.dumps({"id": request["id"], "stages": result.stage_timings}), file=sys.stderr, flush=True)
             seed = None if seed is None else seed + 1
             send({"type": "chunk", "id": request["id"], "pcm": pcm16(result.audio)})
             send({"type": "end", "id": request["id"]})
