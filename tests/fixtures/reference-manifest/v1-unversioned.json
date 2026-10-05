@@ -1,0 +1,24 @@
+{
+  "name": "voice-calm",
+  "group": "Irodori-TTS v4 Small Q8_0, 16 steps, calm",
+  "threshold": null,
+  "seconds": 8.1,
+  "takes": [
+    {
+      "audio": "C:\\speech-bench-data\\runs\\tts-2026-10-01T02-21-37-788Z-example-pc-irodori-tts-v4-small-q8_0-16steps-calm-seed3-speak-ja-JP-10\\reply-weather.wav",
+      "label": "reply-weather · seed 3",
+      "text": "明日の東京は晴れで、最高気温は二十四度の予報です。",
+      "seconds": 4.5,
+      "likenessToCenter": 1
+    },
+    {
+      "audio": "C:\\speech-bench-data\\runs\\tts-2026-10-01T02-21-37-788Z-example-pc-irodori-tts-v4-small-q8_0-16steps-calm-seed3-speak-ja-JP-10\\aizuchi-hai.wav",
+      "label": "aizuchi-hai · seed 3",
+      "text": "はい。",
+      "seconds": 3.3,
+      "likenessToCenter": 0.82
+    }
+  ],
+  "meanSimilarity": 0.82,
+  "weakestPair": 0.82
+}

@@ -1,7 +1,8 @@
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { latestRuns, listeningData, runNames, type ListenedRun } from '../src/pages/listen.ts'
-import type { SentenceRecord, TtsRunRecord } from '../src/measure/results.ts'
+import type { SentenceRecord } from '../src/measure/result-file/format.ts'
+import { ttsRun } from './run-records.ts'
 
 const runs = path.join(path.sep, 'data', 'runs')
 /** Links a file by its path, so that a test sees which file a take plays. */
@@ -11,14 +12,15 @@ const sentence: SentenceRecord = { type: 'sentence', id: 'aizuchi-hai', kind: 'a
 interface RunOptions { set?: string; seed?: number; design?: string; reference?: string; durationScale?: number; gpu?: string; transcript?: string; pitches?: number[]; likeness?: Array<number | null> }
 
 function run(model: string, startedAt: string, options: RunOptions = {}): ListenedRun {
-  const record = {
-    type: 'run', format: 7, task: 'tts', startedAt, set: { name: options.set ?? 'speak-ja-JP-20', locale: 'ja-JP', size: 1 }, voice: null, seed: options.seed ?? null,
+  const record = ttsRun({
+    startedAt, set: { name: options.set ?? 'speak-ja-JP-20', locale: 'ja-JP', size: 1 }, seed: options.seed ?? null,
     design: options.design === undefined ? null : { id: options.design, instruction: `${options.design} instruction` },
     reference: options.reference === undefined ? null : { name: options.reference, sha256: '0', seconds: 30 },
     durationScale: options.durationScale ?? null,
-    model: { id: model, label: `${model} label`, license: 'MIT', files: [] }, machine: { hostname: 'mac', gpus: [options.gpu ?? 'Apple M5'] },
+    model: { id: model, label: `${model} label`, license: 'MIT', files: [] },
+    machine: { platform: 'darwin-arm64', hostname: 'mac', os: 'macOS 26.2', cpu: 'Apple M5', memoryGb: 32, gpus: [options.gpu ?? 'Apple M5'] },
     runtime: { id: 'audio.cpp', version: 'v1', options: {} }
-  } as unknown as TtsRunRecord
+  })
   const pitches = options.pitches ?? [220]
   const sentences = pitches.map((_, index) => ({ ...sentence, id: `${sentence.id}-${index}`, ...(options.transcript === undefined ? {} : { transcript: options.transcript }) }))
   const stem = `tts-${startedAt}-${model}${options.design === undefined ? '' : `-${options.design}`}${options.seed === undefined ? '' : `-seed${options.seed}`}`

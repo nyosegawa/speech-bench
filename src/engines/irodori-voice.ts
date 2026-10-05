@@ -8,16 +8,17 @@ const run = promisify(execFile)
 
 /**
  * The Irodori-TTS voice file of a reference WAVE file, made once on the CPU with speech.cpp's `irodori-tts
- * --make-voice` and kept by the sha256 of the reference and of the codec it was encoded with: a voice file
- * holds the codec's latent of the reference, and a worker refuses one made with another codec.
+ * --make-voice` and kept by the sha256 of the reference, the sha256 of the codec it was encoded with and the
+ * release of the tool that made it: a voice file holds the codec's latent of the reference, a worker refuses one
+ * made with another codec, and another release may write the file another way.
  */
-export async function irodoriVoiceFile(tool: string, model: string, codec: string, codecSha256: string, reference: { file: string; sha256: string }): Promise<string> {
-  const target = path.join(voiceFilesDir(), `${reference.sha256.slice(0, 16)}-${codecSha256.slice(0, 16)}.voice.gguf`)
+export async function irodoriVoiceFile(tool: { executable: string; version: string }, model: string, codec: string, codecSha256: string, reference: { file: string; sha256: string }): Promise<string> {
+  const target = path.join(voiceFilesDir(), `${reference.sha256.slice(0, 16)}-${codecSha256.slice(0, 16)}-${tool.version}.voice.gguf`)
   if (fs.existsSync(target)) return target
   fs.mkdirSync(voiceFilesDir(), { recursive: true })
   const partial = `${target}.partial`
   try {
-    await run(tool, ['--make-voice', model, codec, reference.file, partial, '--device', 'cpu'], { windowsHide: true, maxBuffer: 16 * 1024 * 1024 })
+    await run(tool.executable, ['--make-voice', model, codec, reference.file, partial, '--device', 'cpu'], { windowsHide: true, maxBuffer: 16 * 1024 * 1024 })
   } catch (error) {
     fs.rmSync(partial, { force: true })
     const output = error instanceof Error && 'stderr' in error ? String((error as { stderr: unknown }).stderr).trim() : ''

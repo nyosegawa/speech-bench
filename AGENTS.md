@@ -17,7 +17,8 @@ behavior.
   of commands (measuring, voices, the web app).
 - `src/core/` holds what every part reads: WAVE files and resampling (`wav.ts`), the data folder
   (`paths.ts`), the system and machine (`platform.ts`, decided once, so the rest never checks the system
-  itself) and BCP 47 tags (`language.ts`).
+  itself), BCP 47 tags (`language.ts`) and the reading of stored records through their upgrades and their
+  schemas (`stored.ts`).
 - `src/catalog/` lists the models with their pinned files, their runtimes and the languages of their model
   cards (`models.ts`), pins the releases of the runtimes (`runtimes.ts`), fetches and verifies pinned
   files (`store.ts`, `download.ts`), and renames a DLL a Windows module imports (`pe.ts`).
@@ -27,10 +28,10 @@ behavior.
   model's official implementation behind speech.cpp's worker protocol, each a uv project with a lock file;
   `src/engines/adapter.ts` installs and starts them.
 - `src/datasets/` turns a source (FLEURS, Common Voice, the user's recordings, the prompt lists) into utterances
-  with references or sentences to speak.
+  with references or sentences to speak, and owns the form of the recording manifests (`recording-manifest/`).
 - `src/measure/` runs a model over a set and writes the result (`run-asr.ts`, `run-tts.ts`), owns the form of
-  result files and their upgrades (`results.ts`), where a run is kept (`runs.ts`), the campaigns
-  (`campaigns.ts`), the scoring of recognized texts (`scoring.ts`, with the kanji forms of `kanji-forms.ts`, and
+  result files (`result-file/`), where a run is kept (`runs.ts`), the campaigns (`campaigns.ts`, their form in
+  `campaign-file/`), the scoring of recognized texts (`scoring.ts`, with the kanji forms of `kanji-forms.ts`, and
   against accepted spellings `accepted.ts`) and of synthesized speech as heard (`heard.ts`), and the report
   (`report.ts`).
 - `src/spellings/` handles the annotations of reference sentences in `spellings/`: the notation of readings
@@ -43,7 +44,8 @@ behavior.
 - `src/analysis/` reads speech: speaker embeddings and their comparisons (`speaker.ts`), pitch (`pitch.ts`),
   sets of takes of one voice (`neighbors.ts`), and the analysis kept beside a run (`run-analysis.ts`).
 - `src/make/` makes voices: the recipes in `prompts/voices-<locale>.json` (`recipes.ts`), the steps from
-  takes to a chosen reference (`voice.ts`) and the reference voices (`references.ts`).
+  takes to a chosen reference (`voice.ts`) and the reference voices (`references.ts`, the form of their
+  manifests in `reference-manifest/`).
 - `src/pages/` builds the data of the listening and voices pages.
 - `src/web/` is the web app's server: its JSON API (`api.ts` holds the types the app reads), the audio of
   the data folder, saving recordings, and the jobs it runs. `web/` is the app itself, in React with Tailwind CSS 4 and shadcn/ui, built with Vite; it
@@ -66,9 +68,24 @@ another one.
   than the defect, or needs a choice only the user can make, stop and ask instead of patching.
 - Every download is pinned: a release by URL and sha256, a Hugging Face file by repository, revision,
   size and sha256. A file is renamed into place only after its hash matches.
-- A result file carries the version of its form (`format` in its run line). Any change to the form, an
-  added field included, raises the version, adds an upgrade from the previous version, and adds a sample
-  of the new version to `tests/fixtures/`. Upgrades are never removed.
+- A file the bench writes and reads back is one of three things, handled by what it is:
+  - A record of something measured or chosen, which cannot be made again (a run's `run.jsonl`, a campaign, a
+    reference voice's manifest, a speaker's recording manifest), carries the version of its form, and its reader
+    brings an earlier version to the current one.
+  - Something derived, which can always be made again (`analysis.json`, the voice files, the decoded clips),
+    carries no version of its form: it records what it was made from and with, and is made again when that
+    changes or when it does not have the current form.
+  - A file kept in the repository (`prompts/`, `spellings/`) is versioned by git and changes in the same commit
+    as the code that reads it.
+- A record's current form and its history live apart, in a folder of its own (such as `src/measure/result-file/`):
+  `format.ts` holds the current form only, as zod schemas with the types derived from them, and its version;
+  `upgrades/index.ts` lists the steps in order from the earliest version the bench reads, the current version being
+  that one plus the number of steps; each step is a file `upgrades/vNN-to-vMM.ts`, raw JSON in and out, which
+  imports neither the current form nor any code that may change and holds any table only it needs. Any change to
+  the form, an added field included, raises the version with a step and adds a sample of the new version as
+  `tests/fixtures/<kind>/v<n>.<ext>`. A step that only adds a field is declared with the fields it adds, and the
+  schema of the current form says what a missing one means. Steps are never removed. A stored record is read
+  through its schema, never cast.
 - A model lists the languages of its model card as BCP 47 tags. A tag without a region covers every
   region of the language.
 - Extract code only when it creates a coherent responsibility, a reusable boundary or an independently

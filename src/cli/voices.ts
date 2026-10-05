@@ -6,7 +6,8 @@ import { chooseCandidate, gatherTakes, makeCandidates, tryCandidates, voiceCampa
 import { loadPrompts } from '../datasets/prompts.ts'
 import { isLanguageTag } from '../core/language.ts'
 import { embedGroups, largestSet, similarityOf } from '../analysis/neighbors.ts'
-import { writeCandidates, writeReference, type ReferenceManifest } from '../make/references.ts'
+import { writeCandidates, writeReference } from '../make/references.ts'
+import type { ReferenceManifest } from '../make/reference-manifest/format.ts'
 import { seedList } from './measure.ts'
 
 /**

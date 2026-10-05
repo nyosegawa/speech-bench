@@ -1,0 +1,8 @@
+{
+  "format": 1,
+  "name": "voice-calm",
+  "runs": [
+    "tts-2026-10-01T02-21-37-788Z-example-mac-irodori-tts-v4-small-q8_0-16steps-calm-seed1-speak-ja-JP-10",
+    "tts-2026-10-01T02-24-33-566Z-example-mac-irodori-tts-v4-small-q8_0-16steps-ref-voice-calm-seed1-speak-ja-JP-4"
+  ]
+}

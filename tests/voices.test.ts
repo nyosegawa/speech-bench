@@ -1,8 +1,9 @@
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { ListenedRun } from '../src/pages/listen.ts'
-import type { ReferenceManifest } from '../src/make/references.ts'
-import type { SentenceRecord, TtsRunRecord } from '../src/measure/results.ts'
+import { REFERENCE_MANIFEST_FORMAT, type ReferenceManifest } from '../src/make/reference-manifest/format.ts'
+import type { SentenceRecord } from '../src/measure/result-file/format.ts'
+import { ttsRun } from './run-records.ts'
 import { splitShared, voicesData } from '../src/pages/voices.ts'
 
 const runs = path.join(path.sep, 'data', 'runs')
@@ -11,11 +12,13 @@ const byPath = (file: string): string => `file:${file}`
 
 /** A run that spoke like `reference`, one sentence per embedding, heard as said unless `misheard` names one. */
 function run(reference: string, seed: number, embeddings: number[][], options: { set?: string; misheard?: number; durationScale?: number } = {}): ListenedRun {
-  const record = {
-    type: 'run', format: 9, task: 'tts', startedAt: '2026-10-01T00:00:00Z', set: { name: options.set ?? 'speak-ja-JP-20', locale: 'ja-JP', size: embeddings.length },
-    voice: null, seed, design: null, reference: { name: reference, sha256: '0', seconds: 10 }, durationScale: options.durationScale ?? null,
-    model: { id: 'irodori', label: 'Irodori', license: 'MIT', files: [] }, machine: { hostname: 'pc', gpus: ['RTX 2080'] }, runtime: { id: 'audio.cpp', version: 'v1', options: {} }
-  } as unknown as TtsRunRecord
+  const record = ttsRun({
+    startedAt: '2026-10-01T00:00:00Z', set: { name: options.set ?? 'speak-ja-JP-20', locale: 'ja-JP', size: embeddings.length },
+    seed, reference: { name: reference, sha256: '0', seconds: 10 }, durationScale: options.durationScale ?? null,
+    model: { id: 'irodori', label: 'Irodori', license: 'MIT', files: [] },
+    machine: { platform: 'win32-x64', hostname: 'pc', os: 'Windows 11', cpu: 'Intel Core i9-9900K', memoryGb: 32, gpus: ['RTX 2080'] },
+    runtime: { id: 'audio.cpp', version: 'v1', options: {} }
+  })
   const sentences: SentenceRecord[] = embeddings.map((_, index) => ({
     type: 'sentence', id: `s${index}`, kind: 'reply', text: 'はい、わかりました。', audio: `s${index}.wav`, audioSeconds: 2, firstAudioSeconds: 0.5, totalSeconds: 1,
     transcript: index === options.misheard ? 'いいえ、ちがいます。' : 'はい、わかりました。'
@@ -33,7 +36,7 @@ function run(reference: string, seed: number, embeddings: number[][], options: {
 
 const groupOf: Record<string, string> = { 'a-1': 'Irodori, a', 'a-2': 'Irodori, a', 'b-1': 'Irodori, b' }
 const reference = (name: string): { manifest: ReferenceManifest; file: string } => ({
-  manifest: { name, group: groupOf[name]!, threshold: 0.8, seconds: 10, takes: [{ audio: 'x.wav', label: 'x', text: 'こんにちは。', seconds: 5, likenessToCenter: 1 }], meanSimilarity: 0.9, weakestPair: 0.9 },
+  manifest: { format: REFERENCE_MANIFEST_FORMAT, name, group: groupOf[name]!, threshold: 0.8, seconds: 10, takes: [{ audio: 'x.wav', label: 'x', text: 'こんにちは。', seconds: 5, likenessToCenter: 1 }], meanSimilarity: 0.9, weakestPair: 0.9 },
   file: path.join(path.sep, 'data', 'references', `${name}.wav`)
 })
 

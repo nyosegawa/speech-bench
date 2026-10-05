@@ -76,16 +76,19 @@ folder `SPEECH_BENCH_DATA` names.
   runtimes/    llama.cpp, CrispASR, speech.cpp and audio.cpp releases
   recordings/  your recordings, <locale>/<speaker>/manifest.jsonl
   references/  reference voices made from synthesized takes, <name>.wav and <name>.json
-  voice-files/ Irodori-TTS voice files made from the references for speech.cpp, by reference and codec
+  voice-files/ Irodori-TTS voice files made from the references for speech.cpp, by reference, codec and release
   adapters/    the Python environments of the adapters
   logs/        server output
   runs/        a folder per run: run.jsonl, the speech of each sentence and analysis.json
   campaigns/   the runs of each experiment, <name>.json
 ```
 
-`run.jsonl` holds what was measured, one JSON line for the run and one per utterance or sentence.
+`run.jsonl` holds what was measured, one JSON line for the run and one per utterance or sentence. It, the
+campaigns, the manifests of the reference voices and of your recordings carry the version of their form, and the
+bench reads an earlier version as the current one; a version it does not know is refused with the file named.
 `analysis.json` holds what is read from the speech (its voice, pitch and speaker embedding). A synthesis run makes it
-as it ends, so that a page does not read the speech again, and it is made again when the speaker model changes.
+as it ends, so that a page does not read the speech again, and it is made again when the speaker model or the way
+it is computed changes, or when it no longer matches the run's sentences.
 `node src/cli.ts analyze` makes it for the runs made before, which a page would otherwise analyze while it loads
 (640 takes took 225 s on an Apple M5). `--campaign name` on `asr` or `tts` adds the run to an experiment, which
 `report` and `analyze` then take with `--campaign name` and the web app's runs page filters by.
@@ -103,10 +106,12 @@ be added. Space records and stops, the arrow keys move between prompts and P pla
 
 Each speaker's recordings are kept apart under the speaker's name, and each speaker is measured
 as a set of their own (`--set recordings --speaker guest`), so that a model that hears one voice well and
-another badly shows it. The recordings are listed in `recordings/<locale>/<speaker>/manifest.jsonl`, one
-object per line, with `audio` relative to the manifest:
+another badly shows it. The recordings are listed in `recordings/<locale>/<speaker>/manifest.jsonl`: a first
+line with the version of its form, then one object per recording, with `audio` relative to the manifest. A
+manifest without the first line is read as version 1.
 
 ```json
+{"format": 1}
 {"id": "short-hai", "audio": "short-hai.wav", "text": "はい"}
 ```
 

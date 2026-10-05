@@ -2,12 +2,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { isSafeName } from '../datasets/recordings.ts'
 import { campaignsDir } from '../core/paths.ts'
-
-/** A named experiment and the runs made for it, in the order they were made. */
-export interface Campaign {
-  name: string
-  runs: string[]
-}
+import { campaignText, parseCampaign } from './campaign-file/file.ts'
+import { CAMPAIGN_FORMAT, type Campaign } from './campaign-file/format.ts'
 
 const campaignFile = (name: string): string => {
   if (!isSafeName(name)) throw new Error(`campaign ${JSON.stringify(name)} is not lower-case letters, digits, - and _`)
@@ -17,16 +13,16 @@ const campaignFile = (name: string): string => {
 export function readCampaign(name: string): Campaign {
   const file = campaignFile(name)
   if (!fs.existsSync(file)) throw new Error(`there is no campaign ${name}; runs join one with --campaign ${name}`)
-  return JSON.parse(fs.readFileSync(file, 'utf8')) as Campaign
+  return parseCampaign(fs.readFileSync(file, 'utf8'), file)
 }
 
 /** Adds a run to a campaign, which is made when it has none yet. */
 export function joinCampaign(name: string, run: string): void {
   const file = campaignFile(name)
-  const campaign: Campaign = fs.existsSync(file) ? readCampaign(name) : { name, runs: [] }
+  const campaign: Campaign = fs.existsSync(file) ? readCampaign(name) : { format: CAMPAIGN_FORMAT, name, runs: [] }
   if (!campaign.runs.includes(run)) campaign.runs.push(run)
   fs.mkdirSync(campaignsDir(), { recursive: true })
-  fs.writeFileSync(file, `${JSON.stringify(campaign, null, 2)}\n`)
+  fs.writeFileSync(file, campaignText(campaign))
 }
 
 /** The runs of a campaign, none for one no run has joined yet. */

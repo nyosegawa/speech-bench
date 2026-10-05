@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { clusteredOrder, largestSet, voiceGroup } from '../src/analysis/neighbors.ts'
-import type { TtsRunRecord } from '../src/measure/results.ts'
+import type { TtsRunRecord } from '../src/measure/result-file/format.ts'
+import { ttsRun } from './run-records.ts'
 
 describe('clusteredOrder', () => {
   it('puts the takes of one voice next to each other', () => {
@@ -44,11 +45,11 @@ describe('largestSet', () => {
 })
 
 describe('voiceGroup', () => {
-  const run = (design: string | null, seed: number, options: Record<string, string> = {}): TtsRunRecord => ({
-    set: { locale: 'ja-JP' }, model: { id: 'irodori', label: 'Irodori' }, voice: null, seed,
+  const run = (design: string | null, seed: number, options: Record<string, string> = {}): TtsRunRecord => ttsRun({
+    model: { id: 'irodori', label: 'Irodori', license: 'MIT', files: [] }, seed,
     design: design === null ? null : { id: design, instruction: `${design} words` },
-    runtime: { id: 'audio.cpp', version: 'v1', options }, machine: { gpus: ['Apple M5'] }
-  } as unknown as TtsRunRecord)
+    runtime: { id: 'audio.cpp', version: 'v1', options }
+  })
 
   it('puts the seeds of one description together and keeps descriptions and load options apart', () => {
     expect(voiceGroup(run('young-woman-words', 1)).key).toBe(voiceGroup(run('young-woman-words', 2)).key)

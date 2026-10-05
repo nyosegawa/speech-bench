@@ -5,6 +5,8 @@ import { sha256Of } from '../catalog/download.ts'
 import { similarityOf, type EmbeddedGroup, type EmbeddedTake } from '../analysis/neighbors.ts'
 import { referencesDir } from '../core/paths.ts'
 import { encodeWav16, readWav, resample } from '../core/wav.ts'
+import { parseReferenceManifest, referenceManifestText } from './reference-manifest/file.ts'
+import { REFERENCE_MANIFEST_FORMAT, type ReferenceManifest } from './reference-manifest/format.ts'
 
 /** The silence between two takes of a reference, which keeps one take's end from running into the next. */
 const GAP_SECONDS = 0.3
@@ -15,18 +17,6 @@ export interface ReferenceVoice {
   file: string
   sha256: string
   seconds: number
-}
-
-/** What a reference was made of, written beside its WAVE file. */
-export interface ReferenceManifest {
-  name: string
-  group: string
-  /** The similarity every pair of the set held to, or null for takes named by hand. */
-  threshold: number | null
-  seconds: number
-  takes: Array<{ audio: string; label: string; text: string; seconds: number; likenessToCenter: number }>
-  meanSimilarity: number
-  weakestPair: number
 }
 
 const filesOf = (name: string): { wav: string; manifest: string } => {
@@ -64,6 +54,7 @@ export function writeReference(name: string, group: string, threshold: number | 
   fs.writeFileSync(wav, encodeWav16({ sampleRate: rate, samples }))
   const pairs = chosen.flatMap((a, position) => chosen.slice(position + 1).map((b) => similarity(a, b)))
   const written: ReferenceManifest = {
+    format: REFERENCE_MANIFEST_FORMAT,
     name,
     group,
     threshold,
@@ -72,7 +63,7 @@ export function writeReference(name: string, group: string, threshold: number | 
     meanSimilarity: pairs.reduce((sum, value) => sum + value, 0) / pairs.length,
     weakestPair: Math.min(...pairs)
   }
-  fs.writeFileSync(manifest, `${JSON.stringify(written, null, 2)}\n`)
+  fs.writeFileSync(manifest, referenceManifestText(written))
   return written
 }
 
@@ -86,7 +77,8 @@ export function referenceFile(name: string): string {
 /** What a reference voice was made of, from the manifest beside it on this machine. */
 export function referenceManifest(name: string): ReferenceManifest {
   referenceFile(name)
-  return JSON.parse(fs.readFileSync(filesOf(name).manifest, 'utf8')) as ReferenceManifest
+  const { manifest } = filesOf(name)
+  return parseReferenceManifest(fs.readFileSync(manifest, 'utf8'), manifest)
 }
 
 /** A reference voice by name, from this machine's references folder. */
@@ -155,7 +147,7 @@ export async function copyReference(from: string, to: string): Promise<Reference
   const sha256 = await sha256Of(referenceFile(from))
   if (fs.existsSync(target.wav) && (await sha256Of(target.wav)) !== sha256) throw new Error(`${to} exists already with other audio; remove ${target.wav} to replace it`)
   fs.copyFileSync(source.wav, target.wav)
-  fs.writeFileSync(target.manifest, `${JSON.stringify({ ...referenceManifest(from), name: to }, null, 2)}\n`)
+  fs.writeFileSync(target.manifest, referenceManifestText({ ...referenceManifest(from), name: to }))
   return loadReference(to)
 }
 

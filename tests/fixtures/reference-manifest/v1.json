@@ -1,0 +1,25 @@
+{
+  "format": 1,
+  "name": "voice-calm-candidate-1",
+  "group": "Irodori-TTS v4 Small Q8_0, 16 steps, calm",
+  "threshold": 0.8,
+  "seconds": 15.78,
+  "takes": [
+    {
+      "audio": "/data/runs/tts-2026-10-01T02-21-37-788Z-example-mac-irodori-tts-v4-small-q8_0-16steps-calm-seed2-speak-ja-JP-10/ask-plan.wav",
+      "label": "ask-plan · seed 2",
+      "text": "週末のお出かけ、どこに行くかもう決めましたか?",
+      "seconds": 5.2,
+      "likenessToCenter": 1
+    },
+    {
+      "audio": "/data/runs/tts-2026-10-01T02-21-37-788Z-example-mac-irodori-tts-v4-small-q8_0-16steps-calm-seed2-speak-ja-JP-10/long-day.wav",
+      "label": "long-day · seed 2",
+      "text": "今日の予定をお伝えしますね。",
+      "seconds": 10.28,
+      "likenessToCenter": 0.8733963381695998
+    }
+  ],
+  "meanSimilarity": 0.8733963381695998,
+  "weakestPair": 0.8733963381695998
+}

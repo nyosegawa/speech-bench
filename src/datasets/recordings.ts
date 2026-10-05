@@ -3,16 +3,8 @@ import path from 'node:path'
 import { recordingsDir } from '../core/paths.ts'
 import { readWav } from '../core/wav.ts'
 import type { UtteranceSet } from './item.ts'
-
-/**
- * One recording of a speaker: `<data>/recordings/<locale>/<speaker>/manifest.jsonl`, one JSON object per line
- * with `id`, `audio` (a WAV file relative to the manifest) and `text` (what was said).
- */
-export interface RecordingEntry {
-  id: string
-  audio: string
-  text: string
-}
+import { parseRecordingManifest, recordingManifestText } from './recording-manifest/file.ts'
+import type { RecordingEntry } from './recording-manifest/format.ts'
 
 /** The recordings of one speaker in one locale, kept apart from every other speaker's. */
 export interface RecordingFolder {
@@ -28,6 +20,7 @@ function folderOf({ locale, speaker }: RecordingFolder): string {
   return path.join(recordingsDir(), locale, speaker)
 }
 
+/** The manifest of a speaker's recordings, `<data>/recordings/<locale>/<speaker>/manifest.jsonl`. */
 const manifestOf = (folder: RecordingFolder): string => path.join(folderOf(folder), 'manifest.jsonl')
 
 /** The WAV file of a recording. */
@@ -46,13 +39,7 @@ export function recordedSpeakers(): RecordingFolder[] {
 export function readManifest(folder: RecordingFolder): RecordingEntry[] {
   const manifest = manifestOf(folder)
   if (!fs.existsSync(manifest)) return []
-  return fs.readFileSync(manifest, 'utf8').split('\n').filter((line) => line.trim() !== '').map((line, index) => {
-    const entry = JSON.parse(line) as { id?: unknown; audio?: unknown; text?: unknown }
-    if (typeof entry.id !== 'string' || typeof entry.audio !== 'string' || typeof entry.text !== 'string') {
-      throw new Error(`${manifest} line ${index + 1} needs the strings id, audio and text`)
-    }
-    return { id: entry.id, audio: entry.audio, text: entry.text }
-  })
+  return parseRecordingManifest(fs.readFileSync(manifest, 'utf8'), manifest)
 }
 
 export function recordingSet(folder: RecordingFolder): UtteranceSet {
@@ -80,7 +67,7 @@ export function saveRecording(folder: RecordingFolder, id: string, text: string,
   fs.writeFileSync(recordingFile(folder, entry), wav)
   const entries = [...readManifest(folder).filter((existing) => existing.id !== id), entry]
   const manifest = manifestOf(folder)
-  fs.writeFileSync(`${manifest}.partial`, entries.map((existing) => JSON.stringify(existing)).join('\n') + '\n')
+  fs.writeFileSync(`${manifest}.partial`, recordingManifestText(entries))
   fs.renameSync(`${manifest}.partial`, manifest)
   return entry
 }

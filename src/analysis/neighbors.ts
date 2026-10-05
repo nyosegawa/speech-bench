@@ -1,7 +1,7 @@
-import fs from 'node:fs'
 import { analyzeRun } from './run-analysis.ts'
 import type { SpeakerEmbedder } from '../engines/speaker-embedding.ts'
-import { parseResultFile, type TtsRunRecord } from '../measure/results.ts'
+import { readResultFile } from '../measure/result-file/file.ts'
+import type { TtsRunRecord } from '../measure/result-file/format.ts'
 import { takeFile } from '../measure/runs.ts'
 import { cosine } from './speaker.ts'
 
@@ -88,7 +88,7 @@ export interface EmbeddedGroup {
 export function embedGroups(files: readonly string[], embedder: SpeakerEmbedder): EmbeddedGroup[] {
   const groups = new Map<string, EmbeddedGroup>()
   for (const file of files) {
-    const parsed = parseResultFile(fs.readFileSync(file, 'utf8').split('\n'))
+    const parsed = readResultFile(file)
     if (!('sentences' in parsed)) continue
     const { key, name, detail } = voiceGroup(parsed.run)
     const group = groups.get(key) ?? { name, detail, takes: [], tooShort: 0 }
