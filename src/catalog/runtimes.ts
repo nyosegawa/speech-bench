@@ -62,40 +62,40 @@ export const CRISPASR: RuntimeSpec = {
   }
 }
 
-const SPEECH_CPP_RELEASE = 'https://github.com/nyosegawa/speech.cpp/releases/download/v0.4.0'
+const SPEECH_CPP_RELEASE = 'https://github.com/nyosegawa/speech.cpp/releases/download/v0.5.0'
 
 /** speech.cpp's worker, which runs Qwen3-TTS and Irodori-TTS and speaks the worker protocol. */
 export const SPEECH_CPP: RuntimeSpec = {
   id: 'speech.cpp',
-  version: 'v0.4.0',
+  version: 'v0.5.0',
   assets: {
     'darwin-arm64': {
-      url: `${SPEECH_CPP_RELEASE}/speech-worker-v0.4.0-macos-arm64-metal.zip`,
-      sha256: 'fa880b8d3fd6f60a7969b1a7665e3a2a7cd72535b2e09fd85165ae60d6e0d6aa',
+      url: `${SPEECH_CPP_RELEASE}/speech-worker-v0.5.0-macos-arm64-metal.zip`,
+      sha256: 'b7e6ca2f72e736343484e57ee177807b3d3683f71203e5f690dfa3c8b8861fa0',
       executable: 'speech-worker'
     },
     'win32-x64': {
-      url: `${SPEECH_CPP_RELEASE}/speech-worker-v0.4.0-windows-x64-vulkan.zip`,
-      sha256: '1c48421b6ef3ad3613eb3f7f2db37cf166b3019de4c30c1a3e215c31fac53662',
+      url: `${SPEECH_CPP_RELEASE}/speech-worker-v0.5.0-windows-x64-vulkan.zip`,
+      sha256: '1e10e6261d67946cd0b99436518eec717893da08ea2a2e6c650aca92e2ca5e73',
       executable: 'speech-worker.exe'
     }
   }
 }
 
-/** speech.cpp's command-line tools, of which the bench uses `irodori-tts` to make Irodori-TTS voice files. */
+/** speech.cpp's command-line tools, of which the bench uses `speech-tts make-voice` to make Irodori-TTS voice files. */
 export const SPEECH_CPP_TOOLS: RuntimeSpec = {
   id: 'speech.cpp-tools',
-  version: 'v0.4.0',
+  version: 'v0.5.0',
   assets: {
     'darwin-arm64': {
-      url: `${SPEECH_CPP_RELEASE}/speech-cpp-tools-v0.4.0-macos-arm64-metal.zip`,
-      sha256: 'c2cdd24b292bfe4b5da2dc484129b9f18becdeb6897f893ae2d5453f174033ab',
-      executable: 'irodori-tts'
+      url: `${SPEECH_CPP_RELEASE}/speech-cpp-tools-v0.5.0-macos-arm64-metal.zip`,
+      sha256: '50033c38163e61669da8e48cc9224f87c0974701303e79911a6cb7f8b2a56381',
+      executable: 'speech-tts'
     },
     'win32-x64': {
-      url: `${SPEECH_CPP_RELEASE}/speech-cpp-tools-v0.4.0-windows-x64-vulkan.zip`,
-      sha256: '445f1bb485a3e7cda72773cc5baab397a78a21e964a7ad36ff318bb13a0019aa',
-      executable: 'irodori-tts.exe'
+      url: `${SPEECH_CPP_RELEASE}/speech-cpp-tools-v0.5.0-windows-x64-vulkan.zip`,
+      sha256: '509b46d3afd7c345189e5c05cab4db20c418a64fc8f15769c11246626384432e',
+      executable: 'speech-tts.exe'
     }
   }
 }

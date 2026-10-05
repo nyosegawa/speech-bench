@@ -7,8 +7,8 @@ import { voiceFilesDir } from '../core/paths.ts'
 const run = promisify(execFile)
 
 /**
- * The Irodori-TTS voice file of a reference WAVE file, made once on the CPU with speech.cpp's `irodori-tts
- * --make-voice` and kept by the sha256 of the reference, the sha256 of the codec it was encoded with and the
+ * The Irodori-TTS voice file of a reference WAVE file, made once on the CPU with speech.cpp's `speech-tts
+ * make-voice` and kept by the sha256 of the reference, the sha256 of the codec it was encoded with and the
  * release of the tool that made it: a voice file holds the codec's latent of the reference, a worker refuses one
  * made with another codec, and another release may write the file another way.
  */
@@ -18,11 +18,11 @@ export async function irodoriVoiceFile(tool: { executable: string; version: stri
   fs.mkdirSync(voiceFilesDir(), { recursive: true })
   const partial = `${target}.partial`
   try {
-    await run(tool.executable, ['--make-voice', model, codec, reference.file, partial, '--device', 'cpu'], { windowsHide: true, maxBuffer: 16 * 1024 * 1024 })
+    await run(tool.executable, ['make-voice', model, codec, reference.file, partial, '--device', 'cpu'], { windowsHide: true, maxBuffer: 16 * 1024 * 1024 })
   } catch (error) {
     fs.rmSync(partial, { force: true })
     const output = error instanceof Error && 'stderr' in error ? String((error as { stderr: unknown }).stderr).trim() : ''
-    throw new Error(`irodori-tts could not make a voice file of ${reference.file}: ${output || (error instanceof Error ? error.message : String(error))}`, { cause: error })
+    throw new Error(`speech-tts could not make a voice file of ${reference.file}: ${output || (error instanceof Error ? error.message : String(error))}`, { cause: error })
   }
   fs.renameSync(partial, target)
   return target
