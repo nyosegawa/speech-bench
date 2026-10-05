@@ -141,15 +141,23 @@ export type TtsModel = TtsRuntime & {
   license: string
 }
 
-/** The talkers converted with their languages as BCP 47 tags, which speech.cpp needs from v0.3.0 on. */
-const QWEN3_TTS = ['sakasegawa/qwen3-tts-ggml', '3fa3234ee65c9a70fd23a7b7843722a0284b8027'] as const
-const QWEN3_TTS_CODEC = model(...QWEN3_TTS, 'qwen3-tts-codec-12hz-f16.gguf', 245_553_152, '38763be32099ad36b7b4345fc852ac379fb4fde0782ff85929d2b984b4bc22c1')
+/**
+ * The talkers converted with their languages as BCP 47 tags, which speech.cpp needs from v0.3.0 on, each in a
+ * repository of its own that also holds the codec.
+ */
+const qwen3Tts = (repo: string, revision: string, talker: string, bytes: number, sha256: string): PinnedFile[] => [
+  model(repo, revision, talker, bytes, sha256),
+  model(repo, revision, 'qwen3-tts-codec-12hz-f16.gguf', 245_553_152, '38763be32099ad36b7b4345fc852ac379fb4fde0782ff85929d2b984b4bc22c1')
+]
 
 /** Qwen3-TTS has no Hindi and no Indonesian. */
 const QWEN3_TTS_LANGUAGES = ['zh', 'en', 'ja', 'ko', 'de', 'fr', 'ru', 'pt', 'es', 'it']
 
-const IRODORI_V4_1 = ['sakasegawa/irodori-tts-ggml', '8a45f617775ebc1c71b047b8b80c8350ec010617'] as const
-const IRODORI_V4_1_CODEC = model(...IRODORI_V4_1, 'semantic-dacvae-japanese-32dim-f32.gguf', 370_670_496, '43ef3084cedd88b73113db2663f1741d5deed97ae9a72d84dff4ff593374f125')
+/** A conversion of Irodori-TTS v4.1 for speech.cpp, in a repository of its own that also holds the codec. */
+const irodoriGguf = (repo: string, revision: string, weights: string, bytes: number, sha256: string): PinnedFile[] => [
+  model(repo, revision, weights, bytes, sha256),
+  model(repo, revision, 'semantic-dacvae-japanese-32dim-f32.gguf', 370_670_496, '43ef3084cedd88b73113db2663f1741d5deed97ae9a72d84dff4ff593374f125')
+]
 
 /**
  * Irodori-TTS v4.1 Small in speech.cpp: MF, the MeanFlow distillation that samples in 4 steps, and RF, the
@@ -157,19 +165,19 @@ const IRODORI_V4_1_CODEC = model(...IRODORI_V4_1, 'semantic-dacvae-japanese-32di
  * speaks like the reference voice of the run, given to the worker as a voice file made on the CPU, which
  * holds the official encoder's latent to 99 dB (speech.cpp's README, 2026-10-01).
  */
-const irodoriV41 = (id: string, label: string, file: PinnedFile, steps: number | null): TtsModel => ({
+const irodoriV41 = (id: string, label: string, files: PinnedFile[], steps: number | null): TtsModel => ({
   id,
   label,
   runtime: 'speech-worker',
   steps,
   voiceReference: true,
-  files: [file, IRODORI_V4_1_CODEC],
+  files,
   languages: ['ja'],
   voices: [],
   license: 'MIT'
 })
-const IRODORI_V4_1_MF = model(...IRODORI_V4_1, 'irodori-tts-v4.1-small-mf-f16.gguf', 1_514_765_472, '30b230256ce19a08b8769c582ca1afad0954a7c1f5d37b47c47e520b21d06262')
-const IRODORI_V4_1_RF = model(...IRODORI_V4_1, 'irodori-tts-v4.1-small-f16.gguf', 1_500_347_520, '4a1d3e68e3647e48a8ba001a54caa7c6cc221fd3b8a2492a3087c93af4bbee74')
+const IRODORI_V4_1_MF = irodoriGguf('sakasegawa/Irodori-TTS-v4.1-Small-MF-GGUF', 'e2958ef5b71065137a79ac392d81a6c8b591a9e5', 'irodori-tts-v4.1-small-mf-f16.gguf', 1_514_765_472, '30b230256ce19a08b8769c582ca1afad0954a7c1f5d37b47c47e520b21d06262')
+const IRODORI_V4_1_RF = irodoriGguf('sakasegawa/Irodori-TTS-v4.1-Small-GGUF', '8858e815eed82791bf216166d6a778e28ae6e3d3', 'irodori-tts-v4.1-small-f16.gguf', 1_500_347_520, '4a1d3e68e3647e48a8ba001a54caa7c6cc221fd3b8a2492a3087c93af4bbee74')
 
 /** The tokenizer Irodori-TTS v4.1's checkpoints carry beside them, the same file in both repositories. */
 const officialIrodori = (repo: string, revision: string, size: number, sha256: string): PinnedFile[] => [
@@ -285,7 +293,7 @@ export const TTS_MODELS: readonly TtsModel[] = [
     runtime: 'speech-worker',
     steps: null,
     voiceReference: false,
-    files: [model(...QWEN3_TTS, 'qwen3-tts-0.6b-customvoice-q8_0.gguf', 967_979_712, '4a819d1c9d9c6358bd5dc1ded15f93db970fbaeac9f0a021dfae62c242682baf'), QWEN3_TTS_CODEC],
+    files: qwen3Tts('sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF', '597c186b9e09de7c190f1f7330e247da346ddc48', 'qwen3-tts-0.6b-customvoice-q8_0.gguf', 967_979_712, '4a819d1c9d9c6358bd5dc1ded15f93db970fbaeac9f0a021dfae62c242682baf'),
     languages: QWEN3_TTS_LANGUAGES,
     voices: QWEN3_TTS_VOICES,
     license: 'Apache-2.0'
@@ -296,7 +304,7 @@ export const TTS_MODELS: readonly TtsModel[] = [
     runtime: 'speech-worker',
     steps: null,
     voiceReference: false,
-    files: [model(...QWEN3_TTS, 'qwen3-tts-1.7b-customvoice-q8_0.gguf', 2_042_225_472, 'fb6e79b6ae51c1fe5fe8313cf9a69e5c6f4e34a9869b478a576ed954b3d314e1'), QWEN3_TTS_CODEC],
+    files: qwen3Tts('sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF', '88ae08a41ca7252b4961243e014dedaa048a0d12', 'qwen3-tts-1.7b-customvoice-q8_0.gguf', 2_042_225_472, 'fb6e79b6ae51c1fe5fe8313cf9a69e5c6f4e34a9869b478a576ed954b3d314e1'),
     languages: QWEN3_TTS_LANGUAGES,
     voices: QWEN3_TTS_VOICES,
     license: 'Apache-2.0'
