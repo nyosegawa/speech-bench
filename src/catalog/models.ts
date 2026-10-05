@@ -118,7 +118,7 @@ export interface TtsVoice {
  */
 export type TtsRuntime =
   | { runtime: 'speech-worker'; steps: number | null; voiceReference: boolean }
-  | { runtime: 'adapter'; adapter: 'irodori-tts'; steps: number | null; voiceReference: boolean }
+  | { runtime: 'adapter'; adapter: 'irodori-tts' | 'mlx-audio'; steps: number | null; voiceReference: boolean }
   | {
       runtime: 'audio.cpp'
       family: string
@@ -190,6 +190,39 @@ const officialIrodoriV41 = (id: string, label: string, files: PinnedFile[], step
   label,
   runtime: 'adapter',
   adapter: 'irodori-tts',
+  steps,
+  voiceReference: true,
+  files,
+  languages: ['ja'],
+  voices: [],
+  license: 'MIT'
+})
+
+/** An mlx-community conversion of Irodori-TTS v4.1 for mlx-audio, its codec and tokenizer in the same repository. */
+const mlxIrodori = (repo: string, revision: string, files: readonly [string, number, string][]): PinnedFile[] => [
+  ...files.map(([file, size, sha256]) => model(repo, revision, file, size, sha256)),
+  model(repo, revision, 'tokenizer/tokenizer.json', 6_718_495, '6a0734cf21c802169defaffe719bc2ef12bb9d0be37e54b61ed27aa89394723d'),
+  model(repo, revision, 'tokenizer/tokenizer_config.json', 668, 'd229a271c64de1a7939d20d3665498e873fa91d5ee2edf135d73ec752cb9c9d3')
+]
+const MLX_IRODORI_MF = mlxIrodori('mlx-community/Irodori-TTS-v4.1-Small-MF-fp16', 'db0263236d010d4beb6ca67c529f410a6f71d755', [
+  ['config.json', 5_209, 'd181702b6c6977cd4d5cfa23462abbd26b2122e3d4306971bbec563073f7d2ce'],
+  ['model.safetensors', 1_546_609_131, '19bd887050cb3a6e799f4043aa2e20c11c1783f3af04e6c4d8ee0f172d24e483'],
+  ['dacvae/config.json', 300, '86aeeace595882a046d50c010971d79ed2e6bf1215a6b51b18e99b50b3fadeac'],
+  ['dacvae/model.safetensors', 429_504_222, '7366646af3d250ec0162c2b2717a64f7dbd5b8bfaebbf9ed69ad79db4944b8b9']
+])
+const MLX_IRODORI_RF = mlxIrodori('mlx-community/Irodori-TTS-v4.1-Small-fp16', '8be8d91091380115f1ac77aeb6604ed588d05372', [
+  ['config.json', 4_646, '1fd3b64b681229e5226a873de625589aa0fffc865c0404389b92e917c8c6708b'],
+  ['model.safetensors', 1_532_191_034, '99e022893ed27353aea6fca3897ee94c62bbaa568d705d230ee9b69f80a3a3bf'],
+  ['dacvae/config.json', 329, '8e01edaa4900841e36e1970bfced16470e8e4f4a5dc710f6ace1deefe731daf4'],
+  ['dacvae/model.safetensors', 429_504_516, '0bf3ff42e8101bd42ad082115ff0ea6867b6e994e64ab45f247bd50c49d0a0b9']
+])
+
+/** Irodori-TTS v4.1 Small in mlx-audio, from mlx-community's FP16 conversions, on the Mac's GPU through MLX. */
+const mlxIrodoriV41 = (id: string, label: string, files: PinnedFile[], steps: number | null): TtsModel => ({
+  id,
+  label,
+  runtime: 'adapter',
+  adapter: 'mlx-audio',
   steps,
   voiceReference: true,
   files,
@@ -274,6 +307,8 @@ export const TTS_MODELS: readonly TtsModel[] = [
   officialIrodoriV41('irodori-tts-v4.1-small-mf-official', 'Irodori-TTS v4.1 Small MF, official FP32', OFFICIAL_IRODORI_MF, null),
   officialIrodoriV41('irodori-tts-v4.1-small-16steps-official', 'Irodori-TTS v4.1 Small, official FP32, 16 steps', OFFICIAL_IRODORI_RF, 16),
   officialIrodoriV41('irodori-tts-v4.1-small-official', 'Irodori-TTS v4.1 Small, official FP32, 40 steps', OFFICIAL_IRODORI_RF, null),
+  mlxIrodoriV41('irodori-tts-v4.1-small-mf-mlx', 'Irodori-TTS v4.1 Small MF, mlx-audio FP16', MLX_IRODORI_MF, null),
+  mlxIrodoriV41('irodori-tts-v4.1-small-16steps-mlx', 'Irodori-TTS v4.1 Small, mlx-audio FP16, 16 steps', MLX_IRODORI_RF, 16),
   irodori(40),
   irodori(16),
   irodori(8),

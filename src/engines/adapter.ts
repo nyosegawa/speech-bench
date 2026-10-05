@@ -18,6 +18,9 @@ export interface Adapter {
 
 export const IRODORI_TTS_ADAPTER: Adapter = { id: 'irodori-tts', implementation: 'irodori-tts', script: 'worker.py' }
 
+/** mlx-audio, which runs ports of many models on Apple's MLX, here for its Irodori-TTS. */
+export const MLX_AUDIO_ADAPTER: Adapter = { id: 'mlx-audio', implementation: 'mlx-audio', script: 'worker.py' }
+
 const folderOf = (adapter: Adapter): string => path.join(import.meta.dirname, '..', '..', 'adapters', adapter.id)
 
 /** The adapter's Python environment, in the data folder with the other downloads rather than in the repository. */
