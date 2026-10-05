@@ -107,8 +107,7 @@ be added. Space records and stops, the arrow keys move between prompts and P pla
 Each speaker's recordings are kept apart under the speaker's name, and each speaker is measured
 as a set of their own (`--set recordings --speaker guest`), so that a model that hears one voice well and
 another badly shows it. The recordings are listed in `recordings/<locale>/<speaker>/manifest.jsonl`: a first
-line with the version of its form, then one object per recording, with `audio` relative to the manifest. A
-manifest without the first line is read as version 1.
+line with the version of its form, then one object per recording, with `audio` relative to the manifest.
 
 ```json
 {"format": 1}

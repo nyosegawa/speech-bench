@@ -10,11 +10,8 @@ export const recordingManifestUpgrades: Upgrades<Array<Record<string, unknown>>>
   steps: []
 }
 
-/**
- * The version of a recording manifest, `format` in a first line of its own, and the lines of its entries after it.
- * A manifest written before manifests carried a version has no such line and is of format 1.
- */
+/** The version of a recording manifest, `format` in a first line of its own, and the lines of its entries after it. */
 export function splitHeader(lines: Array<Record<string, unknown>>): { version: unknown; entries: Array<Record<string, unknown>>; firstEntryLine: number } {
-  const [first] = lines
-  return first !== undefined && 'format' in first ? { version: first.format, entries: lines.slice(1), firstEntryLine: 2 } : { version: 1, entries: lines, firstEntryLine: 1 }
+  const [first, ...entries] = lines
+  return { version: first?.format, entries, firstEntryLine: 2 }
 }

@@ -10,5 +10,5 @@ export const campaignUpgrades: Upgrades<Record<string, unknown>> = {
   steps: []
 }
 
-/** The version of a campaign file: its `format`, which campaigns written before they carried one lack, being of format 1. */
-export const campaignVersion = (raw: Record<string, unknown>): unknown => ('format' in raw ? raw.format : 1)
+/** The version of a campaign file: its `format`. */
+export const campaignVersion = (raw: Record<string, unknown>): unknown => raw.format
