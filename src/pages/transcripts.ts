@@ -18,7 +18,7 @@ export type Heard =
     /** The errors and alignment against the readings and accepted spellings, when the sentence is annotated. */
     accepted: { errors: number; alignment: AcceptedStep[] } | null
   }
-  | { droppedBy: 'no-voice' | 'asist-vad' }
+  | { droppedBy: 'no-voice' | 'energy-vad' }
 
 /** What the transcripts page reads: the runs, and for each utterance what every run heard. */
 export interface TranscriptsData {

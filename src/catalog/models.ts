@@ -263,7 +263,7 @@ const IRODORI_V4_SMALL = {
  * alone, and its speech is not trusted.
  */
 const irodori = (steps: number, type: keyof typeof IRODORI_V4_SMALL = 'q8_0', codecOnMetal = false): TtsModel => ({
-  id: `irodori-tts-v4-small${type === 'q8_0' ? '' : `-${type}`}${steps === 40 ? '' : `-${steps}steps`}${codecOnMetal ? '-metal-codec' : ''}`,
+  id: `irodori-tts-v4-small-${type}${steps === 40 ? '' : `-${steps}steps`}${codecOnMetal ? '-metal-codec' : ''}`,
   label: `Irodori-TTS v4 Small ${type === 'q8_0' ? 'Q8_0' : 'F16'}, ${steps} steps${codecOnMetal ? ', codec on Metal' : ''}`,
   runtime: 'audio.cpp',
   family: 'irodori_tts',

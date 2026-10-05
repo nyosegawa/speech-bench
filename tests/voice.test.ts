@@ -18,7 +18,7 @@ afterEach(() => {
 
 function writeRun(id: string, run: Record<string, unknown>): void {
   fs.mkdirSync(path.dirname(runFile(id)), { recursive: true })
-  fs.writeFileSync(runFile(id), `${JSON.stringify({ type: 'run', format: 11, set: { name: 'speak', locale: 'ja-JP', size: 1 }, ...run })}\n`)
+  fs.writeFileSync(runFile(id), `${JSON.stringify({ type: 'run', format: 12, set: { name: 'speak', locale: 'ja-JP', size: 1 }, ...run })}\n`)
 }
 
 describe('voiceRuns', () => {

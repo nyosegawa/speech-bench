@@ -25,7 +25,7 @@ export function preparationOf(row: AsrRow): string {
   const { audio } = row.run
   if (audio.edges === 'voice') return `trimmed to voice (${audio.detector})`
   if (audio.edges === 'as-recorded') return `as recorded, ${audio.trailingSilence} s of silence after`
-  return 'cut like ASIST'
+  return 'cut by an energy VAD'
 }
 
 export const machineOf = (row: RunRow): string => `${row.run.machine.hostname} · ${row.run.machine.gpus.join(' + ')}`

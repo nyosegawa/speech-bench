@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { resultsDir, runsDir } from '../core/paths.ts'
+import { runsDir } from '../core/paths.ts'
 import type { SentenceRecord } from './results.ts'
 
 /**
@@ -21,24 +21,4 @@ export const takeFile = (file: string, record: SentenceRecord): string => path.j
 export function allRunFiles(): string[] {
   if (!fs.existsSync(runsDir())) return []
   return fs.readdirSync(runsDir()).sort().map(runFile).filter((file) => fs.existsSync(file))
-}
-
-/**
- * Moves the result files of the earlier layout, `results/<run>.jsonl` with the speech in `results/<run>/`, into
- * a folder per run. A run already moved is left where it is; the pages and other files of results/ stay.
- */
-export function migrateResults(): number {
-  if (!fs.existsSync(resultsDir())) return 0
-  let moved = 0
-  for (const name of fs.readdirSync(resultsDir()).filter((entry) => entry.endsWith('.jsonl')).sort()) {
-    const id = path.basename(name, '.jsonl')
-    if (fs.existsSync(runFolder(id))) throw new Error(`${runFolder(id)} already exists; the run ${id} was moved before, or two runs share its name`)
-    const speech = path.join(resultsDir(), id)
-    fs.mkdirSync(runsDir(), { recursive: true })
-    if (fs.existsSync(speech)) fs.renameSync(speech, runFolder(id))
-    else fs.mkdirSync(runFolder(id))
-    fs.renameSync(path.join(resultsDir(), name), runFile(id))
-    moved++
-  }
-  return moved
 }

@@ -1,17 +1,17 @@
 import type { MachineInfo } from '../core/platform.ts'
 
 /**
- * The version of the form of a result file, written in its run line. Raising it needs an upgrade in
- * `upgradeRun` and a sample of the new version in tests/fixtures.
+ * The version of the form of a result file, written in its run line. A file of another version is refused;
+ * raising it means rewriting the data folder's results to the new form and a sample of it in tests/fixtures.
  */
-export const RESULT_FORMAT = 11
+export const RESULT_FORMAT = 12
 
 /**
  * How the audio of each utterance is prepared before it is sent to speech recognition: trimmed to the voice
- * a VAD finds with a margin of the recording around it, or as recorded with silence added after it. Runs of
- * formats 2 to 10 were cut the way ASIST's energy VAD cuts a capture, keeping a hangover after it.
+ * a VAD finds with a margin of the recording around it, or as recorded with silence added after it. Runs made
+ * until 2026-09-30 were cut by an energy VAD that kept a hangover after the voice, which the bench no longer does.
  */
-export type AudioPreparation = NewPreparation | { edges: 'asist'; hangoverMs: number }
+export type AudioPreparation = NewPreparation | { edges: 'energy-vad'; hangoverMs: number }
 
 /** The preparations a run can be made with now. */
 export type NewPreparation =
@@ -57,15 +57,12 @@ export interface HeardUtterance {
   seconds: number
 }
 
-/**
- * An utterance no model heard: one in which the VAD found no voice, or, in runs of formats 5 to 10, one
- * ASIST's energy VAD kept nothing of.
- */
+/** An utterance no model heard: one in which the VAD found no voice, or one the energy VAD kept nothing of. */
 export interface DroppedUtterance {
   type: 'utterance'
   id: string
   reference: string
-  droppedBy: 'no-voice' | 'asist-vad'
+  droppedBy: 'no-voice' | 'energy-vad'
 }
 
 /** One line per utterance after an ASR run line. */
@@ -107,35 +104,6 @@ export interface SentenceRecord {
 
 export type RunRecord = AsrRunRecord | TtsRunRecord
 
-/**
- * Brings a run line of an earlier format to the current one. Format 1 sent every utterance as recorded,
- * with `trailingSilence` seconds after it; formats 1 and 2 held speech recognition runs only; formats 1 to 3
- * stored the errors of each record, which are now counted when reporting and are left unread; formats 1 to
- * 4 had no dropped utterances, since a run stopped at an utterance ASIST's VAD dropped; formats 3 to 5 set no
- * seed for speech synthesis, so the runtime chose one for each sentence; formats 3 to 6 described no voice;
- * formats 1 to 7 loaded every runtime with its defaults, which on Metal ran Irodori-TTS's codec on the GPU;
- * formats 3 to 8 had no reference voice; formats 3 to 9 left the length of the speech as the model predicted it;
- * formats 2 to 10 knew no other preparation than ASIST's and as recorded.
- */
-export function upgradeRun(raw: Record<string, unknown>): RunRecord {
-  let run = raw
-  if (run.format === 1) {
-    const { trailingSilence, ...rest } = run
-    run = { ...rest, format: 2, audio: { edges: 'as-recorded', trailingSilence } }
-  }
-  if (run.format === 2) run = { ...run, format: 3, task: 'asr' }
-  if (run.format === 3) run = { ...run, format: 4 }
-  if (run.format === 4) run = { ...run, format: 5 }
-  if (run.format === 5) run = { ...run, format: 6, ...(run.task === 'tts' ? { seed: null } : {}) }
-  if (run.format === 6) run = { ...run, format: 7, ...(run.task === 'tts' ? { design: null } : {}) }
-  if (run.format === 7) run = { ...run, format: 8, runtime: { ...(run.runtime as Record<string, unknown>), options: {} } }
-  if (run.format === 8) run = { ...run, format: 9, ...(run.task === 'tts' ? { reference: null } : {}) }
-  if (run.format === 9) run = { ...run, format: 10, ...(run.task === 'tts' ? { durationScale: null } : {}) }
-  if (run.format === 10) run = { ...run, format: 11 }
-  if (run.format !== RESULT_FORMAT) throw new Error(`result format ${String(run.format)} is not known; this version reads formats 1 to ${RESULT_FORMAT}`)
-  return run as unknown as RunRecord
-}
-
 /** A result file as its run line and the records after it. */
 export type ResultFile =
   | { run: AsrRunRecord; utterances: UtteranceRecord[] }
@@ -145,7 +113,8 @@ export function parseResultFile(lines: readonly string[]): ResultFile {
   const records = lines.filter((line) => line.trim() !== '').map((line) => JSON.parse(line) as Record<string, unknown>)
   const first = records.find((record) => record.type === 'run')
   if (!first) throw new Error('a result file starts with a run line')
-  const run = upgradeRun(first)
+  if (first.format !== RESULT_FORMAT) throw new Error(`the result file is of format ${String(first.format)}, and this version reads format ${RESULT_FORMAT} only`)
+  const run = first as unknown as RunRecord
   if (run.task === 'asr') return { run, utterances: records.filter((record) => record.type === 'utterance') as unknown as UtteranceRecord[] }
   return { run, sentences: records.filter((record) => record.type === 'sentence') as unknown as SentenceRecord[] }
 }
