@@ -211,28 +211,35 @@ const QWEN3_TTS_VOICES: readonly TtsVoice[] = [
   { id: 'eric', native: 'zh' }
 ]
 
-const IRODORI_V4_SMALL = model('audio-cpp/audio.cpp-gguf', '83c5d96c03023ff5a7712570d057ce26c8769f98', 'Irodori-TTS-v4-Small-GGUF/irodori-tts-v4-small-q8_0.gguf', 1_368_991_360, '0f1b96a1608f0a15ef2289e4d23f37c121cb8db3da702d1d5c4c2455b2437190')
+const IRODORI_V4_SMALL = {
+  q8_0: model('audio-cpp/audio.cpp-gguf', '83c5d96c03023ff5a7712570d057ce26c8769f98', 'Irodori-TTS-v4-Small-GGUF/irodori-tts-v4-small-q8_0.gguf', 1_368_991_360, '0f1b96a1608f0a15ef2289e4d23f37c121cb8db3da702d1d5c4c2455b2437190'),
+  f16: model('audio-cpp/audio.cpp-gguf', 'e36610ac69b5262e914a52635324050bee8f1ad2', 'Irodori-TTS-v4-Small-GGUF/irodori-tts-v4-small-f16.gguf', 1_762_148_352, '4c30f25aaeb7c273194ee11e25c2ca3e7abde4c09dba8d86b1727528a57bfdd8')
+}
 
 /**
  * Irodori-TTS through audio.cpp, which packages it as "v4 Small". Without a reference or a description it
  * makes a voice up for every sentence, which follows the sentence more than the seed: on 2026-09-30 a
  * technical sentence came out at about 120 Hz in all of five seeds and a question at 160 to 208 Hz. The
  * steps are the rectified-flow steps; the model card's default is 40. On Metal the codec runs on the CPU:
- * audio.cpp's Metal codec (v0.8.2) adds a distorted copy of the voice 14 dB below it and raises the pauses
- * from -76 to -60 dBFS, heard as a doubled voice with a low hum, whatever the weight type, while the CPU
- * and Vulkan codecs do not; the CPU codec takes 4 to 7 times as long (2026-10-01, Apple M5).
+ * audio.cpp's Metal codec adds a distorted copy of the voice, heard as a doubled voice with a low hum, while
+ * the CPU and Vulkan codecs do not. With v0.8.2 it sat 14 dB below the voice and raised the pauses from -76 to
+ * -60 dBFS whatever the weight type, and the CPU codec took 4 to 7 times as long (2026-10-01, Apple M5). With
+ * v0.9.0 the pauses rose from -76.5 to -55.9 dBFS at the median of the 20 Japanese sentences and the heard CER
+ * from 5.31% to 9.12% with F16 at 16 steps, and the CPU codec made the median first audio 20.9 s against 2.0 s
+ * (2026-10-05, Apple M5). A model whose codec runs on Metal measures how fast audio.cpp is on the Mac's GPU
+ * alone, and its speech is not trusted.
  */
-const irodori = (steps: number): TtsModel => ({
-  id: steps === 40 ? 'irodori-tts-v4-small' : `irodori-tts-v4-small-${steps}steps`,
-  label: `Irodori-TTS v4 Small Q8_0, ${steps} steps`,
+const irodori = (steps: number, type: keyof typeof IRODORI_V4_SMALL = 'q8_0', codecOnMetal = false): TtsModel => ({
+  id: `irodori-tts-v4-small${type === 'q8_0' ? '' : `-${type}`}${steps === 40 ? '' : `-${steps}steps`}${codecOnMetal ? '-metal-codec' : ''}`,
+  label: `Irodori-TTS v4 Small ${type === 'q8_0' ? 'Q8_0' : 'F16'}, ${steps} steps${codecOnMetal ? ', codec on Metal' : ''}`,
   runtime: 'audio.cpp',
   family: 'irodori_tts',
-  loadOptions: { metal: { 'irodori_tts.codec_backend': 'cpu' } },
+  loadOptions: { metal: { 'irodori_tts.codec_backend': codecOnMetal ? 'same' : 'cpu' } },
   options: { language: 'ja', no_ref: true, num_inference_steps: steps },
   voiceDesign: true,
   voiceReference: true,
   durationScale: true,
-  files: [IRODORI_V4_SMALL],
+  files: [IRODORI_V4_SMALL[type]],
   languages: ['ja'],
   voices: [],
   license: 'MIT'
@@ -269,7 +276,9 @@ export const TTS_MODELS: readonly TtsModel[] = [
   officialIrodoriV41('irodori-tts-v4.1-small-official', 'Irodori-TTS v4.1 Small, official FP32, 40 steps', OFFICIAL_IRODORI_RF, null),
   irodori(40),
   irodori(16),
-  irodori(8)
+  irodori(8),
+  irodori(16, 'f16'),
+  irodori(16, 'f16', true)
 ]
 
 export function ttsModel(id: string): TtsModel {

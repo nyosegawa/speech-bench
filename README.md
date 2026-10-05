@@ -222,7 +222,7 @@ worker is given a voice file. uv installs the packages the adapter's lock file p
 first run, before the timing starts. The official runtime does not stream, so its first audio arrives with the
 last.
 
-On a Mac, audio.cpp's Irodori-TTS v4 Small runs its codec on the CPU. audio.cpp's Metal codec (v0.8.2) adds a distorted copy of the
+On a Mac, audio.cpp's Irodori-TTS v4 Small runs its codec on the CPU. audio.cpp's Metal codec (v0.8.2 and v0.9.0) adds a distorted copy of the
 voice, heard as a doubled voice with a low hum, which its CPU and Vulkan codecs do not; the CPU codec takes 4 to
 7 times as long, which the Mac's times to the first audio include. The options a runtime was loaded with are
 recorded with each result and shown in the report. A model with built-in voices
@@ -315,7 +315,7 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 | speech.cpp | v0.3.0, the worker and, to make voice files, the tools |
 | Qwen3-TTS 0.6B and 1.7B CustomVoice | sakasegawa/qwen3-tts-ggml Q8_0 and the F16 codec, converted with BCP 47 language tags |
 | Irodori-TTS v4.1 Small, MF and RF | sakasegawa/irodori-tts-ggml F16 and the F32 codec |
-| audio.cpp | v0.8.2-audio8-perf-hotfix |
+| audio.cpp | v0.9.0 |
 | Irodori-TTS v4 Small | audio-cpp/audio.cpp-gguf Q8_0 |
 | sherpa-onnx | 1.13.8, the Node addon of its npm packages for macOS arm64 and Windows x64, for speaker embeddings and the VAD; on Windows its ONNX Runtime is renamed so that Windows ML's copy in System32 is not loaded in its place (docs/adr/0018) |
 | Common Voice 8.0 | japanese-asr/ja_asr.common_voice_8_0 at revision bf8819e8: the test split of ja-JP, one Parquet file of MP3 clips and sentences, copied from Mozilla's release (CC0) |
