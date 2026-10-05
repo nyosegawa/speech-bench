@@ -14,7 +14,7 @@ afterEach(() => fs.rmSync(folder, { recursive: true, force: true }))
 /** A recognition run of `model` on `set` that heard each utterance as `heard` says, or dropped it for null. */
 function writeRun(id: string, model: string, set: string, heard: Array<[string, string, string | null]>): string {
   const run = {
-    type: 'run', format: 11, task: 'asr', startedAt: '2026-10-01T00:00:00.000Z', set: { name: set, locale: 'ja-JP', size: heard.length },
+    type: 'run', format: 12, task: 'asr', startedAt: '2026-10-01T00:00:00.000Z', set: { name: set, locale: 'ja-JP', size: heard.length },
     model: { id: model, label: `${model} label`, license: 'MIT', files: [] }, runtime: { id: 'llama.cpp', version: 'b1', options: {} },
     machine: { platform: 'darwin-arm64', hostname: 'mac', os: 'macOS', cpu: 'M5', memoryGb: 32, gpus: ['Apple M5'] },
     audio: { edges: 'voice', detector: 'silero-vad-v4', marginSeconds: 0.2 }, loadSeconds: 1, warmupSeconds: 1

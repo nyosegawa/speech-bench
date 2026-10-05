@@ -82,7 +82,7 @@ export async function voice(args: string[]): Promise<void> {
   if (!id) throw new Error(`voice ${step ?? ''} needs the voice, one of the ids in prompts/voices-${locale}.json`)
   const recipe = recipeOf(locale, id)
   if (step === 'gather') {
-    const files = await gatherTakes(recipe, locale, ttsModel(values.model ?? 'irodori-tts-v4-small-16steps'), seedList(values.seeds ?? '1,2,3,4,5'))
+    const files = await gatherTakes(recipe, locale, ttsModel(values.model ?? 'irodori-tts-v4-small-q8_0-16steps'), seedList(values.seeds ?? '1,2,3,4,5'))
     console.log(`${files.length} runs joined campaign ${voiceCampaign(id)}`)
   } else if (step === 'candidates') {
     const threshold = Number(values.threshold)

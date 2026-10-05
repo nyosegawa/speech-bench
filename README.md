@@ -40,7 +40,7 @@ node src/cli.ts tts --locale ja-JP --models irodori-tts-v4.1-small-mf-official -
 node src/cli.ts tts --locale ja-JP --models irodori-tts-v4.1-small-mf-mlx --reference voice-bright-young-woman --seeds 1
 
 # Ten of those sentences from each of five seeds, to hear which seed gives a voice worth keeping
-node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-16steps --seeds 1,2,3,4,5 \
+node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-q8_0-16steps --seeds 1,2,3,4,5 \
   --only aizuchi-hai,aizuchi-naruhodo,reply-weather,reply-meeting,reply-sorry,number-date,mixed-github,question-which,long-plan,long-cause
 
 # The test split of Common Voice 8.0 Japanese, which Japanese models report their rates on (4,483 clips)
@@ -53,7 +53,7 @@ node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b --set recordings --sp
 node src/cli.ts report
 
 # The same ten sentences in each voice described in prompts/voices-ja-JP.json, all from seed 1
-node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-16steps --seeds 1 \
+node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-q8_0-16steps --seeds 1 \
   --designs young-woman-words,young-woman-caption,young-woman-detailed --only aizuchi-hai,reply-weather,long-plan
 
 # The web app at http://127.0.0.1:5280/: every run, and the speech of chosen runs side by side
@@ -88,9 +88,7 @@ folder `SPEECH_BENCH_DATA` names.
 as it ends, so that a page does not read the speech again, and it is made again when the speaker model changes.
 `node src/cli.ts analyze` makes it for the runs made before, which a page would otherwise analyze while it loads
 (640 takes took 225 s on an Apple M5). `--campaign name` on `asr` or `tts` adds the run to an experiment, which
-`report` and `analyze` then take with `--campaign name` and the web app's runs page filters by. Data of the earlier
-layout, a result file in `results/` with its speech in a folder beside it, is moved into `runs/` by
-`node src/cli.ts migrate`.
+`report` and `analyze` then take with `--campaign name` and the web app's runs page filters by.
 
 ### Your own recordings
 
@@ -275,7 +273,7 @@ kept in the result file and tells runs apart on the listening page.
 
 ```sh
 node src/cli.ts reference --name bright-young-woman-30s --seconds 30 ~/speech-bench-data/runs/tts-*-young-woman-words-*-speak-ja-JP-60/run.jsonl
-node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-16steps --reference bright-young-woman-30s --seeds 1
+node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-q8_0-16steps --reference bright-young-woman-30s --seeds 1
 ```
 
 ### Making a voice

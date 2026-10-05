@@ -4,7 +4,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { analyzeRun } from '../src/analysis/run-analysis.ts'
 import { joinCampaign, readCampaign } from '../src/measure/campaigns.ts'
-import { allRunFiles, migrateResults, runFile } from '../src/measure/runs.ts'
+import { runFile } from '../src/measure/runs.ts'
 import { encodeWav16 } from '../src/core/wav.ts'
 
 let data: string
@@ -18,32 +18,12 @@ afterEach(() => {
 })
 
 const ttsRun = (id: string): string => [
-  JSON.stringify({ type: 'run', format: 11, task: 'tts', set: { name: 'speak', locale: 'ja-JP', size: 1 }, voice: null, seed: 1, design: null, reference: null, durationScale: null, recognizer: { id: 'r', label: 'R' }, loadSeconds: 1, warmupSeconds: 1 }),
+  JSON.stringify({ type: 'run', format: 12, task: 'tts', set: { name: 'speak', locale: 'ja-JP', size: 1 }, voice: null, seed: 1, design: null, reference: null, durationScale: null, recognizer: { id: 'r', label: 'R' }, loadSeconds: 1, warmupSeconds: 1 }),
   JSON.stringify({ type: 'sentence', id, kind: 'reply', text: 'はい。', audio: `${id}.wav`, audioSeconds: 2, firstAudioSeconds: 0.1, totalSeconds: 0.5, transcript: 'はい。' })
 ].join('\n')
 
 /** Two seconds of a tone, voice enough to embed. */
 const tone = encodeWav16({ sampleRate: 16_000, samples: Float32Array.from({ length: 32_000 }, (_, index) => 0.3 * Math.sin(index / 8)) })
-
-describe('migrateResults', () => {
-  it('moves each result file and its speech into a folder of its own', () => {
-    const results = path.join(data, 'results')
-    fs.mkdirSync(path.join(results, 'tts-run'), { recursive: true })
-    fs.writeFileSync(path.join(results, 'tts-run.jsonl'), ttsRun('s0'))
-    fs.writeFileSync(path.join(results, 'tts-run', 's0.wav'), tone)
-    fs.writeFileSync(path.join(results, 'asr-run.jsonl'), '{}')
-    expect(migrateResults()).toBe(2)
-    expect(allRunFiles()).toEqual([runFile('asr-run'), runFile('tts-run')])
-    expect(fs.existsSync(path.join(path.dirname(runFile('tts-run')), 's0.wav'))).toBe(true)
-  })
-
-  it('stops rather than overwrite a run already moved', () => {
-    fs.mkdirSync(path.join(data, 'results'), { recursive: true })
-    fs.writeFileSync(path.join(data, 'results', 'asr-run.jsonl'), '{}')
-    fs.mkdirSync(path.dirname(runFile('asr-run')), { recursive: true })
-    expect(() => migrateResults()).toThrow(/already exists/)
-  })
-})
 
 describe('campaigns', () => {
   it('keeps a run once however often it joins', () => {

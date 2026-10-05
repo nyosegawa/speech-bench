@@ -13,8 +13,6 @@ export function dataDir(): string {
 export const runtimesDir = (): string => path.join(dataDir(), 'runtimes')
 export const recordingsDir = (): string => path.join(dataDir(), 'recordings')
 export const logsDir = (): string => path.join(dataDir(), 'logs')
-/** The result files of format 1 to 11 before runs had folders of their own; `migrate` moves them into runs/. */
-export const resultsDir = (): string => path.join(dataDir(), 'results')
 /** One folder per run: its result file and, for synthesis, the speech. */
 export const runsDir = (): string => path.join(dataDir(), 'runs')
 /** Named groups of runs, one experiment each. */

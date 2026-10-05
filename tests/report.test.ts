@@ -5,7 +5,7 @@ import { formatReport, summarize, type AsrSummary, type Summary, type TtsSummary
 import { sentenceKey, type Spellings } from '../src/spellings/files.ts'
 import { parseAnnotated } from '../src/spellings/notation.ts'
 
-const asrRun = { type: 'run', format: 4, task: 'asr', set: { name: 'set', locale: 'ja-JP', size: 3 }, audio: { edges: 'asist', hangoverMs: 600 }, loadSeconds: 1, warmupSeconds: 1 }
+const asrRun = { type: 'run', format: 12, task: 'asr', set: { name: 'set', locale: 'ja-JP', size: 3 }, audio: { edges: 'energy-vad', hangoverMs: 600 }, loadSeconds: 1, warmupSeconds: 1 }
 const utterance = (reference: string, text: string, seconds: number, audioSeconds: number) =>
   JSON.stringify({ type: 'utterance', id: `${reference}-${text}`, reference, text, seconds, audioSeconds })
 
@@ -29,7 +29,7 @@ describe('summarize a speech recognition run', () => {
   })
 
   it('counts the utterances dropped by the VAD apart, leaving them out of the error rate and the timings', () => {
-    const dropped = JSON.stringify({ type: 'utterance', id: 'short-hai', reference: 'はい', droppedBy: 'asist-vad' })
+    const dropped = JSON.stringify({ type: 'utterance', id: 'short-hai', reference: 'はい', droppedBy: 'energy-vad' })
     const summary = asr(summarize([JSON.stringify(asrRun), dropped, utterance('かきくけこ', 'かきくけ', 0.4, 4)], noSpellings))
     expect(summary.utterances).toBe(2)
     expect(summary.dropped).toBe(1)
@@ -43,57 +43,17 @@ describe('summarize a speech recognition run', () => {
     expect(asr(summarize([JSON.stringify(asrRun), utterance('あいう', '', 0.1, 1), utterance('あいう', 'あいう', 0.1, 1)], noSpellings)).empty).toBe(1)
   })
 
-  it('refuses a file without its run line, and a format it does not know', () => {
+  it('refuses a file without its run line, and a file of any other format', () => {
     expect(() => summarize([utterance('あ', 'あ', 0.1, 1)], noSpellings)).toThrow()
     expect(() => summarize([JSON.stringify({ ...asrRun, format: 999 }), utterance('あ', 'あ', 0.1, 1)], noSpellings)).toThrow(/format 999/)
+    expect(() => summarize([JSON.stringify({ ...asrRun, format: 11 }), utterance('あ', 'あ', 0.1, 1)], noSpellings)).toThrow(/format 11/)
   })
 
-  it('reads format 1 as audio sent as recorded, and formats 1 and 2 as speech recognition', () => {
-    const one = asr(summarize(fixture('result-format-1.jsonl'), noSpellings))
-    expect(one.utterances).toBe(3)
-    expect(one.run.audio).toEqual({ edges: 'as-recorded', trailingSilence: 0 })
-    const two = asr(summarize(fixture('result-format-2.jsonl'), noSpellings))
-    expect(two.run.audio).toEqual({ edges: 'asist', hangoverMs: 600 })
-  })
-
-  it('reads a speech recognition result file of format 3, counting its errors from its texts', () => {
-    const three = asr(summarize(fixture('result-format-3-asr.jsonl'), noSpellings))
-    expect(three.utterances).toBe(3)
-    expect(three.run.audio).toEqual({ edges: 'asist', hangoverMs: 600 })
-    expect(three.errorRate).toBeGreaterThanOrEqual(0)
-  })
-
-  it('reads a speech recognition result file of format 4 as one without dropped utterances', () => {
-    const four = asr(summarize(fixture('result-format-4-asr.jsonl'), noSpellings))
-    expect(four.utterances).toBe(3)
-    expect(four.dropped).toBe(0)
-  })
-
-  it('reads a speech recognition result file of format 6', () => {
-    expect(asr(summarize(fixture('result-format-6-asr.jsonl'), noSpellings)).dropped).toBe(1)
-  })
-
-  it('reads runs before format 8 as loaded with the runtime defaults, and says the options a run was loaded with', () => {
-    expect(asr(summarize(fixture('result-format-6-asr.jsonl'), noSpellings)).run.runtime.options).toEqual({})
-    expect(asr(summarize(fixture('result-format-8-asr.jsonl'), noSpellings)).run.runtime.options).toEqual({})
-    expect(asr(summarize(fixture('result-format-9-asr.jsonl'), noSpellings)).run.runtime.options).toEqual({})
-    expect(asr(summarize(fixture('result-format-10-asr.jsonl'), noSpellings)).run.runtime.options).toEqual({})
-    const report = formatReport([summarize(fixture('result-format-8-tts.jsonl'), noSpellings)])
-    expect(report).toContain('irodori_tts.codec_backend=cpu')
-  })
-
-  it('reads a speech recognition result file of format 5 with an utterance dropped by the VAD', () => {
-    const five = asr(summarize(fixture('result-format-5-asr.jsonl'), noSpellings))
-    expect(five.utterances).toBe(3)
-    expect(five.dropped).toBe(1)
-    expect(five.errorRate).toBeGreaterThan(0)
-  })
-
-  it('reads a run of format 11 trimmed to the voice, with an utterance in which no voice was found', () => {
-    const eleven = asr(summarize(fixture('result-format-11-asr.jsonl'), noSpellings))
-    expect(eleven.run.audio).toEqual({ edges: 'voice', detector: 'silero-vad-v4', marginSeconds: 0.2 })
-    expect(eleven.dropped).toBe(1)
-    expect(formatReport([eleven])).toContain('trimmed to the voice silero-vad-v4 finds, with 0.2 s around it')
+  it('reads a run trimmed to the voice, with an utterance in which no voice was found', () => {
+    const run = asr(summarize(fixture('result-format-12-asr.jsonl'), noSpellings))
+    expect(run.run.audio).toEqual({ edges: 'voice', detector: 'silero-vad-v4', marginSeconds: 0.2 })
+    expect(run.dropped).toBe(1)
+    expect(formatReport([run])).toContain('trimmed to the voice silero-vad-v4 finds, with 0.2 s around it')
   })
 })
 
@@ -126,26 +86,13 @@ describe('the error rate with accepted spellings', () => {
 })
 
 describe('summarize a speech synthesis run', () => {
-  it('reads a speech synthesis run of format 5 as one without a seed, whose runtime chose one for each sentence', () => {
-    expect(tts(summarize(fixture('result-format-5-tts.jsonl'), noSpellings)).run.seed).toBeNull()
+  it('reads a speech synthesis run spoken like a reference voice at a scaled length', () => {
+    const summary = tts(summarize(fixture('result-format-12-tts.jsonl'), noSpellings))
+    expect(summary.sentences).toBe(3)
+    expect(summary.run.durationScale).toBe(0.5)
   })
 
-  it('reads speech synthesis result files of formats 3 to 9, those before 9 without a reference voice', () => {
-    const three = tts(summarize(fixture('result-format-3-tts.jsonl'), noSpellings))
-    expect(three.sentences).toBe(3)
-    expect(three.run.voice).toBe('ono_anna')
-    expect(tts(summarize(fixture('result-format-4-tts.jsonl'), noSpellings)).sentences).toBe(3)
-    expect(tts(summarize(fixture('result-format-5-tts.jsonl'), noSpellings)).sentences).toBe(3)
-    expect(tts(summarize(fixture('result-format-6-tts.jsonl'), noSpellings)).sentences).toBe(3)
-    expect(tts(summarize(fixture('result-format-8-tts.jsonl'), noSpellings)).sentences).toBe(3)
-    expect(tts(summarize(fixture('result-format-9-tts.jsonl'), noSpellings)).run.reference?.name).toBe('bright-young-woman-30s')
-    expect(tts(summarize(fixture('result-format-8-tts.jsonl'), noSpellings)).run.reference).toBeNull()
-    expect(tts(summarize(fixture('result-format-9-tts.jsonl'), noSpellings)).run.durationScale).toBeNull()
-    expect(tts(summarize(fixture('result-format-10-tts.jsonl'), noSpellings)).run.durationScale).toBe(0.5)
-    expect(tts(summarize(fixture('result-format-11-tts.jsonl'), noSpellings)).run.durationScale).toBe(0.5)
-  })
-
-  const ttsRun = { type: 'run', format: 4, task: 'tts', set: { name: 'speak', locale: 'ja-JP', size: 2 }, voice: 'ono_anna', recognizer: { id: 'r', label: 'R' }, loadSeconds: 1, warmupSeconds: 1 }
+  const ttsRun = { type: 'run', format: 12, task: 'tts', set: { name: 'speak', locale: 'ja-JP', size: 2 }, voice: 'ono_anna', seed: null, design: null, reference: null, durationScale: null, recognizer: { id: 'r', label: 'R' }, loadSeconds: 1, warmupSeconds: 1 }
   const sentence = (text: string, transcript: string, firstAudioSeconds: number, totalSeconds: number, audioSeconds: number) =>
     JSON.stringify({ type: 'sentence', id: text, kind: 'reply', text, audio: `${text}.wav`, audioSeconds, firstAudioSeconds, totalSeconds, transcript })
 

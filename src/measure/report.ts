@@ -113,7 +113,7 @@ export function readSummaries(files: readonly string[]): Summary[] {
 export function describeAudio(audio: AudioPreparation): string {
   if (audio.edges === 'voice') return `trimmed to the voice ${audio.detector} finds, with ${audio.marginSeconds} s around it`
   if (audio.edges === 'as-recorded') return `as recorded, ${audio.trailingSilence} s of silence added`
-  return `cut like ASIST's VAD, hangover ${audio.hangoverMs} ms`
+  return `cut by an energy VAD, hangover ${audio.hangoverMs} ms`
 }
 
 /** The GPU the models ran on, which on a Mac is the chip that also names the CPU. */

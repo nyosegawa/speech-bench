@@ -76,7 +76,7 @@ describe('speechWorkerArgs', () => {
 
 describe('audioCppConfig', () => {
   it('loads the model as its family, offline, with the options every sentence is sent with', () => {
-    const model = ttsModel('irodori-tts-v4-small-8steps')
+    const model = ttsModel('irodori-tts-v4-small-q8_0-8steps')
     if (model.runtime !== 'audio.cpp') throw new Error('expected an audio.cpp model')
     const config = audioCppConfig(model, '/models/irodori.gguf', 'metal', {}, null)
     expect(config).toMatchObject({ backend: 'metal', models: [{ id: model.id, family: 'irodori_tts', path: '/models/irodori.gguf', task: 'tts', mode: 'offline' }] })
@@ -84,7 +84,7 @@ describe('audioCppConfig', () => {
   })
 
   it('runs the codec of Irodori-TTS on the CPU on Metal, whose codec doubles the voice, and not on Vulkan', () => {
-    const model = ttsModel('irodori-tts-v4-small-16steps')
+    const model = ttsModel('irodori-tts-v4-small-q8_0-16steps')
     if (model.runtime !== 'audio.cpp') throw new Error('expected an audio.cpp model')
     const sessionOf = (backend: 'metal' | 'vulkan') => (audioCppConfig(model, '/m.gguf', backend, {}, null).models as Array<{ session_options: unknown }>)[0]!.session_options
     expect(sessionOf('metal')).toEqual({ 'irodori_tts.codec_backend': 'cpu' })
@@ -92,7 +92,7 @@ describe('audioCppConfig', () => {
   })
 
   it('gives every sentence the reference voice as the default voice preset, with no-reference generation off', () => {
-    const model = ttsModel('irodori-tts-v4-small-16steps')
+    const model = ttsModel('irodori-tts-v4-small-q8_0-16steps')
     if (model.runtime !== 'audio.cpp') throw new Error('expected an audio.cpp model')
     const [entry] = audioCppConfig(model, '/m.gguf', 'vulkan', {}, '/data/references/voice.wav').models as Array<{ default_voice_preset: unknown; default_request_options: { no_ref: boolean } }>
     expect(entry!.default_voice_preset).toEqual({ voice_ref: '/data/references/voice.wav' })
@@ -100,7 +100,7 @@ describe('audioCppConfig', () => {
   })
 
   it('sends every sentence with the seed and the voice description of the run, beside the options of the model', () => {
-    const model = ttsModel('irodori-tts-v4-small-8steps')
+    const model = ttsModel('irodori-tts-v4-small-q8_0-8steps')
     if (model.runtime !== 'audio.cpp') throw new Error('expected an audio.cpp model')
     const config = audioCppConfig(model, '/models/irodori.gguf', 'metal', { seed: 3, instruction: '若い女性の声。' }, null)
     expect((config.models as Array<{ default_request_options: unknown }>)[0]!.default_request_options).toEqual({ ...model.options, seed: 3, instruction: '若い女性の声。' })

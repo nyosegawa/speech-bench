@@ -162,7 +162,7 @@ export function TranscriptsPage() {
                   {heard && 'errors' in heard ? `${errorsOf(heard, mode)} / ${heard.referenceLength}` : ''}
                 </span>
                 {heard === null && <span className="text-muted-foreground">not in this run</span>}
-                {heard && 'droppedBy' in heard && <span className="text-muted-foreground">dropped: {heard.droppedBy === 'no-voice' ? 'no voice found' : "ASIST's VAD kept nothing"}</span>}
+                {heard && 'droppedBy' in heard && <span className="text-muted-foreground">dropped: {heard.droppedBy === 'no-voice' ? 'no voice found' : "the energy VAD kept nothing"}</span>}
                 {heard && 'alignment' in heard && (mode === 'accepted' && heard.accepted ? <AcceptedText steps={heard.accepted.alignment} /> : <AlignedText alignment={heard.alignment} words={words} />)}
               </div>
             ))}
