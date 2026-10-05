@@ -103,16 +103,16 @@ export const SPEECH_CPP_TOOLS: RuntimeSpec = {
 /** audio.cpp's prebuilt server: Metal on the Mac, Vulkan on Windows. It runs Irodori-TTS for measuring only. */
 export const AUDIO_CPP: RuntimeSpec = {
   id: 'audio.cpp',
-  version: 'v0.8.2-audio8-perf-hotfix',
+  version: 'v0.9.0',
   assets: {
     'darwin-arm64': {
-      url: 'https://github.com/0xShug0/audio.cpp/releases/download/v0.8.2-audio8-perf-hotfix/audio-v0.8.2-audio8-perf-hotfix-bin-macos-arm64-metal.tar.gz',
-      sha256: '295c6b77476a9daa455025efe7931d89788e410eb4859d6a93a820c86d8afa26',
+      url: 'https://github.com/0xShug0/audio.cpp/releases/download/v0.9.0/audio-v0.9.0-bin-macos-arm64-metal.tar.gz',
+      sha256: '7cea9219d5f06475011c5d225d71d988cecef633ff7d098ee8a4c7b08583b1b4',
       executable: 'audiocpp_server'
     },
     'win32-x64': {
-      url: 'https://github.com/0xShug0/audio.cpp/releases/download/v0.8.2-audio8-perf-hotfix/audio-v0.8.2-audio8-perf-hotfix-bin-windows-x64-vulkan.zip',
-      sha256: '3426ed753f7c720221ce20d27a4c134b6e7595f20955d6a2b9d10e7f47cfec2b',
+      url: 'https://github.com/0xShug0/audio.cpp/releases/download/v0.9.0/audio-v0.9.0-bin-windows-x64-vulkan.zip',
+      sha256: 'f884538138e44528a0bf17bb75dbe7ff7350cb91a14cb72c3e9cc1d4a31d6f1f',
       executable: 'audiocpp_server.exe'
     }
   }
