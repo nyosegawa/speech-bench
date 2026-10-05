@@ -15,7 +15,7 @@ import { RESULT_FORMAT, type SentenceRecord, type TtsRunRecord } from './results
 import { prepareAsr } from './run-asr.ts'
 import { runFile, runFolder } from './runs.ts'
 import { AUDIO_CPP, ensureRuntime, SPEECH_CPP, SPEECH_CPP_TOOLS } from '../catalog/runtimes.ts'
-import { adapterCommand, adapterVersion, IRODORI_TTS_ADAPTER, syncAdapter } from '../engines/adapter.ts'
+import { adapterCommand, adapterVersion, IRODORI_TTS_ADAPTER, MLX_AUDIO_ADAPTER, syncAdapter } from '../engines/adapter.ts'
 import { ensurePinned } from '../catalog/store.ts'
 import { durationSeconds, encodeWav16, peakNormalize, resample } from '../core/wav.ts'
 
@@ -68,13 +68,16 @@ async function prepareTts(model: TtsModel, { seed, design, reference, durationSc
   }
   if (model.runtime === 'adapter') {
     if (reference === null) throw new Error(`${model.id} has no voice of its own; give it one with --reference`)
-    // PyTorch from PyPI runs on the CPU only on Windows; a CUDA build is not what the adapter's lock file installs.
-    if (platformKey() !== 'darwin-arm64') throw new Error(`${model.id} runs on a Mac here, on the GPU through PyTorch's MPS backend`)
+    // PyTorch from PyPI runs on the CPU only on Windows, and MLX runs only on Apple silicon.
+    if (platformKey() !== 'darwin-arm64') throw new Error(`${model.id} runs on a Mac here, on its GPU`)
     const fileOf = (name: string): string => files[model.files.findIndex((file) => file.file === name)]!
-    syncAdapter(IRODORI_TTS_ADAPTER)
-    const args = ['--checkpoint', fileOf('model.safetensors'), '--codec', fileOf('weights.pth'), '--device', 'mps', ...(seed === null ? [] : ['--seed', String(seed)]), ...(model.steps === null ? [] : ['--steps', String(model.steps)]), '--voice', `${REFERENCE_VOICE}=${reference.file}`]
-    const engine = new WorkerTts(adapterCommand(IRODORI_TTS_ADAPTER, model.id, args, REFERENCE_VOICE))
-    return { engine, runtime: { id: IRODORI_TTS_ADAPTER.id, version: adapterVersion(IRODORI_TTS_ADAPTER) }, loadOptions: { device: 'mps', precision: 'fp32' } }
+    const shared = [...(seed === null ? [] : ['--seed', String(seed)]), ...(model.steps === null ? [] : ['--steps', String(model.steps)]), '--voice', `${REFERENCE_VOICE}=${reference.file}`]
+    const { adapter, args, loadOptions } = model.adapter === 'irodori-tts'
+      ? { adapter: IRODORI_TTS_ADAPTER, args: ['--checkpoint', fileOf('model.safetensors'), '--codec', fileOf('weights.pth'), '--device', 'mps', ...shared], loadOptions: { device: 'mps', precision: 'fp32' } }
+      : { adapter: MLX_AUDIO_ADAPTER, args: ['--model', path.dirname(fileOf('config.json')), ...shared], loadOptions: { device: 'metal', precision: 'fp16' } }
+    syncAdapter(adapter)
+    const engine = new WorkerTts(adapterCommand(adapter, model.id, args, REFERENCE_VOICE))
+    return { engine, runtime: { id: adapter.id, version: adapterVersion(adapter) }, loadOptions }
   }
   const [gguf] = files
   if (!gguf) throw new Error(`${model.id} has no GGUF`)
