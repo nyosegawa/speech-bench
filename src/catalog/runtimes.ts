@@ -62,7 +62,7 @@ export const CRISPASR: RuntimeSpec = {
   }
 }
 
-const SPEECH_CPP_RELEASE = 'https://github.com/nyosegawa/speech.cpp/releases/download/v0.7.0'
+const SPEECH_CPP_RELEASE = 'https://github.com/nyosegawa/speech.cpp/releases/download/v0.7.1'
 
 /**
  * speech.cpp's one executable, `speech`, with the library linked in: `speech worker` runs Qwen3-TTS, Irodori-TTS,
@@ -71,16 +71,16 @@ const SPEECH_CPP_RELEASE = 'https://github.com/nyosegawa/speech.cpp/releases/dow
  */
 export const SPEECH_CPP: RuntimeSpec = {
   id: 'speech.cpp',
-  version: 'v0.7.0',
+  version: 'v0.7.1',
   assets: {
     'darwin-arm64': {
-      url: `${SPEECH_CPP_RELEASE}/speech-0.7.0-macos-arm64-metal.zip`,
-      sha256: '82512c301e9fe1647ca46abdd969d799b9381b6cbb33330e780740c49ca2d5ed',
+      url: `${SPEECH_CPP_RELEASE}/speech-0.7.1-macos-arm64-metal.zip`,
+      sha256: 'dde536e384557f905fb3f8919b24d0675c2677d6911230e67f42757ff4d4d258',
       executable: 'speech'
     },
     'win32-x64': {
-      url: `${SPEECH_CPP_RELEASE}/speech-0.7.0-windows-x64-vulkan.zip`,
-      sha256: '4ed4e7f2107381b7185fd365cad2c5433db959c888b314737f8f6dfa7c342ac5',
+      url: `${SPEECH_CPP_RELEASE}/speech-0.7.1-windows-x64-vulkan.zip`,
+      sha256: 'debfea296a5be3feb5ae00451de84cf3bab4ea3b98b77add30d52d13f86a67dc',
       executable: 'speech.exe'
     }
   }
