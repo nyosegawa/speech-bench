@@ -43,3 +43,20 @@ No model returned an empty result. The llama.cpp and CrispASR rates equal those 
   ReazonSpeech added a filler such as あっ。 or うん。 that the audio does not hold on four.
 - With speech.cpp, parakeet-tdt_ctc-0.6b-ja is the most accurate and the fastest model of this set on read speech.
   Common Voice holds sentences read aloud; this does not measure conversational speech.
+
+## speech.cpp v0.7.1
+
+speech.cpp v0.7.1 attends with flash attention where a GPU computes it and keeps a decoding step's graph between
+tokens (its README). The campaign `common-voice-8-ja-qwen3-asr-071` ran Qwen3-ASR again on the same clips and
+machine a few hours later, the four runs one after another:
+
+| Model | Runtime | CER | CER, accepted spellings | Median wait | p90 wait | Load |
+|---|---|---|---|---|---|---|
+| Qwen3-ASR 1.7B | llama.cpp b11246 | 9.25% | 4.56% | 0.191 s | 0.302 s | 8.7 s |
+| Qwen3-ASR 1.7B | speech.cpp v0.7.1 | 9.40% | 4.52% | 0.178 s | 0.299 s | 5.1 s |
+| Qwen3-ASR 0.6B | llama.cpp b11246 | 11.77% | 6.88% | 0.121 s | 0.182 s | 4.0 s |
+| Qwen3-ASR 0.6B | speech.cpp v0.7.1 | 11.77% | 6.88% | 0.103 s | 0.172 s | 2.3 s |
+
+speech.cpp v0.7.1 has the error rates of v0.7.0, and waits 7% less than llama.cpp at the median
+with the 1.7B model and 15% less with the 0.6B model, where v0.7.0 waited 5% longer. llama.cpp's waits are those of
+the first run to within 0.001 s.
