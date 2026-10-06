@@ -47,13 +47,19 @@ function decode(data: Buffer, format: { code: number; channels: number; bits: nu
   return samples
 }
 
-/** A 16-bit mono WAVE file, the form every runtime here reads. */
-export function encodeWav16(pcm: Pcm): Buffer {
-  const data = Buffer.alloc(pcm.samples.length * 2)
-  for (let index = 0; index < pcm.samples.length; index++) {
-    const sample = Math.max(-1, Math.min(1, pcm.samples[index] ?? 0))
+/** The samples as 16-bit little-endian integers, as a 16-bit WAVE file and speech.cpp's worker protocol carry them. */
+export function encodePcm16(samples: Float32Array): Buffer {
+  const data = Buffer.alloc(samples.length * 2)
+  for (let index = 0; index < samples.length; index++) {
+    const sample = Math.max(-1, Math.min(1, samples[index] ?? 0))
     data.writeInt16LE(Math.round(sample * 32767), index * 2)
   }
+  return data
+}
+
+/** A 16-bit mono WAVE file, the form every runtime here reads. */
+export function encodeWav16(pcm: Pcm): Buffer {
+  const data = encodePcm16(pcm.samples)
   const header = Buffer.alloc(44)
   header.write('RIFF', 0)
   header.writeUInt32LE(36 + data.length, 4)

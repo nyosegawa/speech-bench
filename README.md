@@ -46,6 +46,9 @@ node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-q8_0-16steps --
 # The test split of Common Voice 8.0 Japanese, which Japanese models report their rates on (4,483 clips)
 node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b --set common-voice --count 4483
 
+# Qwen3-ASR in llama.cpp and in speech.cpp, on the same clips
+node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b,qwen3-asr-1.7b-speech.cpp --set common-voice --count 100
+
 # Measure on your own utterances, recorded under Record in the web app (see below)
 node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b --set recordings --speaker guest
 
@@ -144,6 +147,16 @@ which shows how a model takes long silences.
   an application's VAD has closed the utterance. The first utterance is transcribed once more, untimed, because it pays
   for the GPU's first use.
 - **Empty results**: utterances that came back without text.
+
+Qwen3-ASR runs in llama.cpp's llama-server from ggml-org's files, the NeMo models in CrispASR, and all five in
+speech.cpp from the files speech.cpp converts from their checkpoints, Qwen3-ASR in Q8_0 and the NeMo models in F16;
+the ids of the speech.cpp entries end in `-speech.cpp`. speech.cpp's Qwen3-ASR writes the official implementation's
+prompt, with its system turn, where llama.cpp's has none and other audio tokens, so that a run of each on one set
+shows what that changes. Both are told the language the same way, as the start of the answer. The NeMo models in
+speech.cpp only check the language they are sent, and parakeet-tdt-0.6b-v3 finds it itself there as in CrispASR.
+speech.cpp's worker is reached through its worker protocol 2 (docs/adr/0008): an utterance goes as chunks of the
+16-bit samples the servers are sent as a WAVE file, then a request for its text, and the wait runs from the first
+chunk to the text.
 
 Recognition runs of one set, chosen on the web app's runs page, open the transcripts page: what every run heard of
 each utterance, as it was scored, with what it heard for another unit, heard but was not said, and did not hear
@@ -323,10 +336,12 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 |---|---|
 | llama.cpp | b11246 |
 | CrispASR | v0.8.38 (its macOS build needs macOS 26) |
-| Qwen3-ASR 1.7B and 0.6B | ggml-org Q8_0 |
-| parakeet-tdt-0.6b-v3, parakeet-tdt_ctc-0.6b-ja, ReazonSpeech NeMo v2 | cstr Q8_0 |
+| Qwen3-ASR 1.7B and 0.6B in llama.cpp | ggml-org Q8_0, each with its audio projector |
+| parakeet-tdt-0.6b-v3, parakeet-tdt_ctc-0.6b-ja, ReazonSpeech NeMo v2 in CrispASR | cstr Q8_0 |
 | FLEURS | google/fleurs at revision 70bb2e84: ja-JP, en-US, fr-FR, de-DE, hi-IN, id-ID, it-IT, ko-KR, pt-BR and es-419 (it has no Spanish of Spain) |
-| speech.cpp | v0.7.0, its one executable `speech`, whose worker runs the models and whose `speech voice` makes voice files |
+| speech.cpp | v0.7.0, its one executable `speech`, whose worker runs the synthesis and recognition models and whose `speech voice` makes voice files |
+| Qwen3-ASR 1.7B and 0.6B in speech.cpp | sakasegawa/Qwen3-ASR-1.7B-GGUF and sakasegawa/Qwen3-ASR-0.6B-GGUF, one Q8_0 file each with the audio encoder inside, the layout speech.cpp v0.7.0 reads |
+| parakeet-tdt-0.6b-v3, parakeet-tdt_ctc-0.6b-ja, ReazonSpeech NeMo v2 in speech.cpp | sakasegawa/parakeet-tdt-0.6b-v3-GGUF, sakasegawa/parakeet-tdt_ctc-0.6b-ja-GGUF and sakasegawa/reazonspeech-nemo-v2-GGUF, one F16 file each, the layout speech.cpp v0.7.0 reads |
 | Qwen3-TTS 0.6B and 1.7B CustomVoice | sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF and sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF, one Q8_0 file each with the F16 codec inside, the layout speech.cpp v0.7.0 reads |
 | Irodori-TTS v4.1 Small, MF and RF | sakasegawa/Irodori-TTS-v4.1-Small-MF-GGUF and sakasegawa/Irodori-TTS-v4.1-Small-GGUF, one F16 file each with the F32 codec inside, the layout speech.cpp v0.7.0 reads |
 | audio.cpp | v0.9.0 |

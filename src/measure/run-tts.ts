@@ -8,7 +8,8 @@ import type { Prompt } from '../datasets/prompts.ts'
 import type { ReferenceVoice } from '../make/references.ts'
 import { AudioCppTts } from '../engines/audiocpp.ts'
 import { irodoriVoiceFile } from '../engines/irodori-voice.ts'
-import { WorkerTts } from '../engines/worker.ts'
+import { REFERENCE_VOICE, speechWorkerArgs } from '../engines/worker.ts'
+import { WorkerTts } from '../engines/worker-tts.ts'
 import type { Synthesis, TtsEngine } from '../engines/tts-engine.ts'
 import { gpuBackend, gpuDevice, machineInfo, platformKey } from '../core/platform.ts'
 import { resultText } from './result-file/file.ts'
@@ -33,18 +34,6 @@ export interface VoiceChoice {
   design: VoiceDesign | null
   reference: ReferenceVoice | null
   durationScale: number | null
-}
-
-/** The name a run's reference voice is given in speech.cpp's worker, which every request then names. */
-const REFERENCE_VOICE = 'reference'
-
-/**
- * The arguments of `speech worker` for a run: the model, the device and the reference voice. The worker skips its
- * own warm-up, so that the load time is the loading alone, as for every other runtime: the run's first sentence,
- * spoken once untimed, pays for the GPU's first use.
- */
-export function speechWorkerArgs(model: string, device: string, voiceFile: string | null): string[] {
-  return ['worker', model, '--device', device, '--no-warmup', ...(voiceFile === null ? [] : ['--add-voice', `${REFERENCE_VOICE}=${voiceFile}`])]
 }
 
 /** The options every request of a run carries: the sampler's steps when not the model's own. */

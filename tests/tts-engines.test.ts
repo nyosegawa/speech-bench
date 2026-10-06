@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ttsModel, ttsVoiceFor } from '../src/catalog/models.ts'
 import { audioCppConfig } from '../src/engines/audiocpp.ts'
 import type { Synthesis } from '../src/engines/tts-engine.ts'
-import { decodeChunk, parseWorkerLine, WorkerTts, type WorkerRequests } from '../src/engines/worker.ts'
-import { speechWorkerArgs } from '../src/measure/run-tts.ts'
+import { decodeChunk, parseWorkerLine, speechWorkerArgs } from '../src/engines/worker.ts'
+import { WorkerTts, type WorkerRequests } from '../src/engines/worker-tts.ts'
 
 describe('the worker protocol', () => {
   it('reads a JSON object per line and refuses any other line', () => {
