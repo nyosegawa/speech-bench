@@ -2,10 +2,11 @@ import type { PinnedFile } from './store.ts'
 import { tagCovers } from '../core/language.ts'
 
 /**
- * Where a model runs: llama-server with the language model and its audio projector, or CrispASR with one
- * GGUF and the backend it loads as, which CrispASR's /health reports.
+ * Where a model runs: llama-server with the language model and its audio projector, CrispASR with one GGUF and
+ * the backend it loads as, which CrispASR's /health reports, or speech.cpp's worker with the model's one GGUF file,
+ * its audio encoder inside, in the layout speech.cpp v0.7.0 reads.
  */
-export type AsrRuntime = { runtime: 'llama-server' } | { runtime: 'crispasr'; backend: string }
+export type AsrRuntime = { runtime: 'llama-server' } | { runtime: 'crispasr'; backend: string } | { runtime: 'speech.cpp' }
 
 /** A speech recognition model the bench can run, with the languages its model card lists. */
 export type AsrModel = AsrRuntime & {
@@ -15,8 +16,9 @@ export type AsrModel = AsrRuntime & {
   /** BCP 47 tags from the model card. A tag without a region covers every region of the language. */
   languages: readonly string[]
   /**
-   * Whether a request can name the language. parakeet-tdt-0.6b-v3 has no way to be told it and detects
-   * the language itself, which the bench must not hide by passing one.
+   * Whether a request can name the language, which then steers the model. parakeet-tdt-0.6b-v3 has no way to be
+   * told it and detects the language itself, which the bench must not hide by passing one. speech.cpp's worker
+   * takes the language of such a model only to check it, and a run stops on a model file that says otherwise.
    */
   languageHint: 'optional' | 'none'
   license: string
@@ -32,7 +34,11 @@ const model = (repo: string, revision: string, file: string, bytes: number, sha2
 const QWEN3_ASR_1_7B = ['ggml-org/Qwen3-ASR-1.7B-GGUF', '36a678687ba7d07a74ca70ccb0e36902e005fb80'] as const
 const QWEN3_ASR_0_6B = ['ggml-org/Qwen3-ASR-0.6B-GGUF', '928ab958557df9aa2ef1c93e0e83c7ad0933fae2'] as const
 
-/** Qwen3-ASR as ggml-org converts it for llama-server, and the CrispASR conversions of the NeMo models. */
+/**
+ * Qwen3-ASR as ggml-org converts it for llama-server, the CrispASR conversions of the NeMo models, and all five in
+ * speech.cpp, from the files speech.cpp converts from the models' checkpoints. The ids and labels of the speech.cpp
+ * entries name it, so that runs of one model in two runtimes stay apart wherever only the model is shown.
+ */
 export const ASR_MODELS: readonly AsrModel[] = [
   {
     id: 'qwen3-asr-1.7b',
@@ -90,6 +96,51 @@ export const ASR_MODELS: readonly AsrModel[] = [
       model('cstr/reazonspeech-nemo-v2-GGUF', '22799a5919ea26e3c5293fe0e68846fe7918a234', 'reazonspeech-nemo-v2-q8_0.gguf', 667_147_072, '20b828d05f859a4b0ea0bdcc232cb6e02543d6ddd0b3a1ad1ce37aa56fd7cfd2')
     ],
     backend: 'reazonspeech',
+    languages: ['ja'],
+    languageHint: 'none',
+    license: 'Apache-2.0'
+  },
+  {
+    id: 'qwen3-asr-1.7b-speech.cpp',
+    label: 'Qwen3-ASR 1.7B, speech.cpp Q8_0',
+    runtime: 'speech.cpp',
+    files: [model('sakasegawa/Qwen3-ASR-1.7B-GGUF', '75edaf1dd34c60409d3190dbcb36dbec70cad5ea', 'Qwen3-ASR-1.7B-Q8_0.gguf', 2_176_109_216, '5f219b78a1d9c3b9e97da27708b36f8a0bc1bfc1650b541c0a6dbaf87c9a62d0')],
+    languages: QWEN3_ASR_LANGUAGES,
+    languageHint: 'optional',
+    license: 'Apache-2.0'
+  },
+  {
+    id: 'qwen3-asr-0.6b-speech.cpp',
+    label: 'Qwen3-ASR 0.6B, speech.cpp Q8_0',
+    runtime: 'speech.cpp',
+    files: [model('sakasegawa/Qwen3-ASR-0.6B-GGUF', 'f397b129caf08f201f79e67bbfafd1c6b59aeb05', 'Qwen3-ASR-0.6B-Q8_0.gguf', 841_502_336, '416e10c15b4a3d9002bd337d18fc450233fdf68502b6e10d1379d2789838afd0')],
+    languages: QWEN3_ASR_LANGUAGES,
+    languageHint: 'optional',
+    license: 'Apache-2.0'
+  },
+  {
+    id: 'parakeet-tdt-0.6b-v3-speech.cpp',
+    label: 'parakeet-tdt-0.6b-v3, speech.cpp F16',
+    runtime: 'speech.cpp',
+    files: [model('sakasegawa/parakeet-tdt-0.6b-v3-GGUF', '304eaf83fc16e3087425b61b6652c4eafe003dc4', 'parakeet-tdt-0.6B-v3-F16.gguf', 1_255_370_688, '7b74de31ac48427934104f0d074613f8d759d7d108777c114476346789d94426')],
+    languages: PARAKEET_V3_LANGUAGES,
+    languageHint: 'none',
+    license: 'CC-BY-4.0'
+  },
+  {
+    id: 'parakeet-tdt_ctc-0.6b-ja-speech.cpp',
+    label: 'parakeet-tdt_ctc-0.6b-ja, speech.cpp F16',
+    runtime: 'speech.cpp',
+    files: [model('sakasegawa/parakeet-tdt_ctc-0.6b-ja-GGUF', '48060c6e292b01c84edac8988db0163fd41d3fe2', 'parakeet-tdt_ctc-0.6B-ja-F16.gguf', 1_240_656_832, '71ddc10381a9d3b59e18fbc51422059293f1268676b1ca62adb45b791df05497')],
+    languages: ['ja'],
+    languageHint: 'none',
+    license: 'CC-BY-4.0'
+  },
+  {
+    id: 'reazonspeech-nemo-v2-speech.cpp',
+    label: 'ReazonSpeech NeMo v2, speech.cpp F16',
+    runtime: 'speech.cpp',
+    files: [model('sakasegawa/reazonspeech-nemo-v2-GGUF', 'cb9e436cf3f9d9563c610cb5318adcfc5c0fe098', 'reazonspeech-nemo-619M-v2-F16.gguf', 1_240_465_696, '1492147d7d18fbb0503db2cbbb05df4932cb3451e391524c6a2411632e4823bf')],
     languages: ['ja'],
     languageHint: 'none',
     license: 'Apache-2.0'

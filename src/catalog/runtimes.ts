@@ -65,8 +65,9 @@ export const CRISPASR: RuntimeSpec = {
 const SPEECH_CPP_RELEASE = 'https://github.com/nyosegawa/speech.cpp/releases/download/v0.7.0'
 
 /**
- * speech.cpp's one executable, `speech`, with the library linked in: `speech worker` runs Qwen3-TTS and Irodori-TTS
- * behind the worker protocol, `speech voice` makes Irodori-TTS voice files and `speech info` reads a model file.
+ * speech.cpp's one executable, `speech`, with the library linked in: `speech worker` runs Qwen3-TTS, Irodori-TTS,
+ * Qwen3-ASR and the FastConformer models behind the worker protocol, `speech voice` makes Irodori-TTS voice files
+ * and `speech info` reads a model file.
  */
 export const SPEECH_CPP: RuntimeSpec = {
   id: 'speech.cpp',

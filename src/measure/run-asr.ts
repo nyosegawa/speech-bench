@@ -5,11 +5,13 @@ import type { UtteranceSet } from '../datasets/item.ts'
 import { CrispAsr } from '../engines/crispasr.ts'
 import type { AsrEngine } from '../engines/engine.ts'
 import { LlamaServerAsr } from '../engines/llama-server.ts'
+import { speechWorkerArgs } from '../engines/worker.ts'
+import { WorkerAsr } from '../engines/worker-asr.ts'
 import { VoiceDetector } from '../engines/voice-activity.ts'
 import { gpuDevice, machineInfo } from '../core/platform.ts'
 import { RESULT_FORMAT, type AsrRunRecord, type NewPreparation, type UtteranceRecord } from './result-file/format.ts'
 import { runFile } from './runs.ts'
-import { CRISPASR, ensureRuntime, LLAMA_CPP, type RuntimeSpec } from '../catalog/runtimes.ts'
+import { CRISPASR, ensureRuntime, LLAMA_CPP, SPEECH_CPP, type RuntimeSpec } from '../catalog/runtimes.ts'
 import { ensurePinned } from '../catalog/store.ts'
 import { durationSeconds, peakNormalize, readWav, trimAround, withTrailingSilence, type Pcm } from '../core/wav.ts'
 
@@ -36,6 +38,11 @@ export async function prepareAsr(model: AsrModel): Promise<{ engine: AsrEngine; 
     return { engine: new LlamaServerAsr(await ensureRuntime(LLAMA_CPP), model, files, gpuDevice()), runtime: LLAMA_CPP }
   }
   const [gguf] = files
+  if (model.runtime === 'speech.cpp') {
+    if (!gguf || files.length !== 1) throw new Error(`${model.id} is one GGUF file in speech.cpp`)
+    const command = { name: model.id, executable: await ensureRuntime(SPEECH_CPP), args: speechWorkerArgs(gguf, gpuDevice(), null) }
+    return { engine: new WorkerAsr(command, model), runtime: SPEECH_CPP }
+  }
   if (!gguf) throw new Error(`${model.id} has no GGUF`)
   return { engine: new CrispAsr(await ensureRuntime(CRISPASR), model, gguf), runtime: CRISPASR }
 }
