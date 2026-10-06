@@ -6,7 +6,7 @@ import type { WorkerCommand } from './worker.ts'
 
 /**
  * A model's official implementation run in an adapter of the bench's own, `adapters/<id>/`, which speaks
- * speech.cpp's worker protocol: a Python project whose lock file pins every package, and the package of the
+ * speech.cpp's worker protocol 2: a Python project whose lock file pins every package, and the package of the
  * implementation, whose pinned commit is the runtime's version.
  */
 export interface Adapter {
@@ -46,10 +46,9 @@ export function syncAdapter(adapter: Adapter): void {
 }
 
 /** The worker command that runs the adapter's script with `args`, in its own environment. */
-export const adapterCommand = (adapter: Adapter, name: string, args: readonly string[], voice: string | null): WorkerCommand => ({
+export const adapterCommand = (adapter: Adapter, name: string, args: readonly string[]): WorkerCommand => ({
   name,
   executable: 'uv',
   args: ['run', '--frozen', '--no-sync', '--project', folderOf(adapter), 'python', path.join(folderOf(adapter), adapter.script), ...args],
-  env: environmentOf(adapter),
-  voice
+  env: environmentOf(adapter)
 })

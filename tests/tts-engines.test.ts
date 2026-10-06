@@ -4,12 +4,13 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ttsModel, ttsVoiceFor } from '../src/catalog/models.ts'
 import { audioCppConfig } from '../src/engines/audiocpp.ts'
-import { decodeChunk, parseWorkerLine, WorkerTts } from '../src/engines/worker.ts'
+import type { Synthesis } from '../src/engines/tts-engine.ts'
+import { decodeChunk, parseWorkerLine, WorkerTts, type WorkerRequests } from '../src/engines/worker.ts'
 import { speechWorkerArgs } from '../src/measure/run-tts.ts'
 
 describe('the worker protocol', () => {
   it('reads a JSON object per line and refuses any other line', () => {
-    expect(parseWorkerLine('{"type":"ready","sampleRate":24000}')).toEqual({ type: 'ready', sampleRate: 24000 })
+    expect(parseWorkerLine('{"type":"end","id":"a","samples":0}')).toEqual({ type: 'end', id: 'a', samples: 0 })
     expect(() => parseWorkerLine('ggml_metal_init: loaded kernel')).toThrow(/not JSON/)
     expect(() => parseWorkerLine('[1]')).toThrow(/not a JSON object/)
   })
@@ -33,45 +34,87 @@ describe('WorkerTts', () => {
     fs.rmSync(data, { recursive: true, force: true })
   })
 
-  const fakeWorker = (): WorkerTts => new WorkerTts({
-    name: 'fake',
-    executable: process.execPath,
-    args: [path.join(import.meta.dirname, 'fixtures', 'fake-worker.mjs')],
-    env: { FAKE_WORKER_RATE: '24000' },
-    voice: 'reference'
-  })
+  const fakeWorker = (requests: Partial<WorkerRequests> = {}, protocol = '2'): WorkerTts => new WorkerTts(
+    {
+      name: 'fake',
+      executable: process.execPath,
+      args: [path.join(import.meta.dirname, 'fixtures', 'fake-worker.mjs')],
+      env: { FAKE_WORKER_RATE: '24000', FAKE_WORKER_PROTOCOL: protocol }
+    },
+    { voice: 'reference', seed: null, options: {}, ...requests }
+  )
+  const values = (synthesis: Synthesis): number[] => [...synthesis.pcm.samples].map((value) => Math.round(value * 32768))
 
-  it('starts the worker with the variables its command sets, and joins the chunks of a sentence', async () => {
-    const worker = fakeWorker()
+  /** Runs `use` on a started worker and stops it whatever happens. */
+  async function withWorker(worker: WorkerTts, use: (worker: WorkerTts) => Promise<void>): Promise<void> {
     await worker.start()
     try {
+      await use(worker)
+    } finally {
+      await worker.stop()
+    }
+  }
+
+  it('starts the worker with the variables its command sets, joins the chunks of a sentence and times its first audio from the first chunk', async () => {
+    await withWorker(fakeWorker(), async (worker) => {
       const synthesis = await worker.synthesize('はい。', 'ja-JP', null)
       expect(synthesis.pcm.sampleRate).toBe(24_000)
-      expect([...synthesis.pcm.samples].map((value) => Math.round(value * 32768))).toEqual([3, 'reference'.length])
+      expect(values(synthesis)).toEqual([3, 'reference'.length, -1, -1])
+      // The fake reports progress at once and sends its first chunk 0.1 s later.
+      expect(synthesis.firstAudioSeconds).toBeGreaterThanOrEqual(0.09)
+    })
+  })
+
+  it('sends the first request the run\'s seed and each later one the next, with the options of the run', async () => {
+    await withWorker(fakeWorker({ seed: 3, options: { steps: 16 } }), async (worker) => {
+      expect(values(await worker.synthesize('はい。', 'ja-JP', null)).slice(2)).toEqual([3, 16])
+      expect(values(await worker.synthesize('はい。', 'ja-JP', null)).slice(2)).toEqual([4, 16])
+    })
+  })
+
+  it('fails the sentence the worker reports an error for, with its code, option and message', async () => {
+    await withWorker(fakeWorker(), async (worker) => {
+      await expect(worker.synthesize('Hello.', 'en-US', null)).rejects.toThrow('out_of_range (language): no en-US')
+    })
+  })
+
+  it('refuses a worker that speaks another protocol', async () => {
+    const worker = fakeWorker({}, '1')
+    try {
+      await expect(worker.start()).rejects.toThrow(/protocol 1/)
     } finally {
       await worker.stop()
     }
   })
 
-  it('fails the sentence the worker reports an error for', async () => {
-    const worker = fakeWorker()
-    await worker.start()
-    try {
-      await expect(worker.synthesize('Hello.', 'en-US', null)).rejects.toThrow()
-    } finally {
-      await worker.stop()
-    }
+  it('fails a sentence the worker cancelled though the bench did not cancel it', async () => {
+    await withWorker(fakeWorker(), async (worker) => {
+      await expect(worker.synthesize('cancelled', 'ja-JP', null)).rejects.toThrow(/did not cancel/)
+    })
+  })
+
+  it('takes an answer without the id of a request as the worker\'s defect, which fails every request after it', async () => {
+    await withWorker(fakeWorker(), async (worker) => {
+      await expect(worker.synthesize('anonymous', 'ja-JP', null)).rejects.toThrow(/a request needs an id/)
+      await expect(worker.synthesize('はい。', 'ja-JP', null)).rejects.toThrow(/a request needs an id/)
+    })
+  })
+
+  it('takes a second terminal message for one request as the worker\'s defect, which fails every request after it', async () => {
+    await withWorker(fakeWorker(), async (worker) => {
+      expect(values(await worker.synthesize('twice', 'ja-JP', null))[0]).toBe(5)
+      await expect(worker.synthesize('はい。', 'ja-JP', null)).rejects.toThrow(/has had its answer/)
+    })
   })
 })
 
 describe('speechWorkerArgs', () => {
-  it('starts speech.cpp\'s worker on the model, its codec and the device, with nothing else for a model of built-in voices', () => {
-    expect(speechWorkerArgs(['/m/talker.gguf', '/m/codec.gguf'], 'MTL0', null, null, null)).toEqual(['/m/talker.gguf', '/m/codec.gguf', '--device', 'MTL0'])
+  it('starts speech worker on the model and the device, without its own warm-up, for a model of built-in voices', () => {
+    expect(speechWorkerArgs('/m/qwen3-tts.gguf', 'MTL0', null)).toEqual(['worker', '/m/qwen3-tts.gguf', '--device', 'MTL0', '--no-warmup'])
   })
 
-  it('gives the seed, the sampler\'s steps and the reference voice that every request names', () => {
-    const args = speechWorkerArgs(['/m/rf.gguf', '/m/codec.gguf'], 'Vulkan0', 3, 16, '/v/voice.gguf')
-    expect(args.slice(4)).toEqual(['--seed', '3', '--steps', '16', '--voice', 'reference=/v/voice.gguf'])
+  it('adds the reference voice that every request names', () => {
+    expect(speechWorkerArgs('/m/irodori-tts.gguf', 'Vulkan0', '/v/voice.gguf').slice(5)).toEqual(['--add-voice', 'reference=/v/voice.gguf'])
   })
 })
 

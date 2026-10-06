@@ -15,7 +15,7 @@ import { resultText } from './result-file/file.ts'
 import { RESULT_FORMAT, type SentenceRecord, type TtsRunRecord } from './result-file/format.ts'
 import { prepareAsr } from './run-asr.ts'
 import { runFile, runFolder } from './runs.ts'
-import { AUDIO_CPP, ensureRuntime, SPEECH_CPP, SPEECH_CPP_TOOLS } from '../catalog/runtimes.ts'
+import { AUDIO_CPP, ensureRuntime, SPEECH_CPP } from '../catalog/runtimes.ts'
 import { adapterCommand, adapterVersion, IRODORI_TTS_ADAPTER, MLX_AUDIO_ADAPTER, syncAdapter } from '../engines/adapter.ts'
 import { ensurePinned } from '../catalog/store.ts'
 import { durationSeconds, encodeWav16, peakNormalize, resample } from '../core/wav.ts'
@@ -39,18 +39,16 @@ export interface VoiceChoice {
 const REFERENCE_VOICE = 'reference'
 
 /**
- * The arguments of speech.cpp's worker for a run: the model and its codec, the device, the seed of the first
- * request (the worker gives each later request the next seed), the sampler's steps and the reference voice.
+ * The arguments of `speech worker` for a run: the model, the device and the reference voice. The worker skips its
+ * own warm-up, so that the load time is the loading alone, as for every other runtime: the run's first sentence,
+ * spoken once untimed, pays for the GPU's first use.
  */
-export function speechWorkerArgs(files: readonly string[], device: string, seed: number | null, steps: number | null, voiceFile: string | null): string[] {
-  return [
-    ...files,
-    '--device', device,
-    ...(seed === null ? [] : ['--seed', String(seed)]),
-    ...(steps === null ? [] : ['--steps', String(steps)]),
-    ...(voiceFile === null ? [] : ['--voice', `${REFERENCE_VOICE}=${voiceFile}`])
-  ]
+export function speechWorkerArgs(model: string, device: string, voiceFile: string | null): string[] {
+  return ['worker', model, '--device', device, '--no-warmup', ...(voiceFile === null ? [] : ['--add-voice', `${REFERENCE_VOICE}=${voiceFile}`])]
 }
+
+/** The options every request of a run carries: the sampler's steps when not the model's own. */
+const stepsOption = (steps: number | null): Record<string, number> => (steps === null ? {} : { steps })
 
 async function prepareTts(model: TtsModel, { seed, design, reference, durationScale }: VoiceChoice): Promise<{ engine: TtsEngine; runtime: { id: string; version: string }; loadOptions: Readonly<Record<string, string>> }> {
   if (design !== null && !(model.runtime === 'audio.cpp' && model.voiceDesign)) throw new Error(`${model.id} takes no voice described in words`)
@@ -58,13 +56,16 @@ async function prepareTts(model: TtsModel, { seed, design, reference, durationSc
   if (durationScale !== null && !(model.runtime === 'audio.cpp' && model.durationScale)) throw new Error(`${model.id} takes no factor for the length of its speech`)
   const files: string[] = []
   for (const file of model.files) files.push(await ensurePinned(file))
-  if (model.runtime === 'speech-worker') {
+  if (model.runtime === 'speech.cpp') {
     if (model.voiceReference && reference === null) throw new Error(`${model.id} has no voice of its own; give it one with --reference`)
-    const [weights, codec] = files
-    const codecFile = model.files[1]
-    if (!weights || !codec || !codecFile) throw new Error(`${model.id} needs a model and a codec`)
-    const voiceFile = reference === null ? null : await irodoriVoiceFile({ executable: await ensureRuntime(SPEECH_CPP_TOOLS), version: SPEECH_CPP_TOOLS.version }, weights, codec, codecFile.sha256, reference)
-    const engine = new WorkerTts({ name: model.id, executable: await ensureRuntime(SPEECH_CPP), args: speechWorkerArgs(files, gpuDevice(), seed, model.steps, voiceFile), voice: voiceFile === null ? null : REFERENCE_VOICE })
+    const [gguf] = files
+    if (!gguf || files.length !== 1) throw new Error(`${model.id} is one GGUF file in speech.cpp`)
+    const speech = { executable: await ensureRuntime(SPEECH_CPP), version: SPEECH_CPP.version }
+    const voiceFile = reference === null ? null : await irodoriVoiceFile(speech, gguf, reference)
+    const engine = new WorkerTts(
+      { name: model.id, executable: speech.executable, args: speechWorkerArgs(gguf, gpuDevice(), voiceFile) },
+      { voice: voiceFile === null ? null : REFERENCE_VOICE, seed, options: stepsOption(model.steps) }
+    )
     return { engine, runtime: SPEECH_CPP, loadOptions: voiceFile === null ? {} : { voice: 'voice file made on the CPU' } }
   }
   if (model.runtime === 'adapter') {
@@ -72,12 +73,12 @@ async function prepareTts(model: TtsModel, { seed, design, reference, durationSc
     // PyTorch from PyPI runs on the CPU only on Windows, and MLX runs only on Apple silicon.
     if (platformKey() !== 'darwin-arm64') throw new Error(`${model.id} runs on a Mac here, on its GPU`)
     const fileOf = (name: string): string => files[model.files.findIndex((file) => file.file === name)]!
-    const shared = [...(seed === null ? [] : ['--seed', String(seed)]), ...(model.steps === null ? [] : ['--steps', String(model.steps)]), '--voice', `${REFERENCE_VOICE}=${reference.file}`]
+    const voice = ['--add-voice', `${REFERENCE_VOICE}=${reference.file}`]
     const { adapter, args, loadOptions } = model.adapter === 'irodori-tts'
-      ? { adapter: IRODORI_TTS_ADAPTER, args: ['--checkpoint', fileOf('model.safetensors'), '--codec', fileOf('weights.pth'), '--device', 'mps', ...shared], loadOptions: { device: 'mps', precision: 'fp32' } }
-      : { adapter: MLX_AUDIO_ADAPTER, args: ['--model', path.dirname(fileOf('config.json')), ...shared], loadOptions: { device: 'metal', precision: 'fp16' } }
+      ? { adapter: IRODORI_TTS_ADAPTER, args: ['--checkpoint', fileOf('model.safetensors'), '--codec', fileOf('weights.pth'), '--device', 'mps', ...voice], loadOptions: { device: 'mps', precision: 'fp32' } }
+      : { adapter: MLX_AUDIO_ADAPTER, args: ['--model', path.dirname(fileOf('config.json')), ...voice], loadOptions: { device: 'metal', precision: 'fp16' } }
     syncAdapter(adapter)
-    const engine = new WorkerTts(adapterCommand(adapter, model.id, args, REFERENCE_VOICE))
+    const engine = new WorkerTts(adapterCommand(adapter, model.id, args), { voice: REFERENCE_VOICE, seed, options: stepsOption(model.steps) })
     return { engine, runtime: { id: adapter.id, version: adapterVersion(adapter) }, loadOptions }
   }
   const [gguf] = files

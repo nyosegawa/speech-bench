@@ -209,15 +209,18 @@ hf upload sakasegawa/common-voice-ja-accepted-spellings ~/speech-bench-data/hugg
 
 A model without built-in voices (Irodori-TTS here) makes a voice up for every sentence from the seed it is
 sampled with, which audio.cpp picks at random for each request. `--seeds` gives one run for each seed: audio.cpp
-samples every sentence of a run from it, and speech.cpp's worker the first request, each later one the next
-seed. A seed does not keep the voice:
+samples every sentence of a run from it, and speech.cpp and the adapters the first request, each later one from
+the next seed. A seed does not keep the voice:
 Irodori-TTS follows the sentence more than the seed. `--designs` describes the voice in words instead, with the
 descriptions of the voices in `prompts/voices-<locale>.json` (Irodori-TTS's `instruction`), one run for each.
 
-Runtimes run as a process, speech.cpp's worker among them, are reached through speech.cpp's worker protocol
-(docs/adr/0008): JSON lines, a request per line, the speech streamed back in base64 16-bit chunks. Irodori-TTS
+Runtimes run as a process, speech.cpp's worker among them, are reached through speech.cpp's worker protocol 2
+(docs/adr/0008): JSON lines, a request per line, the speech streamed back in base64 16-bit chunks. A worker of
+another protocol, or one that answers a request it was not sent or answers one twice, stops the run. Irodori-TTS
 v4.1 in speech.cpp has no voice of its own and needs `--reference`; the reference goes to the worker as a voice
-file, which speech.cpp's `speech-tts make-voice` makes once on the CPU and `voice-files/` keeps.
+file, which `speech voice` makes once on the CPU and `voice-files/` keeps by the reference, the codec the model
+file names and the release of speech.cpp, so that a release that refuses the voice files of the ones before it,
+as v0.7.0 does, makes its own from the reference.
 
 A model's official implementation runs in an adapter of the bench's own that speaks the same protocol
 (docs/adr/0012): `adapters/irodori-tts/` runs Irodori-TTS v4.1's official PyTorch runtime at FP32 on the Mac's
@@ -323,9 +326,9 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 | Qwen3-ASR 1.7B and 0.6B | ggml-org Q8_0 |
 | parakeet-tdt-0.6b-v3, parakeet-tdt_ctc-0.6b-ja, ReazonSpeech NeMo v2 | cstr Q8_0 |
 | FLEURS | google/fleurs at revision 70bb2e84: ja-JP, en-US, fr-FR, de-DE, hi-IN, id-ID, it-IT, ko-KR, pt-BR and es-419 (it has no Spanish of Spain) |
-| speech.cpp | v0.5.0, the worker and, to make voice files, the tools |
-| Qwen3-TTS 0.6B and 1.7B CustomVoice | sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF and sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF, Q8_0 and the F16 codec, converted with BCP 47 language tags |
-| Irodori-TTS v4.1 Small, MF and RF | sakasegawa/Irodori-TTS-v4.1-Small-MF-GGUF and sakasegawa/Irodori-TTS-v4.1-Small-GGUF, F16 and the F32 codec |
+| speech.cpp | v0.7.0, its one executable `speech`, whose worker runs the models and whose `speech voice` makes voice files |
+| Qwen3-TTS 0.6B and 1.7B CustomVoice | sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF and sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF, one Q8_0 file each with the F16 codec inside, the layout speech.cpp v0.7.0 reads |
+| Irodori-TTS v4.1 Small, MF and RF | sakasegawa/Irodori-TTS-v4.1-Small-MF-GGUF and sakasegawa/Irodori-TTS-v4.1-Small-GGUF, one F16 file each with the F32 codec inside, the layout speech.cpp v0.7.0 reads |
 | audio.cpp | v0.9.0 |
 | Irodori-TTS v4 Small | audio-cpp/audio.cpp-gguf Q8_0 |
 | sherpa-onnx | 1.13.8, the Node addon of its npm packages for macOS arm64 and Windows x64, for speaker embeddings and the VAD; on Windows its ONNX Runtime is renamed so that Windows ML's copy in System32 is not loaded in its place (docs/adr/0018) |
