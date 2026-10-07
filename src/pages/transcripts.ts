@@ -1,4 +1,4 @@
-import { describeAudio, summarize, type AsrSummary } from '../measure/report.ts'
+import { describeAudio, describeRuntime, summarize, type AsrSummary } from '../measure/report.ts'
 import { readResultFile } from '../measure/result-file/file.ts'
 import { isDropped, type AsrRunRecord, type UtteranceRecord } from '../measure/result-file/format.ts'
 import { runIdOf } from '../measure/runs.ts'
@@ -36,7 +36,7 @@ export interface TranscriptsData {
 
 const describe: Array<(run: AsrRunRecord) => string | null> = [
   (run) => run.model.label,
-  (run) => `${run.runtime.id} ${run.runtime.version}`,
+  (run) => describeRuntime(run.runtime),
   (run) => describeAudio(run.audio),
   (run) => run.machine.gpus.join(' + '),
   (run) => Object.entries(run.runtime.options).map(([name, value]) => `${name}=${value}`).join(', ') || null,

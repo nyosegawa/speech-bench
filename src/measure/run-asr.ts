@@ -11,7 +11,7 @@ import { VoiceDetector } from '../engines/voice-activity.ts'
 import { gpuDevice, machineInfo } from '../core/platform.ts'
 import { RESULT_FORMAT, type AsrRunRecord, type NewPreparation, type UtteranceRecord } from './result-file/format.ts'
 import { runFile } from './runs.ts'
-import { CRISPASR, ensureRuntime, LLAMA_CPP, SPEECH_CPP, type RuntimeSpec } from '../catalog/runtimes.ts'
+import { CRISPASR, ensureRuntime, ensureSpeechCpp, LLAMA_CPP, releaseOf, type RuntimeIdentity } from '../catalog/runtimes.ts'
 import { ensurePinned } from '../catalog/store.ts'
 import { durationSeconds, peakNormalize, readWav, trimAround, withTrailingSilence, type Pcm } from '../core/wav.ts'
 
@@ -31,20 +31,20 @@ export function prepareAudio(pcm: Pcm, preparation: NewPreparation, detector: Pi
 }
 
 /** The engine that runs the model, with its runtime, after fetching whatever is missing. */
-export async function prepareAsr(model: AsrModel): Promise<{ engine: AsrEngine; runtime: RuntimeSpec }> {
+export async function prepareAsr(model: AsrModel): Promise<{ engine: AsrEngine; runtime: RuntimeIdentity }> {
   const files: string[] = []
   for (const file of model.files) files.push(await ensurePinned(file))
   if (model.runtime === 'llama-server') {
-    return { engine: new LlamaServerAsr(await ensureRuntime(LLAMA_CPP), model, files, gpuDevice()), runtime: LLAMA_CPP }
+    return { engine: new LlamaServerAsr(await ensureRuntime(LLAMA_CPP), model, files, gpuDevice()), runtime: releaseOf(LLAMA_CPP) }
   }
   const [gguf] = files
   if (model.runtime === 'speech.cpp') {
     if (!gguf || files.length !== 1) throw new Error(`${model.id} is one GGUF file in speech.cpp`)
-    const command = { name: model.id, executable: await ensureRuntime(SPEECH_CPP), args: speechWorkerArgs(gguf, gpuDevice(), null) }
-    return { engine: new WorkerAsr(command, model), runtime: SPEECH_CPP }
+    const { executable, runtime } = await ensureSpeechCpp()
+    return { engine: new WorkerAsr({ name: model.id, executable, args: speechWorkerArgs(gguf, gpuDevice(), null) }, model), runtime }
   }
   if (!gguf) throw new Error(`${model.id} has no GGUF`)
-  return { engine: new CrispAsr(await ensureRuntime(CRISPASR), model, gguf), runtime: CRISPASR }
+  return { engine: new CrispAsr(await ensureRuntime(CRISPASR), model, gguf), runtime: releaseOf(CRISPASR) }
 }
 
 const stamp = (date: Date): string => date.toISOString().replace(/[:.]/g, '-')
@@ -82,7 +82,7 @@ export async function runAsr(model: AsrModel, set: UtteranceSet, audio: NewPrepa
       machine,
       set: { name: set.name, locale: set.locale, size: set.utterances.length },
       model: { id: model.id, label: model.label, license: model.license, files: model.files.map(({ repo, revision, file: name, sha256 }) => ({ repo, revision, file: name, sha256 })) },
-      runtime: { id: runtime.id, version: runtime.version, options: {} },
+      runtime: { ...runtime, options: {} },
       audio,
       loadSeconds,
       warmupSeconds

@@ -47,7 +47,14 @@ const runCommon = {
   set: z.strictObject({ name: z.string(), locale: z.string(), size: z.int() }),
   model: modelRecord,
   /** The runtime and the options it was loaded with, which can change what it produces. */
-  runtime: z.strictObject({ id: z.string(), version: z.string(), options: z.record(z.string(), z.string()) }),
+  runtime: z.strictObject({
+    id: z.string(),
+    /** The pinned release, or the release number a local build reports. */
+    version: z.string(),
+    /** The commit a local build that ran in place of the release was built from, or null for the release. */
+    localBuild: z.strictObject({ commit: z.string() }).nullable().default(null),
+    options: z.record(z.string(), z.string())
+  }),
   /** From starting the process to its being ready: loading the model and, on the first run, compiling GPU kernels. */
   loadSeconds: z.number(),
   /** The first item, repeated untimed because it pays for the GPU's first use. */

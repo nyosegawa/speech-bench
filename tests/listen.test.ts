@@ -19,7 +19,7 @@ function run(model: string, startedAt: string, options: RunOptions = {}): Listen
     durationScale: options.durationScale ?? null,
     model: { id: model, label: `${model} label`, license: 'MIT', files: [] },
     machine: { platform: 'darwin-arm64', hostname: 'mac', os: 'macOS 26.2', cpu: 'Apple M5', memoryGb: 32, gpus: [options.gpu ?? 'Apple M5'] },
-    runtime: { id: 'audio.cpp', version: 'v1', options: {} }
+    runtime: { id: 'audio.cpp', version: 'v1', localBuild: null, options: {} }
   })
   const pitches = options.pitches ?? [220]
   const sentences = pitches.map((_, index) => ({ ...sentence, id: `${sentence.id}-${index}`, ...(options.transcript === undefined ? {} : { transcript: options.transcript }) }))

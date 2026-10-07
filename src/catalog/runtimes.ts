@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { downloadVerified, extractArchive } from './download.ts'
+import { readSpeechCppBuild, SPEECH_CPP_BUILD_VARIABLE } from './local-build.ts'
 import { renameImport } from './pe.ts'
 import { runtimesDir } from '../core/paths.ts'
 import { platformKey, type PlatformKey } from '../core/platform.ts'
@@ -23,6 +24,22 @@ export interface RuntimeSpec {
   version: string
   assets: Record<PlatformKey, RuntimeAsset>
 }
+
+/**
+ * The runtime a run ran, as its result records it: the id and version of a pinned release, or the release number a
+ * local build reports with the commit it was built from.
+ */
+export interface RuntimeIdentity {
+  id: string
+  version: string
+  localBuild: { commit: string } | null
+}
+
+export const releaseOf = (spec: Pick<RuntimeSpec, 'id' | 'version'>): RuntimeIdentity => ({ id: spec.id, version: spec.version, localBuild: null })
+
+/** A name of what ran that changes with it: the release, or the release number and commit of a local build. */
+export const runtimeTag = (runtime: RuntimeIdentity): string =>
+  runtime.localBuild === null ? runtime.version : `${runtime.version}-${runtime.localBuild.commit.slice(0, 12)}`
 
 /** The llama.cpp release Qwen3-ASR is measured in. */
 export const LLAMA_CPP: RuntimeSpec = {
@@ -84,6 +101,17 @@ export const SPEECH_CPP: RuntimeSpec = {
       executable: 'speech.exe'
     }
   }
+}
+
+/**
+ * speech.cpp's executable and what a run records of it: the pinned release, or the local build that
+ * SPEECH_BENCH_SPEECH_CPP names, checked again for each run.
+ */
+export async function ensureSpeechCpp(): Promise<{ executable: string; runtime: RuntimeIdentity }> {
+  const directory = process.env[SPEECH_CPP_BUILD_VARIABLE]?.trim()
+  if (!directory) return { executable: await ensureRuntime(SPEECH_CPP), runtime: releaseOf(SPEECH_CPP) }
+  const build = readSpeechCppBuild(directory, platformKey())
+  return { executable: build.executable, runtime: { id: SPEECH_CPP.id, version: build.version, localBuild: { commit: build.commit } } }
 }
 
 /** audio.cpp's prebuilt server: Metal on the Mac, Vulkan on Windows. It runs Irodori-TTS for measuring only. */

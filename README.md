@@ -49,6 +49,9 @@ node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b --set common-voice --
 # Qwen3-ASR in llama.cpp and in speech.cpp, on the same clips
 node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b,qwen3-asr-1.7b-speech.cpp --set common-voice --count 100
 
+# The same in a local build of speech.cpp, a release candidate, in place of the pinned release
+SPEECH_BENCH_SPEECH_CPP=~/src/speech.cpp/build node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b-speech.cpp --set common-voice --count 100
+
 # Measure on your own utterances, recorded under Record in the web app (see below)
 node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b --set recordings --speaker guest
 
@@ -352,6 +355,16 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 | mpg123-decoder | 1.0.3 with the packages it imports, mpg123 in WebAssembly, which decodes the MP3 to the same samples on every machine |
 | 3D-Speaker ERes2NetV2 | csukuangfj/speaker-embedding-models, the speaker embedding model |
 | Silero VAD v4 | csukuangfj/vad, which finds the voice of an utterance |
+
+### A local build of speech.cpp
+
+`SPEECH_BENCH_SPEECH_CPP` names a CMake build directory of speech.cpp (`cmake -B build`, then `cmake --build build
+--config Release`), whose `speech` every run then starts in place of the pinned release's, to measure a release
+candidate before it is released (docs/adr/0019). The bench refuses a directory that is not a Release build of
+speech.cpp, and a source with changes that are not committed. A result records the release number the build reports
+and the commit it was built from, and the report writes its runtime as `speech.cpp 0.7.1, local build 596b8d83f166`,
+so that it is not taken for the release's. Build it just before measuring: the bench cannot tell an executable built
+before the last `git pull`.
 
 ## Development
 

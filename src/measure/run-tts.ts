@@ -16,7 +16,7 @@ import { resultText } from './result-file/file.ts'
 import { RESULT_FORMAT, type SentenceRecord, type TtsRunRecord } from './result-file/format.ts'
 import { prepareAsr } from './run-asr.ts'
 import { runFile, runFolder } from './runs.ts'
-import { AUDIO_CPP, ensureRuntime, SPEECH_CPP } from '../catalog/runtimes.ts'
+import { AUDIO_CPP, ensureRuntime, ensureSpeechCpp, releaseOf, runtimeTag, type RuntimeIdentity } from '../catalog/runtimes.ts'
 import { adapterCommand, adapterVersion, IRODORI_TTS_ADAPTER, MLX_AUDIO_ADAPTER, syncAdapter } from '../engines/adapter.ts'
 import { ensurePinned } from '../catalog/store.ts'
 import { durationSeconds, encodeWav16, peakNormalize, resample } from '../core/wav.ts'
@@ -39,7 +39,7 @@ export interface VoiceChoice {
 /** The options every request of a run carries: the sampler's steps when not the model's own. */
 const stepsOption = (steps: number | null): Record<string, number> => (steps === null ? {} : { steps })
 
-async function prepareTts(model: TtsModel, { seed, design, reference, durationScale }: VoiceChoice): Promise<{ engine: TtsEngine; runtime: { id: string; version: string }; loadOptions: Readonly<Record<string, string>> }> {
+async function prepareTts(model: TtsModel, { seed, design, reference, durationScale }: VoiceChoice): Promise<{ engine: TtsEngine; runtime: RuntimeIdentity; loadOptions: Readonly<Record<string, string>> }> {
   if (design !== null && !(model.runtime === 'audio.cpp' && model.voiceDesign)) throw new Error(`${model.id} takes no voice described in words`)
   if (reference !== null && !model.voiceReference) throw new Error(`${model.id} takes no reference voice`)
   if (durationScale !== null && !(model.runtime === 'audio.cpp' && model.durationScale)) throw new Error(`${model.id} takes no factor for the length of its speech`)
@@ -49,13 +49,13 @@ async function prepareTts(model: TtsModel, { seed, design, reference, durationSc
     if (model.voiceReference && reference === null) throw new Error(`${model.id} has no voice of its own; give it one with --reference`)
     const [gguf] = files
     if (!gguf || files.length !== 1) throw new Error(`${model.id} is one GGUF file in speech.cpp`)
-    const speech = { executable: await ensureRuntime(SPEECH_CPP), version: SPEECH_CPP.version }
-    const voiceFile = reference === null ? null : await irodoriVoiceFile(speech, gguf, reference)
+    const { executable, runtime } = await ensureSpeechCpp()
+    const voiceFile = reference === null ? null : await irodoriVoiceFile({ executable, version: runtimeTag(runtime) }, gguf, reference)
     const engine = new WorkerTts(
-      { name: model.id, executable: speech.executable, args: speechWorkerArgs(gguf, gpuDevice(), voiceFile) },
+      { name: model.id, executable, args: speechWorkerArgs(gguf, gpuDevice(), voiceFile) },
       { voice: voiceFile === null ? null : REFERENCE_VOICE, seed, options: stepsOption(model.steps) }
     )
-    return { engine, runtime: SPEECH_CPP, loadOptions: voiceFile === null ? {} : { voice: 'voice file made on the CPU' } }
+    return { engine, runtime, loadOptions: voiceFile === null ? {} : { voice: 'voice file made on the CPU' } }
   }
   if (model.runtime === 'adapter') {
     if (reference === null) throw new Error(`${model.id} has no voice of its own; give it one with --reference`)
@@ -68,12 +68,12 @@ async function prepareTts(model: TtsModel, { seed, design, reference, durationSc
       : { adapter: MLX_AUDIO_ADAPTER, args: ['--model', path.dirname(fileOf('config.json')), ...voice], loadOptions: { device: 'metal', precision: 'fp16' } }
     syncAdapter(adapter)
     const engine = new WorkerTts(adapterCommand(adapter, model.id, args), { voice: REFERENCE_VOICE, seed, options: stepsOption(model.steps) })
-    return { engine, runtime: { id: adapter.id, version: adapterVersion(adapter) }, loadOptions }
+    return { engine, runtime: releaseOf({ id: adapter.id, version: adapterVersion(adapter) }), loadOptions }
   }
   const [gguf] = files
   if (!gguf) throw new Error(`${model.id} has no GGUF`)
   const runOptions = { ...(seed === null ? {} : { seed }), ...(design === null ? {} : { instruction: design.instruction }), ...(durationScale === null ? {} : { duration_scale: durationScale }) }
-  return { engine: new AudioCppTts(await ensureRuntime(AUDIO_CPP), model, gguf, gpuBackend(), runOptions, reference?.file ?? null), runtime: AUDIO_CPP, loadOptions: model.loadOptions[gpuBackend()] ?? {} }
+  return { engine: new AudioCppTts(await ensureRuntime(AUDIO_CPP), model, gguf, gpuBackend(), runOptions, reference?.file ?? null), runtime: releaseOf(AUDIO_CPP), loadOptions: model.loadOptions[gpuBackend()] ?? {} }
 }
 
 const stamp = (date: Date): string => date.toISOString().replace(/[:.]/g, '-')
@@ -158,7 +158,7 @@ export async function runTts(model: TtsModel, locale: string, sentences: readonl
     machine,
     set: { name: setName, locale, size: sentences.length },
     model: { id: model.id, label: model.label, license: model.license, files: model.files.map(({ repo, revision, file, sha256 }) => ({ repo, revision, file, sha256 })) },
-    runtime: { id: runtime.id, version: runtime.version, options: loadOptions },
+    runtime: { ...runtime, options: loadOptions },
     voice,
     seed,
     design: design === null ? null : { id: design.id, instruction: design.instruction },

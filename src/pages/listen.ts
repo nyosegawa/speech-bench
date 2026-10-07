@@ -1,6 +1,7 @@
 import { analyzeRun } from '../analysis/run-analysis.ts'
 import type { SpeakerEmbedder } from '../engines/speaker-embedding.ts'
 import { semitoneSpread } from '../analysis/pitch.ts'
+import { describeRuntime } from '../measure/report.ts'
 import { readResultFile } from '../measure/result-file/file.ts'
 import type { SentenceRecord, TtsRunRecord } from '../measure/result-file/format.ts'
 import { takeFile } from '../measure/runs.ts'
@@ -79,7 +80,7 @@ export function latestRuns(runs: readonly ListenedRun[]): ListenedRun[] {
 
 const describe: Array<(entry: ListenedRun) => string | null> = [
   (entry) => entry.run.model.label,
-  (entry) => `${entry.run.runtime.id} ${entry.run.runtime.version}`,
+  (entry) => describeRuntime(entry.run.runtime),
   (entry) => entry.run.voice,
   (entry) => entry.run.design?.id ?? null,
   (entry) => (entry.run.reference ? `reference ${entry.run.reference.name}` : null),
