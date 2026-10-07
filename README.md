@@ -52,6 +52,10 @@ node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b,qwen3-asr-1.7b-speech
 # The same in a local build of speech.cpp, a release candidate, in place of the pinned release
 SPEECH_BENCH_SPEECH_CPP=~/src/speech.cpp/build node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b-speech.cpp --set common-voice --count 100
 
+# ReazonSpeech NeMo v2 with its beam search and with greedy decoding, which only speech.cpp's main branch offers
+SPEECH_BENCH_SPEECH_CPP=~/src/speech.cpp/build node src/cli.ts asr --locale ja-JP \
+  --models reazonspeech-nemo-v2-speech.cpp,reazonspeech-nemo-v2-greedy-speech.cpp --set common-voice --count 4483
+
 # Measure on your own utterances, recorded under Record in the web app (see below)
 node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b --set recordings --speaker guest
 
@@ -159,7 +163,9 @@ shows what that changes. Both are told the language the same way, as the start o
 speech.cpp only check the language they are sent, and parakeet-tdt-0.6b-v3 finds it itself there as in CrispASR.
 speech.cpp's worker is reached through its worker protocol 2 (docs/adr/0008): an utterance goes as chunks of the
 16-bit samples the servers are sent as a WAVE file, then a request for its text, and the wait runs from the first
-chunk to the text.
+chunk to the text. ReazonSpeech NeMo v2 decodes with its checkpoint's beam search, and
+`reazonspeech-nemo-v2-greedy-speech.cpp` asks every request for greedy decoding, which speech.cpp's main branch
+offers and v0.7.1 does not (docs/adr/0020); a worker whose model does not offer it stops the run before it measures.
 
 Recognition runs of one set, chosen on the web app's runs page, open the transcripts page: what every run heard of
 each utterance, as it was scored, with what it heard for another unit, heard but was not said, and did not hear
