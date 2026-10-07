@@ -20,8 +20,11 @@ behavior.
   itself), BCP 47 tags (`language.ts`) and the reading of stored records through their upgrades and their
   schemas (`stored.ts`).
 - `src/catalog/` lists the models with their pinned files, their runtimes and the languages of their model
-  cards (`models.ts`), pins the releases of the runtimes (`runtimes.ts`), fetches and verifies pinned
-  files (`store.ts`, `download.ts`), and renames a DLL a Windows module imports (`pe.ts`).
+  cards (`models.ts`), pins the releases of the runtimes (`runtimes.ts`) and finds a local build of speech.cpp
+  that runs in place of its release (`local-build.ts`), fetches and verifies pinned files (`store.ts`,
+  `download.ts`), makes a model file no one publishes by converting a pinned checkpoint for another runtime with a
+  pinned converter (`convert.ts`), whose Python packages the uv projects in `converters/` lock, and renames a DLL a
+  Windows module imports (`pe.ts`).
 - `src/engines/` holds one engine per runtime. An engine starts its process, transcribes an utterance or
   speaks a sentence, and stops; it knows nothing about datasets or scoring. The models run in this process
   through sherpa-onnx (speaker embeddings, Silero VAD) are engines too. `adapters/` holds the adapters that run a
