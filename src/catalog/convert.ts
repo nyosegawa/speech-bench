@@ -100,8 +100,10 @@ export async function ensureConverted(converted: ConvertedFile): Promise<string>
     run('uv', ['run', '--frozen', '--no-sync', '--project', projectOf(converter), 'python', path.join(source, converter.script), checkpoint, '--outfile', output, ...converted.args], { cwd: source, env })
     const bytes = fs.statSync(output).size
     const sha256 = await sha256Of(output)
+    // The converter computes the positional encoding with torch and the mel filterbank with librosa, which can round
+    // the last bit otherwise on another processor than the Apple M5 the hashes were pinned on.
     if (bytes !== converted.bytes || sha256 !== converted.sha256) {
-      throw new Error(`converting ${checkpoint} with ${converter.id} ${converter.commit.slice(0, 12)} made ${converted.file} of ${bytes} bytes with sha256 ${sha256}, not the pinned ${converted.bytes} bytes with ${converted.sha256}; the bench does not measure a file it cannot name`)
+      throw new Error(`converting ${checkpoint} with ${converter.id} ${converter.commit.slice(0, 12)} made ${converted.file} of ${bytes} bytes with sha256 ${sha256}, not the pinned ${converted.bytes} bytes with ${converted.sha256}; the bench measures only the pinned file, which can be copied to ${target} from a machine that made it`)
     }
     fs.renameSync(output, target)
   } finally {

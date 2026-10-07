@@ -3,8 +3,8 @@
 Measures local speech recognition and speech synthesis models under one set of conditions, across the runtimes
 they run in and the machines they run on, so that [speech.cpp](https://github.com/nyosegawa/speech.cpp) takes up
 a model on numbers, and a port can be checked against the model it was ported from. It runs pinned releases
-(llama.cpp, CrispASR, speech.cpp, NeMo-Speech.cpp, audio.cpp) on macOS with Metal and on Windows with Vulkan. It also makes
-voices for models that have none built in, from a description and lines in character.
+(llama.cpp, CrispASR, speech.cpp, NeMo-Speech.cpp, audio.cpp) on macOS with Metal and on Windows with Vulkan. It
+also makes voices for models that have none built in, from a description and lines in character.
 
 ## Requirements
 
@@ -92,7 +92,7 @@ folder `SPEECH_BENCH_DATA` names.
   runtimes/    llama.cpp, CrispASR, speech.cpp, NeMo-Speech.cpp and audio.cpp releases
   recordings/  your recordings, <locale>/<speaker>/manifest.jsonl
   references/  reference voices made from synthesized takes, <name>.wav and <name>.json
-  voice-files/ Irodori-TTS voice files made from the references for speech.cpp, by reference, codec and release
+  voice-files/ Irodori-TTS voice files made from the references for speech.cpp, by reference, codec and release or build
   adapters/    the Python environments of the adapters
   logs/        server output
   runs/        a folder per run: run.jsonl, the speech of each sentence and analysis.json
