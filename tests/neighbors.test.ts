@@ -48,7 +48,7 @@ describe('voiceGroup', () => {
   const run = (design: string | null, seed: number, options: Record<string, string> = {}): TtsRunRecord => ttsRun({
     model: { id: 'irodori', label: 'Irodori', license: 'MIT', files: [] }, seed,
     design: design === null ? null : { id: design, instruction: `${design} words` },
-    runtime: { id: 'audio.cpp', version: 'v1', options }
+    runtime: { id: 'audio.cpp', version: 'v1', localBuild: null, options }
   })
 
   it('puts the seeds of one description together and keeps descriptions and load options apart', () => {

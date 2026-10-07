@@ -17,14 +17,14 @@ describe('WorkerAsr', () => {
     fs.rmSync(data, { recursive: true, force: true })
   })
 
-  const fakeRecognizer = (steers: boolean, languageHint: AsrModel['languageHint']): WorkerAsr => new WorkerAsr(
+  const fakeRecognizer = (steers: boolean, languageHint: AsrModel['languageHint'], decoding: 'greedy' | null = null, offered = ''): WorkerAsr => new WorkerAsr(
     {
       name: 'fake',
       executable: process.execPath,
       args: [path.join(import.meta.dirname, 'fixtures', 'fake-recognizer.mjs')],
-      env: { FAKE_WORKER_STEERS: String(steers) }
+      env: { FAKE_WORKER_STEERS: String(steers), FAKE_WORKER_DECODINGS: offered }
     },
-    { id: 'fake', languageHint }
+    { id: 'fake', languageHint, decoding }
   )
 
   /** 2.5 s at 8 kHz whose first 16-bit sample is `first`, which picks how the fake answers. */
@@ -68,6 +68,24 @@ describe('WorkerAsr', () => {
       } finally {
         await worker.stop()
       }
+    }
+  })
+
+  it('sets the decoding the catalog names on every request, and none for the model\'s default', async () => {
+    await withWorker(fakeRecognizer(false, 'none', 'greedy', 'beam,greedy'), async (worker) => {
+      expect((await worker.transcribe(utterance(0), 'ja-JP')).text).toMatch(/, decoded greedy$/)
+    })
+    await withWorker(fakeRecognizer(false, 'none', null, 'beam,greedy'), async (worker) => {
+      expect((await worker.transcribe(utterance(0), 'ja-JP')).text).not.toMatch(/decoded/)
+    })
+  })
+
+  it('refuses a model file that does not offer the decoding the catalog names, before an utterance is measured', async () => {
+    const worker = fakeRecognizer(false, 'none', 'greedy')
+    try {
+      await expect(worker.start()).rejects.toThrow(/does not offer for its model file/)
+    } finally {
+      await worker.stop()
     }
   })
 

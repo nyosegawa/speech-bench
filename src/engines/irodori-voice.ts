@@ -6,7 +6,7 @@ import { voiceFilesDir } from '../core/paths.ts'
 
 const execute = promisify(execFile)
 
-/** speech.cpp's executable and its release. */
+/** speech.cpp's executable and a name of its release or local build, which changes with it. */
 export interface Speech {
   executable: string
   version: string
@@ -32,8 +32,8 @@ async function voiceCodecOf(tool: Speech, model: string): Promise<string> {
 /**
  * The Irodori-TTS voice file of a reference WAVE file, made once on the CPU with speech.cpp's `speech voice` and
  * kept by the sha256 of the reference, the hash of the codec it holds the latent of, which the model file names and
- * a model of another codec refuses, and the release that made it, since a release may write voice files of a form
- * the ones before it cannot read and refuse theirs, as 0.7.0 does.
+ * a model of another codec refuses, and the release or local build that made it, since a release may write voice
+ * files of a form the ones before it cannot read and refuse theirs, as 0.7.0 does.
  */
 export async function irodoriVoiceFile(tool: Speech, model: string, reference: { file: string; sha256: string }): Promise<string> {
   const codec = await voiceCodecOf(tool, model)

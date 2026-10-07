@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { downloadVerified, extractArchive } from './download.ts'
+import { readSpeechCppBuild, SPEECH_CPP_BUILD_VARIABLE } from './local-build.ts'
 import { renameImport } from './pe.ts'
 import { runtimesDir } from '../core/paths.ts'
 import { platformKey, type PlatformKey } from '../core/platform.ts'
@@ -23,6 +24,22 @@ export interface RuntimeSpec {
   version: string
   assets: Record<PlatformKey, RuntimeAsset>
 }
+
+/**
+ * The runtime a run ran, as its result records it: the id and version of a pinned release, or the release number a
+ * local build reports with the commit it was built from.
+ */
+export interface RuntimeIdentity {
+  id: string
+  version: string
+  localBuild: { commit: string } | null
+}
+
+export const releaseOf = (spec: Pick<RuntimeSpec, 'id' | 'version'>): RuntimeIdentity => ({ id: spec.id, version: spec.version, localBuild: null })
+
+/** A name of what ran that changes with it: the release, or the release number and commit of a local build. */
+export const runtimeTag = (runtime: RuntimeIdentity): string =>
+  runtime.localBuild === null ? runtime.version : `${runtime.version}-${runtime.localBuild.commit.slice(0, 12)}`
 
 /** The llama.cpp release Qwen3-ASR is measured in. */
 export const LLAMA_CPP: RuntimeSpec = {
@@ -82,6 +99,40 @@ export const SPEECH_CPP: RuntimeSpec = {
       url: `${SPEECH_CPP_RELEASE}/speech-0.7.1-windows-x64-vulkan.zip`,
       sha256: 'debfea296a5be3feb5ae00451de84cf3bab4ea3b98b77add30d52d13f86a67dc',
       executable: 'speech.exe'
+    }
+  }
+}
+
+/**
+ * speech.cpp's executable and what a run records of it: the pinned release, or the local build that
+ * SPEECH_BENCH_SPEECH_CPP names, checked again for each run.
+ */
+export async function ensureSpeechCpp(): Promise<{ executable: string; runtime: RuntimeIdentity }> {
+  const directory = process.env[SPEECH_CPP_BUILD_VARIABLE]?.trim()
+  if (!directory) return { executable: await ensureRuntime(SPEECH_CPP), runtime: releaseOf(SPEECH_CPP) }
+  const build = readSpeechCppBuild(directory, platformKey())
+  return { executable: build.executable, runtime: { id: SPEECH_CPP.id, version: build.version, localBuild: { commit: build.commit } } }
+}
+
+const NEMO_SPEECH_RELEASE = 'https://github.com/NVIDIA/NeMo-Speech.cpp/releases/download/v0.2.0'
+
+/**
+ * NVIDIA's NeMo-Speech.cpp, whose `nemo-speech serve` runs NeMo's FastConformer models behind OpenAI's
+ * transcription API: Metal on the Mac, Vulkan on Windows. The hashes are the release's own .sha256 files.
+ */
+export const NEMO_SPEECH_CPP: RuntimeSpec = {
+  id: 'nemo-speech.cpp',
+  version: 'v0.2.0',
+  assets: {
+    'darwin-arm64': {
+      url: `${NEMO_SPEECH_RELEASE}/nemo-speech-0.2.0-macos-aarch64-metal.tar.gz`,
+      sha256: '5cb02ba7c04f0b5585ce5cde9c830be5f0b7dfb4c83083c500109c381b4f2da9',
+      executable: 'nemo-speech-0.2.0-macos-aarch64-metal/bin/nemo-speech'
+    },
+    'win32-x64': {
+      url: `${NEMO_SPEECH_RELEASE}/nemo-speech-0.2.0-windows-x86_64-vulkan.zip`,
+      sha256: 'edf15a04ba98740aa0ab75ae4681ac7ad0a488b22b35ce2cbebd10590bb1c1e1',
+      executable: 'nemo-speech-0.2.0-windows-x86_64-vulkan/bin/nemo-speech.exe'
     }
   }
 }

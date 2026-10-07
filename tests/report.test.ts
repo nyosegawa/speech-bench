@@ -46,6 +46,14 @@ describe('summarize a speech recognition run', () => {
     expect(asr(summarize([JSON.stringify(asrRun), utterance('あいう', '', 0.1, 1), utterance('あいう', 'あいう', 0.1, 1)], noSpellings)).empty).toBe(1)
   })
 
+  it('names the commit of a local build that ran in place of a release, and reads a run of format 12 as the release\'s', () => {
+    const local = asr(summarize(fixture('v13-asr.jsonl'), noSpellings))
+    expect(formatReport([local])).toContain('| speech.cpp 0.7.1, local build 596b8d8c1f2a |')
+    const released = asr(summarize(fixture('v12-asr.jsonl'), noSpellings))
+    expect(released.run.runtime.localBuild).toBeNull()
+    expect(formatReport([released])).toContain('| crispasr v0.8.38 |')
+  })
+
   it('reads a run trimmed to the voice, with an utterance in which no voice was found', () => {
     const run = asr(summarize(fixture('v12-asr.jsonl'), noSpellings))
     expect(run.run.audio).toEqual({ edges: 'voice', detector: 'silero-vad-v4', marginSeconds: 0.2 })

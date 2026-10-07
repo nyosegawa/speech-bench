@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { prepareAudio } from '../src/measure/run-asr.ts'
+import { modelRecord, prepareAudio } from '../src/measure/run-asr.ts'
 
 const recording = { sampleRate: 100, samples: Float32Array.from({ length: 300 }, (_, index) => (index >= 100 && index < 200 ? 0.3 : 0.001)) }
 const trim = { edges: 'voice', detector: 'silero-vad-v4', marginSeconds: 0.2 } as const
@@ -17,5 +17,16 @@ describe('prepareAudio', () => {
 
   it('sends a recording as recorded with the silence asked for after it', () => {
     expect(prepareAudio(recording, { edges: 'as-recorded', trailingSilence: 1 }, null)!.samples.length).toBe(400)
+  })
+})
+
+describe('modelRecord', () => {
+  it('names a converted file by the checkpoint it was made from and the converter that made it, and a download by where it was', () => {
+    const converted = { kind: 'converted', converter: { id: 'converter', repository: 'https://example.com/converter', commit: 'c0ffee', script: 'convert.py' }, checkpoint: { kind: 'model', repo: 'org/model', revision: 'abc', file: 'model.nemo', bytes: 10, sha256: 'checkpoint' }, args: ['--outtype', 'fp16'], file: 'model.f16.gguf', bytes: 5, sha256: 'converted' } as const
+    const downloaded = { kind: 'model', repo: 'org/model-GGUF', revision: 'def', file: 'model-F16.gguf', bytes: 5, sha256: 'downloaded' } as const
+    expect(modelRecord({ id: 'model', label: 'Model', license: 'MIT', files: [converted, downloaded] }).files).toEqual([
+      { repo: 'org/model', revision: 'abc', file: 'model.f16.gguf', sha256: 'converted', converter: { repository: 'https://example.com/converter', commit: 'c0ffee', args: ['--outtype', 'fp16'] } },
+      { repo: 'org/model-GGUF', revision: 'def', file: 'model-F16.gguf', sha256: 'downloaded', converter: null }
+    ])
   })
 })

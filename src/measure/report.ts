@@ -2,7 +2,7 @@ import { scoredByCharacter } from '../core/language.ts'
 import { sentenceKey, spellingsReader, type Spellings } from '../spellings/files.ts'
 import { countAcceptedErrors } from './accepted.ts'
 import { readResultFile } from './result-file/file.ts'
-import { isDropped, type AsrRunRecord, type AudioPreparation, type HeardUtterance, type ResultFile, type TtsRunRecord } from './result-file/format.ts'
+import { isDropped, type AsrRunRecord, type AudioPreparation, type HeardUtterance, type ResultFile, type RunRecord, type TtsRunRecord } from './result-file/format.ts'
 import { countHeardErrors, heardAsSaid } from './heard.ts'
 import { countErrors, type ErrorCount } from './scoring.ts'
 
@@ -115,11 +115,15 @@ export function describeAudio(audio: AudioPreparation): string {
   return `cut by an energy VAD, hangover ${audio.hangoverMs} ms`
 }
 
+/** The runtime of a run in words, with the commit of a local build, so that its run is not taken for the release's. */
+export const describeRuntime = ({ id, version, localBuild }: RunRecord['runtime']): string =>
+  `${id} ${version}${localBuild === null ? '' : `, local build ${localBuild.commit.slice(0, 12)}`}`
+
 /** The GPU the models ran on, which on a Mac is the chip that also names the CPU. */
 const machineOf = (summary: Summary): string => `${summary.run.machine.gpus.join(' + ')}, ${summary.run.machine.os}`
 const runtimeOf = (summary: Summary): string => {
   const options = Object.entries(summary.run.runtime.options).map(([name, value]) => `${name}=${value}`)
-  return `${summary.run.runtime.id} ${summary.run.runtime.version}${options.length > 0 ? ` (${options.join(', ')})` : ''}`
+  return `${describeRuntime(summary.run.runtime)}${options.length > 0 ? ` (${options.join(', ')})` : ''}`
 }
 const percent = (rate: number): string => `${(rate * 100).toFixed(2)}%`
 
