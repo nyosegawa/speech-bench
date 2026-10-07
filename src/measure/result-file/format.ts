@@ -28,7 +28,17 @@ const modelRecord = z.strictObject({
   id: z.string(),
   label: z.string(),
   license: z.string(),
-  files: z.array(z.strictObject({ repo: z.string(), revision: z.string(), file: z.string(), sha256: z.string() }))
+  files: z.array(z.strictObject({
+    repo: z.string(),
+    revision: z.string(),
+    file: z.string(),
+    sha256: z.string(),
+    /**
+     * The converter that made the file from the checkpoint at `repo` and `revision`, at its commit with its arguments,
+     * or null for a file downloaded from there as it is.
+     */
+    converter: z.strictObject({ repository: z.string(), commit: z.string(), args: z.array(z.string()) }).nullable().default(null)
+  }))
 })
 export type ModelRecord = z.infer<typeof modelRecord>
 

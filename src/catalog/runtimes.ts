@@ -114,6 +114,29 @@ export async function ensureSpeechCpp(): Promise<{ executable: string; runtime: 
   return { executable: build.executable, runtime: { id: SPEECH_CPP.id, version: build.version, localBuild: { commit: build.commit } } }
 }
 
+const NEMO_SPEECH_RELEASE = 'https://github.com/NVIDIA/NeMo-Speech.cpp/releases/download/v0.2.0'
+
+/**
+ * NVIDIA's NeMo-Speech.cpp, whose `nemo-speech serve` runs NeMo's FastConformer models behind OpenAI's
+ * transcription API: Metal on the Mac, Vulkan on Windows. The hashes are the release's own .sha256 files.
+ */
+export const NEMO_SPEECH_CPP: RuntimeSpec = {
+  id: 'nemo-speech.cpp',
+  version: 'v0.2.0',
+  assets: {
+    'darwin-arm64': {
+      url: `${NEMO_SPEECH_RELEASE}/nemo-speech-0.2.0-macos-aarch64-metal.tar.gz`,
+      sha256: '5cb02ba7c04f0b5585ce5cde9c830be5f0b7dfb4c83083c500109c381b4f2da9',
+      executable: 'nemo-speech-0.2.0-macos-aarch64-metal/bin/nemo-speech'
+    },
+    'win32-x64': {
+      url: `${NEMO_SPEECH_RELEASE}/nemo-speech-0.2.0-windows-x86_64-vulkan.zip`,
+      sha256: 'edf15a04ba98740aa0ab75ae4681ac7ad0a488b22b35ce2cbebd10590bb1c1e1',
+      executable: 'nemo-speech-0.2.0-windows-x86_64-vulkan/bin/nemo-speech.exe'
+    }
+  }
+}
+
 /** audio.cpp's prebuilt server: Metal on the Mac, Vulkan on Windows. It runs Irodori-TTS for measuring only. */
 export const AUDIO_CPP: RuntimeSpec = {
   id: 'audio.cpp',

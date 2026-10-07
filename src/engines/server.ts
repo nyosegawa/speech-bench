@@ -30,12 +30,13 @@ export interface RunningServer {
   log: string
 }
 
-export async function startServer(name: string, command: string, args: (port: number) => string[]): Promise<RunningServer> {
+/** Starts a server on a free port with the bench's environment, or the one given. */
+export async function startServer(name: string, command: string, args: (port: number) => string[], env: NodeJS.ProcessEnv = process.env): Promise<RunningServer> {
   const port = await freePort()
   fs.mkdirSync(logsDir(), { recursive: true })
   const log = path.join(logsDir(), `${name}-${new Date().toISOString().replace(/[:.]/g, '-')}.log`)
   const output = fs.openSync(log, 'a')
-  const child = spawn(command, args(port), { cwd: path.dirname(command), stdio: ['ignore', output, output], windowsHide: true })
+  const child = spawn(command, args(port), { cwd: path.dirname(command), env, stdio: ['ignore', output, output], windowsHide: true })
   fs.closeSync(output)
   return { child, port, log }
 }

@@ -1,19 +1,24 @@
+import type { ConvertedFile, Converter, ModelFile } from './convert.ts'
 import type { PinnedFile } from './store.ts'
 import { tagCovers } from '../core/language.ts'
 
 /**
  * Where a model runs: llama-server with the language model and its audio projector, CrispASR with one GGUF and
- * the backend it loads as, which CrispASR's /health reports, or speech.cpp's worker with the model's one GGUF file,
+ * the backend it loads as, which CrispASR's /health reports, speech.cpp's worker with the model's one GGUF file,
  * its audio encoder inside, in the layout speech.cpp v0.7.0 reads, and the decoding every request asks for, or null
- * for the model's default.
+ * for the model's default, or NeMo-Speech.cpp's server with one GGUF file its converter made.
  */
-export type AsrRuntime = { runtime: 'llama-server' } | { runtime: 'crispasr'; backend: string } | { runtime: 'speech.cpp'; decoding: 'greedy' | null }
+export type AsrRuntime =
+  | { runtime: 'llama-server' }
+  | { runtime: 'crispasr'; backend: string }
+  | { runtime: 'speech.cpp'; decoding: 'greedy' | null }
+  | { runtime: 'nemo-speech.cpp' }
 
 /** A speech recognition model the bench can run, with the languages its model card lists. */
 export type AsrModel = AsrRuntime & {
   id: string
   label: string
-  files: readonly PinnedFile[]
+  files: readonly ModelFile[]
   /** BCP 47 tags from the model card. A tag without a region covers every region of the language. */
   languages: readonly string[]
   /**
@@ -38,13 +43,30 @@ const model = (repo: string, revision: string, file: string, bytes: number, sha2
  */
 const REAZONSPEECH_SPEECH_CPP = model('sakasegawa/reazonspeech-nemo-v2-GGUF', 'cb9e436cf3f9d9563c610cb5318adcfc5c0fe098', 'reazonspeech-nemo-619M-v2-F16.gguf', 1_240_465_696, '1492147d7d18fbb0503db2cbbb05df4932cb3451e391524c6a2411632e4823bf')
 
+/** NeMo-Speech.cpp's converter at v0.2.0, the release the bench runs. */
+const NEMO_SPEECH_CONVERTER: Converter = {
+  id: 'nemo-speech.cpp',
+  repository: 'https://github.com/NVIDIA/NeMo-Speech.cpp',
+  commit: '6a3ca369370782acee0dd155e34394ba60b920c4',
+  script: 'convert_model.py'
+}
+
+/**
+ * A NeMo checkpoint converted by NeMo-Speech.cpp's converter to F16, the weight type of speech.cpp's FastConformer
+ * files, so that the two runtimes are compared on the same weights: NVIDIA publishes parakeet-tdt-0.6b-v3 for
+ * NeMo-Speech.cpp in Q8_0 alone, and ReazonSpeech not at all (2026-10-08).
+ */
+const nemoSpeechF16 = (checkpoint: PinnedFile, file: string, bytes: number, sha256: string): ConvertedFile =>
+  ({ kind: 'converted', converter: NEMO_SPEECH_CONVERTER, checkpoint, args: ['--outtype', 'fp16'], file, bytes, sha256 })
+
 const QWEN3_ASR_1_7B = ['ggml-org/Qwen3-ASR-1.7B-GGUF', '36a678687ba7d07a74ca70ccb0e36902e005fb80'] as const
 const QWEN3_ASR_0_6B = ['ggml-org/Qwen3-ASR-0.6B-GGUF', '928ab958557df9aa2ef1c93e0e83c7ad0933fae2'] as const
 
 /**
- * Qwen3-ASR as ggml-org converts it for llama-server, the CrispASR conversions of the NeMo models, and all five in
- * speech.cpp, from the files speech.cpp converts from the models' checkpoints. The ids and labels of the speech.cpp
- * entries name it, so that runs of one model in two runtimes stay apart wherever only the model is shown.
+ * Qwen3-ASR as ggml-org converts it for llama-server, the CrispASR conversions of the NeMo models, all five in
+ * speech.cpp, from the files speech.cpp converts from the models' checkpoints, and two of the NeMo models in
+ * NeMo-Speech.cpp. The ids and labels of the speech.cpp and NeMo-Speech.cpp entries name the runtime, so that runs
+ * of one model in two runtimes stay apart wherever only the model is shown.
  */
 export const ASR_MODELS: readonly AsrModel[] = [
   {
@@ -163,6 +185,34 @@ export const ASR_MODELS: readonly AsrModel[] = [
     runtime: 'speech.cpp',
     decoding: 'greedy',
     files: [REAZONSPEECH_SPEECH_CPP],
+    languages: ['ja'],
+    languageHint: 'none',
+    license: 'Apache-2.0'
+  },
+  {
+    id: 'parakeet-tdt-0.6b-v3-nemo-speech.cpp',
+    label: 'parakeet-tdt-0.6b-v3, NeMo-Speech.cpp F16',
+    runtime: 'nemo-speech.cpp',
+    files: [nemoSpeechF16(
+      model('nvidia/parakeet-tdt-0.6b-v3', '541d1f99c6b0c3cd0b11a95167540bb8edefd82b', 'parakeet-tdt-0.6b-v3.nemo', 2_509_332_480, '3cbdc85877e668ca7b82d0d56770eb1fac76691f55d6b97545e8d61ca588d10d'),
+      'parakeet-tdt-0.6b-v3.f16.gguf', 1_296_681_120, '6e55f55e5b2a141c98a000f24493fba52790e2fd54ef1c4dcfc130601136ebe7'
+    )],
+    languages: PARAKEET_V3_LANGUAGES,
+    languageHint: 'none',
+    license: 'CC-BY-4.0'
+  },
+  // NeMo-Speech.cpp decodes an RNN-T model greedily alone. Its converter (v0.2.0) does not read the checkpoint's
+  // global_tokens of 1, so its encoder attends to the 128 frames on either side of each frame without the global
+  // token the checkpoint has and speech.cpp keeps; on the three longest Japanese FLEURS utterances (26.6 to 28.2 s),
+  // its text was speech.cpp's greedy text to the character (2026-10-08).
+  {
+    id: 'reazonspeech-nemo-v2-nemo-speech.cpp',
+    label: 'ReazonSpeech NeMo v2, NeMo-Speech.cpp F16, greedy',
+    runtime: 'nemo-speech.cpp',
+    files: [nemoSpeechF16(
+      model('reazon-research/reazonspeech-nemo-v2', '33693408be76b7cba9fd4a7546a0a8772430211b', 'reazonspeech-nemo-v2.nemo', 2_477_946_880, 'd196d43ad03466ca88beeda4bf5fafb07bab7202d4b663b8e4f12cb0a4381fae'),
+      'reazonspeech-nemo-v2.f16.gguf', 1_281_776_672, '4b5806fd67f7bf9ff653c43f0343b6923dd88dc5620a64735011d222f8973e0e'
+    )],
     languages: ['ja'],
     languageHint: 'none',
     license: 'Apache-2.0'

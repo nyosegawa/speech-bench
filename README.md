@@ -3,7 +3,7 @@
 Measures local speech recognition and speech synthesis models under one set of conditions, across the runtimes
 they run in and the machines they run on, so that [speech.cpp](https://github.com/nyosegawa/speech.cpp) takes up
 a model on numbers, and a port can be checked against the model it was ported from. It runs pinned releases
-(llama.cpp, CrispASR, speech.cpp, audio.cpp) on macOS with Metal and on Windows with Vulkan. It also makes
+(llama.cpp, CrispASR, speech.cpp, NeMo-Speech.cpp, audio.cpp) on macOS with Metal and on Windows with Vulkan. It also makes
 voices for models that have none built in, from a description and lines in character.
 
 ## Requirements
@@ -11,6 +11,7 @@ voices for models that have none built in, from a description and lines in chara
 - macOS on Apple Silicon, or Windows x64 with a discrete GPU
 - Node.js 22.18 or later (TypeScript runs directly through type stripping)
 - [uv](https://docs.astral.sh/uv/), only for the implementations the adapters run (Irodori-TTS's official one and mlx-audio)
+  and for NeMo-Speech.cpp's converter, and Git, which fetches the converter
 
 ```sh
 npm install
@@ -56,6 +57,9 @@ SPEECH_BENCH_SPEECH_CPP=~/src/speech.cpp/build node src/cli.ts asr --locale ja-J
 SPEECH_BENCH_SPEECH_CPP=~/src/speech.cpp/build node src/cli.ts asr --locale ja-JP \
   --models reazonspeech-nemo-v2-speech.cpp,reazonspeech-nemo-v2-greedy-speech.cpp --set common-voice --count 4483
 
+# parakeet-tdt-0.6b-v3 in speech.cpp and in NVIDIA's NeMo-Speech.cpp, from F16 files of the same checkpoint
+node src/cli.ts asr --locale fr-FR --models parakeet-tdt-0.6b-v3-speech.cpp,parakeet-tdt-0.6b-v3-nemo-speech.cpp --count 100
+
 # Measure on your own utterances, recorded under Record in the web app (see below)
 node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b --set recordings --speaker guest
 
@@ -78,12 +82,14 @@ folder `SPEECH_BENCH_DATA` names.
 ```text
 ~/speech-bench-data/
   models/      model files from Hugging Face, by repository and revision
+  converted/   model files converted from checkpoints, by converter and commit
+  converters/  the converters at their commits and their Python environments
   datasets/    FLEURS transcriptions and audio archives, and the copy of Common Voice 8.0
   fleurs/      the FLEURS recordings unpacked for measuring
   common-voice/ the Common Voice clips decoded to 16 kHz WAVE for measuring
   spellings/   the work directories of annotating accepted spellings
   huggingface/ the annotations of Common Voice as they are uploaded to Hugging Face
-  runtimes/    llama.cpp, CrispASR, speech.cpp and audio.cpp releases
+  runtimes/    llama.cpp, CrispASR, speech.cpp, NeMo-Speech.cpp and audio.cpp releases
   recordings/  your recordings, <locale>/<speaker>/manifest.jsonl
   references/  reference voices made from synthesized takes, <name>.wav and <name>.json
   voice-files/ Irodori-TTS voice files made from the references for speech.cpp, by reference, codec and release
@@ -166,6 +172,14 @@ speech.cpp's worker is reached through its worker protocol 2 (docs/adr/0008): an
 chunk to the text. ReazonSpeech NeMo v2 decodes with its checkpoint's beam search, and
 `reazonspeech-nemo-v2-greedy-speech.cpp` asks every request for greedy decoding, which speech.cpp's main branch
 offers and v0.7.1 does not (docs/adr/0020); a worker whose model does not offer it stops the run before it measures.
+
+parakeet-tdt-0.6b-v3 and ReazonSpeech NeMo v2 also run in NVIDIA's NeMo-Speech.cpp, its `nemo-speech serve` asked
+as CrispASR is, with the utterance whole, batching off and the model's own text (docs/adr/0021). NVIDIA publishes
+parakeet-tdt-0.6b-v3 for it in Q8_0 alone and ReazonSpeech not at all, so the bench converts both checkpoints to F16,
+the weight type of speech.cpp's files, with NeMo-Speech.cpp's converter at the commit of the release it runs: it
+fetches the converter with Git, installs the packages `converters/nemo-speech.cpp/` locks through uv, and keeps the
+file only when its size and sha256 are the ones pinned. NeMo-Speech.cpp decodes an RNN-T model greedily, so its
+ReazonSpeech compares with `reazonspeech-nemo-v2-greedy-speech.cpp`.
 
 Recognition runs of one set, chosen on the web app's runs page, open the transcripts page: what every run heard of
 each utterance, as it was scored, with what it heard for another unit, heard but was not said, and did not hear
@@ -353,6 +367,8 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 | parakeet-tdt-0.6b-v3, parakeet-tdt_ctc-0.6b-ja, ReazonSpeech NeMo v2 in speech.cpp | sakasegawa/parakeet-tdt-0.6b-v3-GGUF, sakasegawa/parakeet-tdt_ctc-0.6b-ja-GGUF and sakasegawa/reazonspeech-nemo-v2-GGUF, one F16 file each, the layout speech.cpp v0.7.0 reads |
 | Qwen3-TTS 0.6B and 1.7B CustomVoice | sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF and sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF, one Q8_0 file each with the F16 codec inside, the layout speech.cpp v0.7.0 reads |
 | Irodori-TTS v4.1 Small, MF and RF | sakasegawa/Irodori-TTS-v4.1-Small-MF-GGUF and sakasegawa/Irodori-TTS-v4.1-Small-GGUF, one F16 file each with the F32 codec inside, the layout speech.cpp v0.7.0 reads |
+| NeMo-Speech.cpp | v0.2.0, `nemo-speech serve` |
+| parakeet-tdt-0.6b-v3 and ReazonSpeech NeMo v2 in NeMo-Speech.cpp | nvidia/parakeet-tdt-0.6b-v3 and reazon-research/reazonspeech-nemo-v2, the `.nemo` checkpoints speech.cpp's files were converted from, converted to F16 by NeMo-Speech.cpp's `convert_model.py` at v0.2.0 (6a3ca369) with the packages of `converters/nemo-speech.cpp/uv.lock`, and pinned by the size and sha256 of the result |
 | audio.cpp | v0.9.0 |
 | Irodori-TTS v4 Small | audio-cpp/audio.cpp-gguf Q8_0 |
 | sherpa-onnx | 1.13.8, the Node addon of its npm packages for macOS arm64 and Windows x64, for speaker embeddings and the VAD; on Windows its ONNX Runtime is renamed so that Windows ML's copy in System32 is not loaded in its place (docs/adr/0018) |

@@ -14,7 +14,7 @@ import type { Synthesis, TtsEngine } from '../engines/tts-engine.ts'
 import { gpuBackend, gpuDevice, machineInfo, platformKey } from '../core/platform.ts'
 import { resultText } from './result-file/file.ts'
 import { RESULT_FORMAT, type SentenceRecord, type TtsRunRecord } from './result-file/format.ts'
-import { prepareAsr } from './run-asr.ts'
+import { modelRecord, prepareAsr } from './run-asr.ts'
 import { runFile, runFolder } from './runs.ts'
 import { AUDIO_CPP, ensureRuntime, ensureSpeechCpp, releaseOf, runtimeTag, type RuntimeIdentity } from '../catalog/runtimes.ts'
 import { adapterCommand, adapterVersion, IRODORI_TTS_ADAPTER, MLX_AUDIO_ADAPTER, syncAdapter } from '../engines/adapter.ts'
@@ -157,7 +157,7 @@ export async function runTts(model: TtsModel, locale: string, sentences: readonl
     startedAt: startedAt.toISOString(),
     machine,
     set: { name: setName, locale, size: sentences.length },
-    model: { id: model.id, label: model.label, license: model.license, files: model.files.map(({ repo, revision, file, sha256 }) => ({ repo, revision, file, sha256 })) },
+    model: modelRecord(model),
     runtime: { ...runtime, options: loadOptions },
     voice,
     seed,
