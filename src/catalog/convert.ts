@@ -94,7 +94,8 @@ export async function ensureConverted(converted: ConvertedFile): Promise<string>
     // NeMo-Speech.cpp's converter writes the output's file name without its extension into the file as its model's
     // name when the checkpoint names none, so the file is made under the name it keeps.
     const output = path.join(work, converted.file)
-    run('uv', ['run', '--frozen', '--no-sync', '--project', projectOf(converter), 'python', path.join(source, converter.script), checkpoint, '--outfile', output, ...converted.args], { cwd: source, env })
+    // --no-sync alone: it implies --frozen, and uv 0.4.24 refuses the two together.
+    run('uv', ['run', '--no-sync', '--project', projectOf(converter), 'python', path.join(source, converter.script), checkpoint, '--outfile', output, ...converted.args], { cwd: source, env })
     const bytes = fs.statSync(output).size
     const sha256 = await sha256Of(output)
     // The converter computes the positional encoding with torch and the mel filterbank with librosa, which can round

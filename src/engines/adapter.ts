@@ -49,6 +49,7 @@ export function syncAdapter(adapter: Adapter): void {
 export const adapterCommand = (adapter: Adapter, name: string, args: readonly string[]): WorkerCommand => ({
   name,
   executable: 'uv',
-  args: ['run', '--frozen', '--no-sync', '--project', folderOf(adapter), 'python', path.join(folderOf(adapter), adapter.script), ...args],
+  // --no-sync alone: it implies --frozen, and uv 0.4.24 refuses the two together.
+  args: ['run', '--no-sync', '--project', folderOf(adapter), 'python', path.join(folderOf(adapter), adapter.script), ...args],
   env: environmentOf(adapter)
 })
