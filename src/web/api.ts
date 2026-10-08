@@ -14,8 +14,11 @@ import type { VoicesPageData } from '../pages/voices.ts'
  * shape it answers with change together, here.
  */
 
-/** GET /api/runs: every run with what it adds up to, and the campaigns it joined. */
-export type RunRow = (AsrSummary | TtsSummary) & { id: string; campaigns: string[] }
+/**
+ * GET /api/runs: every run with what it adds up to, the campaigns it joined, and its runtime in words as the report
+ * writes it.
+ */
+export type RunRow = (AsrSummary | TtsSummary) & { id: string; campaigns: string[]; runtime: string }
 
 /** GET /api/campaigns */
 export type CampaignRow = Omit<Campaign, 'format'>

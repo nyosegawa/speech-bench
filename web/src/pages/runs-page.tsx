@@ -26,11 +26,6 @@ interface Column<R> {
   cell: (row: R) => ReactNode
 }
 
-const runtimeOf = (row: RunRow): string => {
-  const { id, version, build } = row.run.runtime
-  return `${id} ${version}${build === null ? '' : `, ${build.ciRun === null ? 'local' : 'CI'} build ${build.commit.slice(0, 12)}`}`
-}
-
 const optionsOf = (row: RunRow): string => Object.entries(row.run.runtime.options).map(([name, value]) => `${name}=${value}`).join(', ')
 
 function ModelCell({ row }: { row: RunRow }) {
@@ -38,7 +33,7 @@ function ModelCell({ row }: { row: RunRow }) {
   return (
     <div className="min-w-48">
       <div className="font-medium">{row.run.model.label}</div>
-      <div className="text-xs text-muted-foreground" title={options}>{runtimeOf(row)}{options && ' · options'}</div>
+      <div className="text-xs text-muted-foreground" title={options}>{row.runtime}{options && ' · options'}</div>
     </div>
   )
 }
@@ -54,7 +49,7 @@ function MachineCell({ row }: { row: RunRow }) {
 
 const common = {
   started: { key: 'started', label: 'Started', firstDescending: true, value: (row: RunRow) => row.run.startedAt, cell: (row: RunRow) => <span className="whitespace-nowrap tabular-nums">{when(row.run.startedAt)}</span> },
-  model: { key: 'model', label: 'Model', value: (row: RunRow) => `${row.run.model.label} ${runtimeOf(row)}`, cell: (row: RunRow) => <ModelCell row={row} /> },
+  model: { key: 'model', label: 'Model', value: (row: RunRow) => `${row.run.model.label} ${row.runtime}`, cell: (row: RunRow) => <ModelCell row={row} /> },
   set: { key: 'set', label: 'Set', value: (row: RunRow) => row.run.set.name, cell: (row: RunRow) => <span className="whitespace-nowrap">{row.run.set.name}</span> },
   machine: { key: 'machine', label: 'Machine', value: machineOf, cell: (row: RunRow) => <MachineCell row={row} /> }
 }
@@ -102,7 +97,7 @@ const ALL = 'all'
 type Task = RunRow['run']['task']
 
 const matches = (row: RunRow, words: readonly string[]): boolean => {
-  const text = [row.id, row.run.model.id, row.run.model.label, runtimeOf(row), optionsOf(row), machineOf(row), row.run.set.name, ...row.campaigns, isTts(row) ? voiceOf(row) : preparationOf(row)].join(' ').toLowerCase()
+  const text = [row.id, row.run.model.id, row.run.model.label, row.runtime, optionsOf(row), machineOf(row), row.run.set.name, ...row.campaigns, isTts(row) ? voiceOf(row) : preparationOf(row)].join(' ').toLowerCase()
   return words.every((word) => text.includes(word))
 }
 

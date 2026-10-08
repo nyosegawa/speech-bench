@@ -67,6 +67,11 @@ describe('summarize a speech recognition run', () => {
     expect(describeRuntime(runtime)).not.toBe(describeRuntime({ ...runtime, build: { ...runtime.build!, ciRun: null } }))
   })
 
+  it('tells two runs of speech.cpp\'s CI on the same commit apart', () => {
+    const { runtime } = asr(summarize(fixture('v14-asr-ci-build.jsonl'), noSpellings)).run
+    expect(describeRuntime(runtime)).not.toBe(describeRuntime({ ...runtime, build: { ...runtime.build!, ciRun: 37705728431 } }))
+  })
+
   it('reads a run trimmed to the voice, with an utterance in which no voice was found', () => {
     const run = asr(summarize(fixture('v12-asr.jsonl'), noSpellings))
     expect(run.run.audio).toEqual({ edges: 'voice', detector: 'silero-vad-v4', marginSeconds: 0.2 })

@@ -12,8 +12,9 @@ commit is the run's head. The first use downloads the artifact's zip with `gh ap
 the digest GitHub gives, unpacks the one archive inside it, and keeps the build in `runtimes/speech.cpp-ci-<run id>`
 once `speech --version` reports the release number the archive's name gives. A result records that number as the
 runtime's version and `build: { commit, ciRun }` (result format 14, where format 13's `localBuild` becomes `build` with
-`ciRun: null`); the report and the pages write it as `speech.cpp 0.7.1, CI build f5ab84c1710d`. Voice files made by a
-CI build are kept by its run, apart from those of a local build of the same commit.
+`ciRun: null`); the report and the pages write it as `speech.cpp 0.7.1, CI build f5ab84c1710d (run 37705728430)`, so
+that two runs of one commit are told apart. Voice files made by a CI build are kept by its run, apart from those of a
+local build of the same commit.
 
 ## Rejected
 

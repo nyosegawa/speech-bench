@@ -412,7 +412,8 @@ job that packs the system's archive (`windows-vulkan`, or `macos-metal` on a Mac
 builds the merge of the branch into its base rather than the branch's head, so it is refused. The first use downloads
 the artifact, checks its sha256 against the one GitHub gives, unpacks `speech-<version>-windows-x64-vulkan.zip` from it
 into `runtimes/speech.cpp-ci-<run id>` and checks that `speech --version` reports that version. A result records the
-version, the run's commit and the run, and the report writes its runtime as `speech.cpp 0.7.1, CI build f5ab84c1710d`.
+version, the run's commit and the run, and the report writes its runtime as
+`speech.cpp 0.7.1, CI build f5ab84c1710d (run 37705728430)`.
 
 ### A model file before it is published
 
