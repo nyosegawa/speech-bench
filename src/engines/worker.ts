@@ -12,7 +12,7 @@ import { logsDir } from '../core/paths.ts'
 const READY_TIMEOUT_MS = 180_000
 
 /** The version of speech.cpp's worker protocol the bench speaks, which a worker raises when its callers must change. */
-const WORKER_PROTOCOL = 2
+const WORKER_PROTOCOL = 3
 
 /** A protocol message of the worker. Its stdout carries JSON objects alone, so any other line is the worker's defect. */
 export function parseWorkerLine(line: string): Record<string, unknown> {
@@ -50,10 +50,10 @@ function readyModel(ready: Record<string, unknown>): Record<string, unknown> {
 }
 
 /**
- * The messages that answer a request and name it by its id. Protocol 2 may gain messages without being raised,
+ * The messages that answer a request and name it by its id. Protocol 3 may gain messages without being raised,
  * so a message of another type is passed over.
  */
-const ANSWERS = new Set(['chunk', 'partial', 'progress', 'end', 'error', 'cancelled'])
+const ANSWERS = new Set(['chunk', 'progress', 'end', 'error', 'cancelled'])
 
 /** How to start a worker: its executable and arguments. */
 export interface WorkerCommand {
@@ -81,7 +81,7 @@ export function speechWorkerArgs(model: string, device: string, voiceFile: strin
  * the worker's defect and fails every request.
  */
 export interface Answers<T> {
-  /** Takes a `chunk` or a `partial`, which come before the terminal message. */
+  /** Takes a `chunk`, which comes before the terminal message. */
   partway(message: Record<string, unknown>): void
   /** The request's result, from its `end`. */
   end(message: Record<string, unknown>): T
@@ -94,7 +94,7 @@ interface Pending {
 }
 
 /**
- * A process that speaks speech.cpp's worker protocol 2 over JSON Lines, one JSON object per line and nothing else on
+ * A process that speaks speech.cpp's worker protocol 3 over JSON Lines, one JSON object per line and nothing else on
  * stdout: `ready` with the protocol and the model's information once it is loaded, or `fatal`; then for each request
  * the answers that name it by its id, `progress` among them, and one terminal message, `end`, `error` or `cancelled`.
  * speech.cpp's `speech worker` speaks it, and so does any adapter written for a runtime that does not. A line that
@@ -165,7 +165,7 @@ export class WorkerProcess {
     const pending = this.pending.get(id)
     if (!pending) throw new Error(`the worker sent ${type} for request ${id}, which has had its answer or was never sent`)
     if (type === 'progress') return
-    if (type === 'chunk' || type === 'partial') return pending.answers.partway(message)
+    if (type === 'chunk') return pending.answers.partway(message)
     if (type === 'end') {
       // The request stays pending until its end is read, so that an end that breaks the protocol fails it with the rest.
       const result = pending.answers.end(message)

@@ -16,7 +16,7 @@ export interface WorkerRequests {
 }
 
 /**
- * A synthesis model behind speech.cpp's worker protocol 2. Each sentence is a `synthesize` request, answered with
+ * A synthesis model behind speech.cpp's worker protocol 3. Each sentence is a `synthesize` request, answered with
  * `chunk` messages of base64 16-bit PCM numbered from 0, `progress` while it passes no audio, and one terminal
  * message, `end` with the seed and the number of samples sent, `error` or `cancelled`. The first audio is the first
  * chunk read after the request is written.

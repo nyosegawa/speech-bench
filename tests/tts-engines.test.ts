@@ -34,7 +34,7 @@ describe('WorkerTts', () => {
     fs.rmSync(data, { recursive: true, force: true })
   })
 
-  const fakeWorker = (requests: Partial<WorkerRequests> = {}, protocol = '2'): WorkerTts => new WorkerTts(
+  const fakeWorker = (requests: Partial<WorkerRequests> = {}, protocol = '3'): WorkerTts => new WorkerTts(
     {
       name: 'fake',
       executable: process.execPath,

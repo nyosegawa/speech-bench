@@ -1,4 +1,4 @@
-// A worker that speaks speech.cpp's worker protocol 2 for the tests. It reports the protocol and the sample rate its
+// A worker that speaks speech.cpp's worker protocol 3 for the tests. It reports the protocol and the sample rate its
 // environment sets, and answers a synthesis with progress and then, 0.1 s later, chunks of one sample each: the
 // length of the text, the length of the voice, the seed and the steps it was sent, or -1 for one it was not. Some
 // texts make it break the protocol as a defective worker would.
@@ -13,7 +13,7 @@ const sample = (value) => {
 const failure = (code, option, message) => ({ code, option, message })
 
 console.error('loading the model')
-send({ type: 'ready', protocol: Number(process.env.FAKE_WORKER_PROTOCOL ?? 2), version: '0.0.0', model: { task: 'synthesis', sample_rate: Number(process.env.FAKE_WORKER_RATE) } })
+send({ type: 'ready', protocol: Number(process.env.FAKE_WORKER_PROTOCOL ?? 3), version: '0.0.0', model: { task: 'synthesis', sample_rate: Number(process.env.FAKE_WORKER_RATE) } })
 readline.createInterface({ input: process.stdin }).on('line', (line) => {
   const request = JSON.parse(line)
   const { id } = request

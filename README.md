@@ -168,11 +168,11 @@ the ids of the speech.cpp entries end in `-speech.cpp`. speech.cpp's Qwen3-ASR w
 prompt, with its system turn, where llama.cpp's has none and other audio tokens, so that a run of each on one set
 shows what that changes. Both are told the language the same way, as the start of the answer. The NeMo models in
 speech.cpp only check the language they are sent, and parakeet-tdt-0.6b-v3 finds it itself there as in CrispASR.
-speech.cpp's worker is reached through its worker protocol 2 (docs/adr/0008): an utterance goes as chunks of the
+speech.cpp's worker is reached through its worker protocol 3 (docs/adr/0008): an utterance goes as chunks of the
 16-bit samples the servers are sent as a WAVE file, then a request for its text, and the wait runs from the first
 chunk to the text. ReazonSpeech NeMo v2 decodes with its checkpoint's beam search, and
-`reazonspeech-nemo-v2-greedy-speech.cpp` asks every request for greedy decoding, which speech.cpp's main branch
-offers and v0.7.1 does not (docs/adr/0020); a worker whose model does not offer it stops the run before it measures.
+`reazonspeech-nemo-v2-greedy-speech.cpp` asks every request for greedy decoding, which speech.cpp v0.8.0 and later
+offer (docs/adr/0020); a worker whose model does not offer it stops the run before it measures.
 
 parakeet-tdt-0.6b-v3 and ReazonSpeech NeMo v2 also run in NVIDIA's NeMo-Speech.cpp, its `nemo-speech serve` asked
 as CrispASR is, with the utterance whole, batching off and the model's own text (docs/adr/0021). NVIDIA publishes
@@ -251,7 +251,7 @@ the next seed. A seed does not keep the voice:
 Irodori-TTS follows the sentence more than the seed. `--designs` describes the voice in words instead, with the
 descriptions of the voices in `prompts/voices-<locale>.json` (Irodori-TTS's `instruction`), one run for each.
 
-Runtimes run as a process, speech.cpp's worker among them, are reached through speech.cpp's worker protocol 2
+Runtimes run as a process, speech.cpp's worker among them, are reached through speech.cpp's worker protocol 3
 (docs/adr/0008): JSON lines, a request per line, the speech streamed back in base64 16-bit chunks. A worker of
 another protocol, or one that answers a request it was not sent or answers one twice, stops the run. Irodori-TTS
 v4.1 in speech.cpp has no voice of its own and needs `--reference`; the reference goes to the worker as a voice
@@ -363,7 +363,7 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 | Qwen3-ASR 1.7B and 0.6B in llama.cpp | ggml-org Q8_0, each with its audio projector |
 | parakeet-tdt-0.6b-v3, parakeet-tdt_ctc-0.6b-ja, ReazonSpeech NeMo v2 in CrispASR | cstr Q8_0 |
 | FLEURS | google/fleurs at revision 70bb2e84: ja-JP, en-US, fr-FR, de-DE, hi-IN, id-ID, it-IT, ko-KR, pt-BR and es-419 (it has no Spanish of Spain) |
-| speech.cpp | v0.7.1, its one executable `speech`, whose worker runs the synthesis and recognition models and whose `speech voice` makes voice files |
+| speech.cpp | v0.8.2, its one executable `speech`, whose worker runs the synthesis and recognition models and whose `speech voice` makes voice files |
 | Qwen3-ASR 1.7B and 0.6B in speech.cpp | sakasegawa/Qwen3-ASR-1.7B-GGUF and sakasegawa/Qwen3-ASR-0.6B-GGUF, one Q8_0 file each with the audio encoder inside, the layout speech.cpp v0.7.0 reads |
 | parakeet-tdt-0.6b-v3, parakeet-tdt_ctc-0.6b-ja, ReazonSpeech NeMo v2 in speech.cpp | sakasegawa/parakeet-tdt-0.6b-v3-GGUF, sakasegawa/parakeet-tdt_ctc-0.6b-ja-GGUF and sakasegawa/reazonspeech-nemo-v2-GGUF, one F16 file each, the layout speech.cpp v0.7.0 reads |
 | Qwen3-TTS 0.6B and 1.7B CustomVoice | sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF and sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF, one Q8_0 file each with the F16 codec inside, the layout speech.cpp v0.7.0 reads |
@@ -383,11 +383,12 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 
 `SPEECH_BENCH_SPEECH_CPP` names a build of speech.cpp whose `speech` every run then starts in place of the pinned
 release's, to measure a release candidate before it is released: a local build, or a build of speech.cpp's CI.
+The build must speak worker protocol 3, as speech.cpp v0.8.0 and later do.
 
 A local build is named by its CMake build directory (`cmake -B build`, then `cmake --build build --config Release`)
 (docs/adr/0019). The bench refuses a directory that is not a Release build of speech.cpp, and a source with changes
 that are not committed. A result records the release number the build reports and the commit it was built from, and
-the report writes its runtime as `speech.cpp 0.7.1, local build 596b8d83f166`, so that it is not taken for the
+the report writes its runtime as `speech.cpp 0.8.2, local build eacd7865c0d4`, so that it is not taken for the
 release's. Build it just before measuring: the bench cannot tell an executable built before the last `git pull`.
 
 A build of speech.cpp's CI is named as `ci:<run id>`, a run of its workflow `build` (docs/adr/0022), which packs on
@@ -400,7 +401,7 @@ serves artifacts only to a signed-in user. On Windows, in PowerShell:
 gh run list -R nyosegawa/speech.cpp --workflow build
 gh workflow run build -R nyosegawa/speech.cpp --ref <branch>
 
-$env:SPEECH_BENCH_SPEECH_CPP = 'ci:37705728430'
+$env:SPEECH_BENCH_SPEECH_CPP = 'ci:37818860464'
 node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b-speech.cpp --set common-voice --count 100
 
 # Back to the pinned release
@@ -413,7 +414,7 @@ builds the merge of the branch into its base rather than the branch's head, so i
 the artifact, checks its sha256 against the one GitHub gives, unpacks `speech-<version>-windows-x64-vulkan.zip` from it
 into `runtimes/speech.cpp-ci-<run id>` and checks that `speech --version` reports that version. A result records the
 version, the run's commit and the run, and the report writes its runtime as
-`speech.cpp 0.7.1, CI build f5ab84c1710d (run 37705728430)`.
+`speech.cpp 0.8.2, CI build eacd7865c0d4 (run 37818860464)`.
 
 ### A model file before it is published
 

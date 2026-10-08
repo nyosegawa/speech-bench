@@ -6,7 +6,7 @@ import type { WorkerCommand } from './worker.ts'
 
 /**
  * A model's official implementation run in an adapter of the bench's own, `adapters/<id>/`, which speaks
- * speech.cpp's worker protocol 2: a Python project whose lock file pins every package, and the package of the
+ * speech.cpp's worker protocol 3: a Python project whose lock file pins every package, and the package of the
  * implementation, whose pinned commit is the runtime's version.
  */
 export interface Adapter {

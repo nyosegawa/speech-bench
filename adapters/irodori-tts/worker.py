@@ -1,4 +1,4 @@
-"""Irodori-TTS's official PyTorch runtime behind speech.cpp's worker protocol 2, so that the bench measures the
+"""Irodori-TTS's official PyTorch runtime behind speech.cpp's worker protocol 3, so that the bench measures the
 original the way it measures the port.
 
 usage: worker.py --checkpoint model.safetensors --codec weights.pth --device mps|cpu|cuda [--add-voice NAME=FILE]...
@@ -159,7 +159,7 @@ def main():
     except Exception as error:
         send({"type": "fatal", "error": {"code": "model_file", "option": None, "message": str(error)}})
         return 1
-    send({"type": "ready", "protocol": 2, "version": version, "model": model_info(runtime, voices, args.device)})
+    send({"type": "ready", "protocol": 3, "version": version, "model": model_info(runtime, voices, args.device)})
 
     # Each request is answered before the next line is read, so no request is in flight when a line arrives: a
     # cancel names one that has had its answer, and an id is never one in flight.
