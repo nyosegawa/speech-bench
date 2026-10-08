@@ -25,8 +25,13 @@ describe('modelRecord', () => {
     const converted = { kind: 'converted', converter: { id: 'converter', repository: 'https://example.com/converter', commit: 'c0ffee', script: 'convert.py' }, checkpoint: { kind: 'model', repo: 'org/model', revision: 'abc', file: 'model.nemo', bytes: 10, sha256: 'checkpoint' }, args: ['--outtype', 'fp16'], file: 'model.f16.gguf', bytes: 5, sha256: 'converted' } as const
     const downloaded = { kind: 'model', repo: 'org/model-GGUF', revision: 'def', file: 'model-F16.gguf', bytes: 5, sha256: 'downloaded' } as const
     expect(modelRecord({ id: 'model', label: 'Model', license: 'MIT', files: [converted, downloaded] }).files).toEqual([
-      { repo: 'org/model', revision: 'abc', file: 'model.f16.gguf', sha256: 'converted', converter: { repository: 'https://example.com/converter', commit: 'c0ffee', args: ['--outtype', 'fp16'] } },
-      { repo: 'org/model-GGUF', revision: 'def', file: 'model-F16.gguf', sha256: 'downloaded', converter: null }
+      { source: 'huggingface', repo: 'org/model', revision: 'abc', file: 'model.f16.gguf', sha256: 'converted', converter: { repository: 'https://example.com/converter', commit: 'c0ffee', args: ['--outtype', 'fp16'] } },
+      { source: 'huggingface', repo: 'org/model-GGUF', revision: 'def', file: 'model-F16.gguf', sha256: 'downloaded', converter: null }
     ])
+  })
+
+  it('names a local file by its name, size and sha256, as a local file and without the path it was read from', () => {
+    const local = { kind: 'local', path: '/models/quantized/model-Q6_K.gguf', file: 'model-Q6_K.gguf', bytes: 7, sha256: 'local' } as const
+    expect(modelRecord({ id: 'model', label: 'Model', license: 'MIT', files: [local] }).files).toEqual([{ source: 'local', file: 'model-Q6_K.gguf', bytes: 7, sha256: 'local' }])
   })
 })

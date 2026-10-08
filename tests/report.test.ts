@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { formatReport, summarize as summarizeFile, type AsrSummary, type Summary, type TtsSummary } from '../src/measure/report.ts'
+import { describeRuntime, formatReport, summarize as summarizeFile, type AsrSummary, type Summary, type TtsSummary } from '../src/measure/report.ts'
 import { parseResultFile } from '../src/measure/result-file/file.ts'
 import { sentenceKey, type Spellings } from '../src/spellings/files.ts'
 import { parseAnnotated } from '../src/spellings/notation.ts'
@@ -48,10 +48,28 @@ describe('summarize a speech recognition run', () => {
 
   it('names the commit of a local build that ran in place of a release, and reads a run of format 12 as the release\'s', () => {
     const local = asr(summarize(fixture('v13-asr.jsonl'), noSpellings))
+    expect(local.run.runtime.build).toEqual({ commit: '596b8d8c1f2a0000000000000000000000000000', ciRun: null })
     expect(formatReport([local])).toContain('| speech.cpp 0.7.1, local build 596b8d8c1f2a |')
     const released = asr(summarize(fixture('v12-asr.jsonl'), noSpellings))
-    expect(released.run.runtime.localBuild).toBeNull()
+    expect(released.run.runtime.build).toBeNull()
     expect(formatReport([released])).toContain('| crispasr v0.8.38 |')
+  })
+
+  it('reads every file of format 13 as one published on Hugging Face', () => {
+    const run = asr(summarize(fixture('v13-asr-converted.jsonl'), noSpellings)).run
+    expect(run.model.files.map((file) => file.source)).toEqual(['huggingface'])
+  })
+
+  it('tells a build of speech.cpp\'s CI from a local build of the same commit', () => {
+    const { runtime } = asr(summarize(fixture('v14-asr-ci-build.jsonl'), noSpellings)).run
+    expect(runtime.build).toEqual({ commit: 'f5ab84c1710d919ad68293b6ff8897444d832939', ciRun: 37705728430 })
+    expect(describeRuntime(runtime)).toContain('f5ab84c1710d')
+    expect(describeRuntime(runtime)).not.toBe(describeRuntime({ ...runtime, build: { ...runtime.build!, ciRun: null } }))
+  })
+
+  it('tells two runs of speech.cpp\'s CI on the same commit apart', () => {
+    const { runtime } = asr(summarize(fixture('v14-asr-ci-build.jsonl'), noSpellings)).run
+    expect(describeRuntime(runtime)).not.toBe(describeRuntime({ ...runtime, build: { ...runtime.build!, ciRun: 37705728431 } }))
   })
 
   it('reads a run trimmed to the voice, with an utterance in which no voice was found', () => {

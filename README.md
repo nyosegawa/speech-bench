@@ -12,6 +12,7 @@ also makes voices for models that have none built in, from a description and lin
 - Node.js 22.18 or later (TypeScript runs directly through type stripping)
 - [uv](https://docs.astral.sh/uv/), only for the implementations the adapters run (Irodori-TTS's official one and mlx-audio)
   and for NeMo-Speech.cpp's converter, and Git, which fetches the converter
+- [GitHub CLI](https://cli.github.com/), logged in, only to measure a build of speech.cpp's CI
 
 ```sh
 npm install
@@ -89,7 +90,7 @@ folder `SPEECH_BENCH_DATA` names.
   common-voice/ the Common Voice clips decoded to 16 kHz WAVE for measuring
   spellings/   the work directories of annotating accepted spellings
   huggingface/ the annotations of Common Voice as they are uploaded to Hugging Face
-  runtimes/    llama.cpp, CrispASR, speech.cpp, NeMo-Speech.cpp and audio.cpp releases
+  runtimes/    llama.cpp, CrispASR, speech.cpp, NeMo-Speech.cpp and audio.cpp releases, and speech.cpp's CI builds by run
   recordings/  your recordings, <locale>/<speaker>/manifest.jsonl
   references/  reference voices made from synthesized takes, <name>.wav and <name>.json
   voice-files/ Irodori-TTS voice files made from the references for speech.cpp, by reference, codec and release or build
@@ -378,15 +379,68 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 | 3D-Speaker ERes2NetV2 | csukuangfj/speaker-embedding-models, the speaker embedding model |
 | Silero VAD v4 | csukuangfj/vad, which finds the voice of an utterance |
 
-### A local build of speech.cpp
+### A build of speech.cpp before its release
 
-`SPEECH_BENCH_SPEECH_CPP` names a CMake build directory of speech.cpp (`cmake -B build`, then `cmake --build build
---config Release`), whose `speech` every run then starts in place of the pinned release's, to measure a release
-candidate before it is released (docs/adr/0019). The bench refuses a directory that is not a Release build of
-speech.cpp, and a source with changes that are not committed. A result records the release number the build reports
-and the commit it was built from, and the report writes its runtime as `speech.cpp 0.7.1, local build 596b8d83f166`,
-so that it is not taken for the release's. Build it just before measuring: the bench cannot tell an executable built
-before the last `git pull`.
+`SPEECH_BENCH_SPEECH_CPP` names a build of speech.cpp whose `speech` every run then starts in place of the pinned
+release's, to measure a release candidate before it is released: a local build, or a build of speech.cpp's CI.
+
+A local build is named by its CMake build directory (`cmake -B build`, then `cmake --build build --config Release`)
+(docs/adr/0019). The bench refuses a directory that is not a Release build of speech.cpp, and a source with changes
+that are not committed. A result records the release number the build reports and the commit it was built from, and
+the report writes its runtime as `speech.cpp 0.7.1, local build 596b8d83f166`, so that it is not taken for the
+release's. Build it just before measuring: the bench cannot tell an executable built before the last `git pull`.
+
+A build of speech.cpp's CI is named as `ci:<run id>`, a run of its workflow `build` (docs/adr/0022), which packs on
+every run the archive a release publishes. This is how a candidate is measured on a machine with no build environment,
+such as Windows: only [GitHub CLI](https://cli.github.com/), logged in with `gh auth login`, is needed, since GitHub
+serves artifacts only to a signed-in user. On Windows, in PowerShell:
+
+```powershell
+# The runs of the workflow, newest first; take one of a push, or start one on a branch
+gh run list -R nyosegawa/speech.cpp --workflow build
+gh workflow run build -R nyosegawa/speech.cpp --ref <branch>
+
+$env:SPEECH_BENCH_SPEECH_CPP = 'ci:37705728430'
+node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b-speech.cpp --set common-voice --count 100
+
+# Back to the pinned release
+Remove-Item Env:SPEECH_BENCH_SPEECH_CPP
+```
+
+The bench asks GitHub for the run each time, and takes it only when it ran for a push or was started by hand, and its
+job that packs the system's archive (`windows-vulkan`, or `macos-metal` on a Mac) passed. A run of a pull request
+builds the merge of the branch into its base rather than the branch's head, so it is refused. The first use downloads
+the artifact, checks its sha256 against the one GitHub gives, unpacks `speech-<version>-windows-x64-vulkan.zip` from it
+into `runtimes/speech.cpp-ci-<run id>` and checks that `speech --version` reports that version. A result records the
+version, the run's commit and the run, and the report writes its runtime as
+`speech.cpp 0.7.1, CI build f5ab84c1710d (run 37705728430)`.
+
+### A model file before it is published
+
+`--model-file` runs a model file on this machine in place of the one pinned file of the model `--models` names, so
+that a file speech.cpp makes for its next release, such as a weight type it quantizes or a file of a new layout, is
+measured before it is on Hugging Face and compared with the published one (docs/adr/0023). `--model-sha256` names the
+file by its sha256, which the bench checks before every run that uses it. The rest of the model stays as it is: its
+runtime, its decoding or steps and its languages. A result records the file's name, size and sha256 as a local file,
+and the run is kept under an id and label of its own that carry the start of the sha256, such as
+`local Qwen3-ASR-1.7B-Q6_K.gguf (sha256 3c5d2a8e41f0) as qwen3-asr-1.7b-speech.cpp`, so that it is never taken for a
+run of the published file, nor for one of a file made again under the same name.
+
+```sh
+# The Q6_K file of Qwen3-ASR 1.7B that speech.cpp made, in a local build of speech.cpp, beside the published Q8_0
+file=~/src/github.com/nyosegawa/speech.cpp/models/quantized/Qwen3-ASR-1.7B-Q6_K.gguf
+SPEECH_BENCH_SPEECH_CPP=~/src/github.com/nyosegawa/speech.cpp/build node src/cli.ts asr --locale ja-JP \
+  --models qwen3-asr-1.7b-speech.cpp --model-file "$file" --model-sha256 "$(shasum -a 256 "$file" | cut -d ' ' -f 1)" \
+  --set common-voice --count 4483
+
+# Irodori-TTS v4.1 Small MF in layout 2
+file=~/src/github.com/nyosegawa/speech.cpp/models/layout-2/Irodori-TTS-866M-MF-v4.1-F16.gguf
+SPEECH_BENCH_SPEECH_CPP=~/src/github.com/nyosegawa/speech.cpp/build node src/cli.ts tts --locale ja-JP \
+  --models irodori-tts-v4.1-small-mf --model-file "$file" --model-sha256 "$(shasum -a 256 "$file" | cut -d ' ' -f 1)" \
+  --reference voice-bright-young-woman --seeds 1
+```
+
+On Windows, `(Get-FileHash <file>).Hash` gives the sha256.
 
 ## Development
 

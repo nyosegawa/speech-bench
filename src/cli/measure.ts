@@ -1,5 +1,7 @@
 import { parseArgs } from 'node:util'
 import { ASR_MODELS, asrModel, SPEAKER_MODEL, TTS_MODELS, ttsModel } from '../catalog/models.ts'
+import { localFile, withLocalFile } from '../catalog/local-file.ts'
+import type { ModelFile } from '../catalog/model-file.ts'
 import { analyzeRun } from '../analysis/run-analysis.ts'
 import { SpeakerEmbedder } from '../engines/speaker-embedding.ts'
 import { fleursLocales, fleursTestSet } from '../datasets/fleurs.ts'
@@ -40,6 +42,18 @@ function audioPreparation(edges: string | undefined, margin: string | undefined,
   throw new Error('--edges is voice or as-recorded')
 }
 
+/**
+ * The models `--models` names, or the one it names with the file `--model-file` names in place of its pinned file,
+ * which must have the sha256 `--model-sha256` gives.
+ */
+export function modelsNamed<M extends { id: string; label: string; files: readonly ModelFile[] }>(ids: string, find: (id: string) => M, file: string | undefined, sha256: string | undefined): M[] {
+  const models = ids.split(',').map((id) => find(id.trim()))
+  if (file === undefined && sha256 === undefined) return models
+  if (file === undefined || sha256 === undefined) throw new Error('--model-file and --model-sha256 go together: a model file on this machine and the sha256 it must have')
+  if (models.length !== 1) throw new Error(`--model-file takes the place of the file of one model, and --models names ${models.length}`)
+  return [withLocalFile(models[0]!, localFile(file, sha256))]
+}
+
 /** The result files a command reads: those named, those of a campaign, or every run. */
 export function runFilesOf(named: readonly string[], campaign: string | undefined): string[] {
   if (campaign === undefined) return named.length > 0 ? [...named] : allRunFiles()
@@ -71,13 +85,15 @@ export async function asr(args: string[]): Promise<void> {
       edges: { type: 'string', default: 'voice' },
       margin: { type: 'string' },
       'trailing-silence': { type: 'string' },
-      campaign: { type: 'string' }
+      campaign: { type: 'string' },
+      'model-file': { type: 'string' },
+      'model-sha256': { type: 'string' }
     }
   })
   const locale = values.locale
   if (!locale || !isLanguageTag(locale)) throw new Error('--locale is a BCP 47 tag such as ja-JP or en-US')
   if (!values.models) throw new Error('--models names one or more models, separated by commas')
-  const models = values.models.split(',').map((id) => asrModel(id.trim()))
+  const models = modelsNamed(values.models, asrModel, values['model-file'], values['model-sha256'])
   const audio = audioPreparation(values.edges, values.margin, values['trailing-silence'])
   let set: UtteranceSet
   if (values.set === 'fleurs') {
@@ -121,13 +137,15 @@ export async function tts(args: string[]): Promise<void> {
       'duration-scale': { type: 'string' },
       sentences: { type: 'string' },
       only: { type: 'string' },
-      campaign: { type: 'string' }
+      campaign: { type: 'string' },
+      'model-file': { type: 'string' },
+      'model-sha256': { type: 'string' }
     }
   })
   const locale = values.locale
   if (!locale || !isLanguageTag(locale)) throw new Error('--locale is a BCP 47 tag such as ja-JP or en-US')
   if (!values.models) throw new Error('--models names one or more synthesis models, separated by commas')
-  const models = values.models.split(',').map((id) => ttsModel(id.trim()))
+  const models = modelsNamed(values.models, ttsModel, values['model-file'], values['model-sha256'])
   const seeds = values.seeds === undefined ? [null] : seedList(values.seeds)
   const designs = values.designs === undefined ? [null] : loadDesigns(locale, values.designs.split(',').map((id) => id.trim()))
   const reference = values.reference === undefined ? null : await loadReference(values.reference)

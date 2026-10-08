@@ -9,7 +9,8 @@ The bench takes the directory only when its `CMakeCache.txt` names the project `
 (speech.cpp builds Release when the type is left empty), the source the cache names is a git checkout whose tracked
 files have no changes that are not committed, and `speech --version` prints speech.cpp's version. A result records
 the release number the build reports as the runtime's version and the commit of its source as `localBuild` (result
-format 13); a run of a release has no local build, and every run of format 12 ran a release. The report and the
+format 13; `build` with `ciRun: null` from format 14, docs/adr/0022); a run of a release has no local build, and every
+run of format 12 ran a release. The report and the
 pages write such a runtime as `speech.cpp 0.7.1, local build 596b8d83f166`. Voice files made by a local build are
 kept by its release number and commit, apart from the release's.
 

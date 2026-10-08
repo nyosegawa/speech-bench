@@ -10,10 +10,10 @@ import { spellings } from './cli/spellings.ts'
 const USAGE = `usage:
   node src/cli.ts models
   node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b,parakeet-tdt_ctc-0.6b-ja [--set fleurs|common-voice [--count 100] | --set recordings --speaker name]
-      [--edges voice [--margin 0.2] | --edges as-recorded [--trailing-silence 0]] [--campaign name]
+      [--edges voice [--margin 0.2] | --edges as-recorded [--trailing-silence 0]] [--campaign name] [--model-file file.gguf --model-sha256 hex]
   node src/cli.ts tts --locale ja-JP --models qwen3-tts-0.6b,irodori-tts-v4-small-q8_0 [--voice ono_anna] [--seeds 1,2,3]
       [--designs young-woman-caption,young-man-caption] [--reference name] [--duration-scale 0.5] [--sentences sentences.json] [--only aizuchi-hai,reply-weather]
-      [--campaign name]
+      [--campaign name] [--model-file file.gguf --model-sha256 hex]
   node src/cli.ts report [--campaign name | run.jsonl ...]
   node src/cli.ts analyze [--campaign name | run.jsonl ...]
   node src/cli.ts web [--port 5280]

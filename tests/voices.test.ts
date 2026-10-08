@@ -17,7 +17,7 @@ function run(reference: string, seed: number, embeddings: number[][], options: {
     seed, reference: { name: reference, sha256: '0', seconds: 10 }, durationScale: options.durationScale ?? null,
     model: { id: 'irodori', label: 'Irodori', license: 'MIT', files: [] },
     machine: { platform: 'win32-x64', hostname: 'pc', os: 'Windows 11', cpu: 'Intel Core i9-9900K', memoryGb: 32, gpus: ['RTX 2080'] },
-    runtime: { id: 'audio.cpp', version: 'v1', localBuild: null, options: {} }
+    runtime: { id: 'audio.cpp', version: 'v1', build: null, options: {} }
   })
   const sentences: SentenceRecord[] = embeddings.map((_, index) => ({
     type: 'sentence', id: `s${index}`, kind: 'reply', text: 'はい、わかりました。', audio: `s${index}.wav`, audioSeconds: 2, firstAudioSeconds: 0.5, totalSeconds: 1,

@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { downloadVerified, extractArchive } from './download.ts'
+import { ciRunOf, ensureSpeechCppCiBuild } from './ci-build.ts'
 import { readSpeechCppBuild, SPEECH_CPP_BUILD_VARIABLE } from './local-build.ts'
 import { renameImport } from './pe.ts'
 import { runtimesDir } from '../core/paths.ts'
@@ -27,19 +28,20 @@ export interface RuntimeSpec {
 
 /**
  * The runtime a run ran, as its result records it: the id and version of a pinned release, or the release number a
- * local build reports with the commit it was built from.
+ * build that ran in place of it reports, with the commit it was built from and the run of speech.cpp's CI that built
+ * it, null for one built on the machine.
  */
 export interface RuntimeIdentity {
   id: string
   version: string
-  localBuild: { commit: string } | null
+  build: { commit: string; ciRun: number | null } | null
 }
 
-export const releaseOf = (spec: Pick<RuntimeSpec, 'id' | 'version'>): RuntimeIdentity => ({ id: spec.id, version: spec.version, localBuild: null })
+export const releaseOf = (spec: Pick<RuntimeSpec, 'id' | 'version'>): RuntimeIdentity => ({ id: spec.id, version: spec.version, build: null })
 
-/** A name of what ran that changes with it: the release, or the release number and commit of a local build. */
-export const runtimeTag = (runtime: RuntimeIdentity): string =>
-  runtime.localBuild === null ? runtime.version : `${runtime.version}-${runtime.localBuild.commit.slice(0, 12)}`
+/** A name of what ran that changes with it: the release, or the release number, commit and CI run of a build. */
+export const runtimeTag = ({ version, build }: RuntimeIdentity): string =>
+  build === null ? version : `${version}-${build.commit.slice(0, 12)}${build.ciRun === null ? '' : `-ci${build.ciRun}`}`
 
 /** The llama.cpp release Qwen3-ASR is measured in. */
 export const LLAMA_CPP: RuntimeSpec = {
@@ -104,14 +106,15 @@ export const SPEECH_CPP: RuntimeSpec = {
 }
 
 /**
- * speech.cpp's executable and what a run records of it: the pinned release, or the local build that
- * SPEECH_BENCH_SPEECH_CPP names, checked again for each run.
+ * speech.cpp's executable and what a run records of it: the pinned release, or the build that SPEECH_BENCH_SPEECH_CPP
+ * names, a local build directory or a run of speech.cpp's CI, checked again for each run.
  */
 export async function ensureSpeechCpp(): Promise<{ executable: string; runtime: RuntimeIdentity }> {
-  const directory = process.env[SPEECH_CPP_BUILD_VARIABLE]?.trim()
-  if (!directory) return { executable: await ensureRuntime(SPEECH_CPP), runtime: releaseOf(SPEECH_CPP) }
-  const build = readSpeechCppBuild(directory, platformKey())
-  return { executable: build.executable, runtime: { id: SPEECH_CPP.id, version: build.version, localBuild: { commit: build.commit } } }
+  const named = process.env[SPEECH_CPP_BUILD_VARIABLE]?.trim()
+  if (!named) return { executable: await ensureRuntime(SPEECH_CPP), runtime: releaseOf(SPEECH_CPP) }
+  const ciRun = ciRunOf(named)
+  const build = ciRun === null ? readSpeechCppBuild(named, platformKey()) : await ensureSpeechCppCiBuild(ciRun, platformKey())
+  return { executable: build.executable, runtime: { id: SPEECH_CPP.id, version: build.version, build: { commit: build.commit, ciRun } } }
 }
 
 const NEMO_SPEECH_RELEASE = 'https://github.com/NVIDIA/NeMo-Speech.cpp/releases/download/v0.2.0'

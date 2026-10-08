@@ -23,22 +23,29 @@ export type NewPreparation = z.infer<(typeof newPreparations)[number]>
 const audioPreparation = z.discriminatedUnion('edges', [...newPreparations, z.strictObject({ edges: z.literal('energy-vad'), hangoverMs: z.number() })])
 export type AudioPreparation = z.infer<typeof audioPreparation>
 
-/** The pinned files a run used, so that a result names exactly what it measured. */
+/** A file downloaded from Hugging Face, or made from a checkpoint there. */
+const publishedFile = z.strictObject({
+  source: z.literal('huggingface'),
+  repo: z.string(),
+  revision: z.string(),
+  file: z.string(),
+  sha256: z.string(),
+  /**
+   * The converter that made the file from the checkpoint at `repo` and `revision`, at its commit with its arguments,
+   * or null for a file downloaded from there as it is.
+   */
+  converter: z.strictObject({ repository: z.string(), commit: z.string(), args: z.array(z.string()) }).nullable().default(null)
+})
+
+/** A file on the machine that was not published, run in place of an entry's pinned file. */
+const localFile = z.strictObject({ source: z.literal('local'), file: z.string(), bytes: z.int(), sha256: z.string() })
+
+/** The files a run used, so that a result names exactly what it measured. */
 const modelRecord = z.strictObject({
   id: z.string(),
   label: z.string(),
   license: z.string(),
-  files: z.array(z.strictObject({
-    repo: z.string(),
-    revision: z.string(),
-    file: z.string(),
-    sha256: z.string(),
-    /**
-     * The converter that made the file from the checkpoint at `repo` and `revision`, at its commit with its arguments,
-     * or null for a file downloaded from there as it is.
-     */
-    converter: z.strictObject({ repository: z.string(), commit: z.string(), args: z.array(z.string()) }).nullable().default(null)
-  }))
+  files: z.array(z.discriminatedUnion('source', [publishedFile, localFile]))
 })
 export type ModelRecord = z.infer<typeof modelRecord>
 
@@ -59,10 +66,13 @@ const runCommon = {
   /** The runtime and the options it was loaded with, which can change what it produces. */
   runtime: z.strictObject({
     id: z.string(),
-    /** The pinned release, or the release number a local build reports. */
+    /** The pinned release, or the release number a build that ran in place of it reports. */
     version: z.string(),
-    /** The commit a local build that ran in place of the release was built from, or null for the release. */
-    localBuild: z.strictObject({ commit: z.string() }).nullable().default(null),
+    /**
+     * A build that ran in place of the release, by the commit it was built from and the run of speech.cpp's CI that
+     * built it, null for one built on the machine; null for the release.
+     */
+    build: z.strictObject({ commit: z.string(), ciRun: z.int().nullable() }).nullable(),
     options: z.record(z.string(), z.string())
   }),
   /** From starting the process to its being ready: loading the model and, on the first run, compiling GPU kernels. */

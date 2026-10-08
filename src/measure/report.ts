@@ -115,9 +115,15 @@ export function describeAudio(audio: AudioPreparation): string {
   return `cut by an energy VAD, hangover ${audio.hangoverMs} ms`
 }
 
-/** The runtime of a run in words, with the commit of a local build, so that its run is not taken for the release's. */
-export const describeRuntime = ({ id, version, localBuild }: RunRecord['runtime']): string =>
-  `${id} ${version}${localBuild === null ? '' : `, local build ${localBuild.commit.slice(0, 12)}`}`
+/**
+ * The runtime of a run in words, with the commit of a build that ran in place of the release and where it was built,
+ * the CI run among them, so that its run is taken neither for the release's nor for another build's of the commit.
+ */
+export const describeRuntime = ({ id, version, build }: RunRecord['runtime']): string => {
+  if (build === null) return `${id} ${version}`
+  const commit = build.commit.slice(0, 12)
+  return build.ciRun === null ? `${id} ${version}, local build ${commit}` : `${id} ${version}, CI build ${commit} (run ${build.ciRun})`
+}
 
 /** The GPU the models ran on, which on a Mac is the chip that also names the CPU. */
 const machineOf = (summary: Summary): string => `${summary.run.machine.gpus.join(' + ')}, ${summary.run.machine.os}`

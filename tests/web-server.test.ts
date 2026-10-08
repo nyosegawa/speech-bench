@@ -38,9 +38,9 @@ function rawRequest(route: string, options: { method?: string; headers: Record<s
   })
 }
 
-function writeRun(id: string): void {
+function writeRun(id: string, text = fs.readFileSync(path.join(import.meta.dirname, 'fixtures', 'result-file', 'v12-tts.jsonl'), 'utf8')): void {
   fs.mkdirSync(path.dirname(runFile(id)), { recursive: true })
-  fs.copyFileSync(path.join(import.meta.dirname, 'fixtures', 'result-file', 'v12-tts.jsonl'), runFile(id))
+  fs.writeFileSync(runFile(id), text)
   fs.writeFileSync(path.join(path.dirname(runFile(id)), 'take.wav'), take)
 }
 
@@ -51,6 +51,14 @@ describe('the web server', () => {
     joinCampaign('voices', 'tts-b')
     const rows = (await (await fetch(`${server.url}api/runs`)).json()) as RunRow[]
     expect(rows.map((row) => [row.id, row.campaigns])).toEqual([['tts-a', []], ['tts-b', ['voices']]])
+  })
+
+  it('names the runtime of two runs of speech.cpp\'s CI on one commit apart', async () => {
+    const ciBuild = fs.readFileSync(path.join(import.meta.dirname, 'fixtures', 'result-file', 'v14-asr-ci-build.jsonl'), 'utf8')
+    writeRun('asr-a', ciBuild)
+    writeRun('asr-b', ciBuild.replace('"ciRun": 37705728430', '"ciRun": 37705728431'))
+    const rows = (await (await fetch(`${server.url}api/runs`)).json()) as RunRow[]
+    expect(new Set(rows.map((row) => row.runtime)).size).toBe(2)
   })
 
   it('serves the audio of the data folder and nothing outside it or other than audio', async () => {

@@ -1,4 +1,5 @@
-import type { ConvertedFile, Converter, ModelFile } from './convert.ts'
+import type { ConvertedFile, Converter } from './convert.ts'
+import type { ModelFile } from './model-file.ts'
 import type { PinnedFile } from './store.ts'
 import { tagCovers } from '../core/language.ts'
 
@@ -258,7 +259,7 @@ export type TtsRuntime =
 export type TtsModel = TtsRuntime & {
   id: string
   label: string
-  files: readonly PinnedFile[]
+  files: readonly ModelFile[]
   languages: readonly string[]
   /** Empty when the model has no voice built in and takes a reference or makes one up. */
   voices: readonly TtsVoice[]
