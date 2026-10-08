@@ -11,7 +11,8 @@ whole, as it asks CrispASR, timed from sending the request to reading the answer
   converted from, with NeMo-Speech.cpp's `convert_model.py --outtype fp16` at the commit of v0.2.0, the release it
   runs: Git fetches the converter by its commit, uv installs the packages `converters/nemo-speech.cpp/uv.lock` pins,
   and the file is kept only when its size and sha256 are the ones the catalog pins for the platform that converted it
-  (`darwin-arm64`, `win32-x64`). A result records the sha256 of the file it measured.
+  (`darwin-arm64`, `win32-x64`), in a folder named by that sha256, so that a file made elsewhere is never taken for
+  it. A result records the sha256 of the file it measured.
   NeMo-Speech.cpp's own guide names F16 for Apple silicon and older GPUs, which the M5 and the RTX 2080 are.
 - **Batching off.** `nemo-speech serve` batches the work of concurrent requests by default and waits up to 5 ms at
   each neural stage for more; the bench sends one request at a time and turns it off (`asr.batching.enabled=false`),

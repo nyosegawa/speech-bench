@@ -50,9 +50,15 @@ export function convertedSha256(converted: ConvertedFile): string {
 const projectOf = (converter: Converter): string => path.join(import.meta.dirname, '..', '..', 'converters', converter.id)
 const convertersDir = (): string => path.join(dataDir(), 'converters')
 
-/** Where a converted file is kept: one folder per converter and commit. */
+const conversionsDir = (converted: ConvertedFile): string =>
+  path.join(dataDir(), 'converted', `${converted.converter.id}-${converted.converter.commit.slice(0, 12)}`)
+
+/**
+ * Where a converted file is kept: one folder per converter and commit, and in it one per sha256 that this platform pins,
+ * into which only a file of those bytes is moved, so that a file made on another platform is never taken for it.
+ */
 export const convertedPath = (converted: ConvertedFile): string =>
-  path.join(dataDir(), 'converted', `${converted.converter.id}-${converted.converter.commit.slice(0, 12)}`, converted.file)
+  path.join(conversionsDir(converted), convertedSha256(converted).slice(0, 16), converted.file)
 
 /** Runs a command to its end and returns its stdout, failing with what it wrote. */
 function run(command: string, args: readonly string[], options: { cwd?: string; env?: Readonly<Record<string, string>> } = {}): string {
@@ -94,8 +100,9 @@ function ensureConverterSource(converter: Converter): string {
  * when its size and sha256 are the pinned ones.
  */
 export async function ensureConverted(converted: ConvertedFile): Promise<string> {
-  const target = convertedPath(converted)
-  if (fs.existsSync(target)) return target
+  const pinned = converted.sha256[platform()]
+  const target = pinned === undefined ? null : convertedPath(converted)
+  if (target !== null && fs.existsSync(target)) return target
   const { converter } = converted
   const checkpoint = await ensurePinned(converted.checkpoint)
   const source = ensureConverterSource(converter)
@@ -103,8 +110,8 @@ export async function ensureConverted(converted: ConvertedFile): Promise<string>
   process.stderr.write(`  installing the Python packages of the ${converter.id} converter, once\n`)
   run('uv', ['sync', '--frozen', '--project', projectOf(converter)], { env })
   process.stderr.write(`  converting ${converted.checkpoint.repo} to ${converted.file} with ${converter.id} ${converter.commit.slice(0, 12)}\n`)
-  fs.mkdirSync(path.dirname(target), { recursive: true })
-  const work = fs.mkdtempSync(path.join(path.dirname(target), '.work-'))
+  fs.mkdirSync(conversionsDir(converted), { recursive: true })
+  const work = fs.mkdtempSync(path.join(conversionsDir(converted), '.work-'))
   try {
     // NeMo-Speech.cpp's converter writes the output's file name without its extension into the file as its model's
     // name when the checkpoint names none, so the file is made under the name it keeps.
@@ -113,13 +120,13 @@ export async function ensureConverted(converted: ConvertedFile): Promise<string>
     run('uv', ['run', '--no-sync', '--project', projectOf(converter), 'python', path.join(source, converter.script), checkpoint, '--outfile', output, ...converted.args], { cwd: source, env })
     const bytes = fs.statSync(output).size
     const sha256 = await sha256Of(output)
-    const pinned = converted.sha256[platform()]
-    if (pinned === undefined) {
+    if (pinned === undefined || target === null) {
       throw new Error(`converting ${checkpoint} with ${converter.id} ${converter.commit.slice(0, 12)} made ${converted.file} of ${bytes} bytes with sha256 ${sha256}, and no sha256 is pinned for ${platform()}; pin this one if the run should measure it`)
     }
     if (bytes !== converted.bytes || sha256 !== pinned) {
       throw new Error(`converting ${checkpoint} with ${converter.id} ${converter.commit.slice(0, 12)} made ${converted.file} of ${bytes} bytes with sha256 ${sha256}, not the ${converted.bytes} bytes with ${pinned} pinned for ${platform()}; the bench measures only the pinned file`)
     }
+    fs.mkdirSync(path.dirname(target), { recursive: true })
     fs.renameSync(output, target)
   } finally {
     fs.rmSync(work, { recursive: true, force: true })
