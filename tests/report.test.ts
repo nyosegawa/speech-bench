@@ -55,6 +55,11 @@ describe('summarize a speech recognition run', () => {
     expect(formatReport([released])).toContain('| crispasr v0.8.38 |')
   })
 
+  it('reads every file of format 13 as one published on Hugging Face', () => {
+    const run = asr(summarize(fixture('v13-asr-converted.jsonl'), noSpellings)).run
+    expect(run.model.files.map((file) => file.source)).toEqual(['huggingface'])
+  })
+
   it('tells a build of speech.cpp\'s CI from a local build of the same commit', () => {
     const { runtime } = asr(summarize(fixture('v14-asr-ci-build.jsonl'), noSpellings)).run
     expect(runtime.build).toEqual({ commit: 'f5ab84c1710d919ad68293b6ff8897444d832939', ciRun: 37705728430 })

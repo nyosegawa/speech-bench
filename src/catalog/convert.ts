@@ -32,9 +32,6 @@ export interface ConvertedFile {
   sha256: string
 }
 
-/** A model file the bench downloads as it is, or makes from a checkpoint. */
-export type ModelFile = PinnedFile | ConvertedFile
-
 const projectOf = (converter: Converter): string => path.join(import.meta.dirname, '..', '..', 'converters', converter.id)
 const convertersDir = (): string => path.join(dataDir(), 'converters')
 
@@ -111,6 +108,3 @@ export async function ensureConverted(converted: ConvertedFile): Promise<string>
   }
   return target
 }
-
-/** The local path of a model file, downloading or converting it first when it is not there. */
-export const ensureModelFile = (file: ModelFile): Promise<string> => (file.kind === 'converted' ? ensureConverted(file) : ensurePinned(file))

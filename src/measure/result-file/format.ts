@@ -23,22 +23,29 @@ export type NewPreparation = z.infer<(typeof newPreparations)[number]>
 const audioPreparation = z.discriminatedUnion('edges', [...newPreparations, z.strictObject({ edges: z.literal('energy-vad'), hangoverMs: z.number() })])
 export type AudioPreparation = z.infer<typeof audioPreparation>
 
-/** The pinned files a run used, so that a result names exactly what it measured. */
+/** A file downloaded from Hugging Face, or made from a checkpoint there. */
+const publishedFile = z.strictObject({
+  source: z.literal('huggingface'),
+  repo: z.string(),
+  revision: z.string(),
+  file: z.string(),
+  sha256: z.string(),
+  /**
+   * The converter that made the file from the checkpoint at `repo` and `revision`, at its commit with its arguments,
+   * or null for a file downloaded from there as it is.
+   */
+  converter: z.strictObject({ repository: z.string(), commit: z.string(), args: z.array(z.string()) }).nullable().default(null)
+})
+
+/** A file on the machine that was not published, run in place of an entry's pinned file. */
+const localFile = z.strictObject({ source: z.literal('local'), file: z.string(), bytes: z.int(), sha256: z.string() })
+
+/** The files a run used, so that a result names exactly what it measured. */
 const modelRecord = z.strictObject({
   id: z.string(),
   label: z.string(),
   license: z.string(),
-  files: z.array(z.strictObject({
-    repo: z.string(),
-    revision: z.string(),
-    file: z.string(),
-    sha256: z.string(),
-    /**
-     * The converter that made the file from the checkpoint at `repo` and `revision`, at its commit with its arguments,
-     * or null for a file downloaded from there as it is.
-     */
-    converter: z.strictObject({ repository: z.string(), commit: z.string(), args: z.array(z.string()) }).nullable().default(null)
-  }))
+  files: z.array(z.discriminatedUnion('source', [publishedFile, localFile]))
 })
 export type ModelRecord = z.infer<typeof modelRecord>
 

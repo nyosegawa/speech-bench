@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { modelCovers, VAD_MODEL, type AsrModel } from '../catalog/models.ts'
 import type { UtteranceSet } from '../datasets/item.ts'
-import { ensureModelFile, type ModelFile } from '../catalog/convert.ts'
+import { ensureModelFile, type ModelFile } from '../catalog/model-file.ts'
 import { CrispAsr } from '../engines/crispasr.ts'
 import type { AsrEngine } from '../engines/engine.ts'
 import { LlamaServerAsr } from '../engines/llama-server.ts'
@@ -56,11 +56,17 @@ export async function prepareAsr(model: AsrModel): Promise<{ engine: AsrEngine; 
 
 /**
  * A model's files as a result records them: the repository and revision of a download, or of the checkpoint a
- * converted file was made from with the converter that made it, and the sha256 of the file the runtime loaded.
+ * converted file was made from with the converter that made it, or the name and size of a local file, and the sha256
+ * of the file the runtime loaded.
  */
-const fileRecord = (file: ModelFile): ModelRecord['files'][number] => file.kind === 'converted'
-  ? { repo: file.checkpoint.repo, revision: file.checkpoint.revision, file: file.file, sha256: file.sha256, converter: { repository: file.converter.repository, commit: file.converter.commit, args: [...file.args] } }
-  : { repo: file.repo, revision: file.revision, file: file.file, sha256: file.sha256, converter: null }
+function fileRecord(file: ModelFile): ModelRecord['files'][number] {
+  if (file.kind === 'local') return { source: 'local', file: file.file, bytes: file.bytes, sha256: file.sha256 }
+  if (file.kind === 'converted') {
+    const { checkpoint, converter } = file
+    return { source: 'huggingface', repo: checkpoint.repo, revision: checkpoint.revision, file: file.file, sha256: file.sha256, converter: { repository: converter.repository, commit: converter.commit, args: [...file.args] } }
+  }
+  return { source: 'huggingface', repo: file.repo, revision: file.revision, file: file.file, sha256: file.sha256, converter: null }
+}
 
 /** The model as a result records it. */
 export const modelRecord = (model: { id: string; label: string; license: string; files: readonly ModelFile[] }): ModelRecord =>

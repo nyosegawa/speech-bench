@@ -409,10 +409,36 @@ Remove-Item Env:SPEECH_BENCH_SPEECH_CPP
 
 The bench asks GitHub for the run each time, and takes it only when it ran for a push or was started by hand, and its
 job that packs the system's archive (`windows-vulkan`, or `macos-metal` on a Mac) passed. A run of a pull request
-builds the merge of the branch into its base rather than the branch's head, so it is refused. The first use downloads the
-artifact, checks its sha256 against the one GitHub gives, unpacks `speech-<version>-windows-x64-vulkan.zip` from it into
-`runtimes/speech.cpp-ci-<run id>` and checks that `speech --version` reports that version. A result records the version,
-the run's commit and the run, and the report writes its runtime as `speech.cpp 0.7.1, CI build f5ab84c1710d`.
+builds the merge of the branch into its base rather than the branch's head, so it is refused. The first use downloads
+the artifact, checks its sha256 against the one GitHub gives, unpacks `speech-<version>-windows-x64-vulkan.zip` from it
+into `runtimes/speech.cpp-ci-<run id>` and checks that `speech --version` reports that version. A result records the
+version, the run's commit and the run, and the report writes its runtime as `speech.cpp 0.7.1, CI build f5ab84c1710d`.
+
+### A model file before it is published
+
+`--model-file` runs a model file on this machine in place of the one pinned file of the model `--models` names, so
+that a file speech.cpp makes for its next release, such as a weight type it quantizes or a file of a new layout, is
+measured before it is on Hugging Face and compared with the published one (docs/adr/0023). `--model-sha256` names the
+file by its sha256, which the bench checks before every run that uses it. The rest of the model stays as it is: its
+runtime, its decoding or steps and its languages. A result records the file's name, size and sha256 as a local file,
+and the run is kept under an id and label of its own, such as `local Qwen3-ASR-1.7B-Q6_K.gguf as
+qwen3-asr-1.7b-speech.cpp`, so that it is never taken for a run of the published file.
+
+```sh
+# The Q6_K file of Qwen3-ASR 1.7B that speech.cpp made, in a local build of speech.cpp, beside the published Q8_0
+file=~/src/github.com/nyosegawa/speech.cpp/models/quantized/Qwen3-ASR-1.7B-Q6_K.gguf
+SPEECH_BENCH_SPEECH_CPP=~/src/github.com/nyosegawa/speech.cpp/build node src/cli.ts asr --locale ja-JP \
+  --models qwen3-asr-1.7b-speech.cpp --model-file "$file" --model-sha256 "$(shasum -a 256 "$file" | cut -d ' ' -f 1)" \
+  --set common-voice --count 4483
+
+# Irodori-TTS v4.1 Small MF in layout 2
+file=~/src/github.com/nyosegawa/speech.cpp/models/layout-2/Irodori-TTS-866M-MF-v4.1-F16.gguf
+SPEECH_BENCH_SPEECH_CPP=~/src/github.com/nyosegawa/speech.cpp/build node src/cli.ts tts --locale ja-JP \
+  --models irodori-tts-v4.1-small-mf --model-file "$file" --model-sha256 "$(shasum -a 256 "$file" | cut -d ' ' -f 1)" \
+  --reference voice-bright-young-woman --seeds 1
+```
+
+On Windows, `(Get-FileHash <file>).Hash` gives the sha256.
 
 ## Development
 

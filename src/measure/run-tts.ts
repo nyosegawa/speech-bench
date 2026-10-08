@@ -18,7 +18,7 @@ import { modelRecord, prepareAsr } from './run-asr.ts'
 import { runFile, runFolder } from './runs.ts'
 import { AUDIO_CPP, ensureRuntime, ensureSpeechCpp, releaseOf, runtimeTag, type RuntimeIdentity } from '../catalog/runtimes.ts'
 import { adapterCommand, adapterVersion, IRODORI_TTS_ADAPTER, MLX_AUDIO_ADAPTER, syncAdapter } from '../engines/adapter.ts'
-import { ensurePinned } from '../catalog/store.ts'
+import { ensureModelFile } from '../catalog/model-file.ts'
 import { durationSeconds, encodeWav16, peakNormalize, resample } from '../core/wav.ts'
 
 /** The model the synthesized speech is transcribed with: the most accurate local recognizer measured (FLEURS ja-JP 5.31%, 2026-09-30). */
@@ -44,7 +44,7 @@ async function prepareTts(model: TtsModel, { seed, design, reference, durationSc
   if (reference !== null && !model.voiceReference) throw new Error(`${model.id} takes no reference voice`)
   if (durationScale !== null && !(model.runtime === 'audio.cpp' && model.durationScale)) throw new Error(`${model.id} takes no factor for the length of its speech`)
   const files: string[] = []
-  for (const file of model.files) files.push(await ensurePinned(file))
+  for (const file of model.files) files.push(await ensureModelFile(file))
   if (model.runtime === 'speech.cpp') {
     if (model.voiceReference && reference === null) throw new Error(`${model.id} has no voice of its own; give it one with --reference`)
     const [gguf] = files
