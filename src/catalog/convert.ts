@@ -19,7 +19,7 @@ export interface Converter {
 
 /**
  * A model file that no one publishes, made from a pinned checkpoint by a pinned converter, and pinned in turn by its
- * size and sha256 as the conversion made it on an Apple M5.
+ * size and by the sha256 the conversion made on each platform.
  */
 export interface ConvertedFile {
   kind: 'converted'
@@ -29,7 +29,22 @@ export interface ConvertedFile {
   args: readonly string[]
   file: string
   bytes: number
-  sha256: string
+  /**
+   * The sha256 by platform (`darwin-arm64`, `win32-x64`). NeMo-Speech.cpp's converter computes the positional encoding
+   * with torch and the mel filterbank with librosa, which round a last bit otherwise on another processor: the same
+   * checkpoints made files of the same size and other bytes on an Apple M5 and on an Intel Windows machine (2026-10-08).
+   */
+  sha256: Readonly<Record<string, string>>
+}
+
+/** This machine's platform as the pins of converted files name it: Node's system and processor, `darwin-arm64`. */
+export const platform = (): string => `${process.platform}-${process.arch}`
+
+/** The sha256 a converted file is pinned by on this platform. */
+export function convertedSha256(converted: ConvertedFile): string {
+  const sha256 = converted.sha256[platform()]
+  if (sha256 === undefined) throw new Error(`${converted.file} is pinned for ${Object.keys(converted.sha256).join(' and ')}, not for ${platform()}; convert it here once and pin the sha256 it makes`)
+  return sha256
 }
 
 const projectOf = (converter: Converter): string => path.join(import.meta.dirname, '..', '..', 'converters', converter.id)
@@ -98,10 +113,12 @@ export async function ensureConverted(converted: ConvertedFile): Promise<string>
     run('uv', ['run', '--no-sync', '--project', projectOf(converter), 'python', path.join(source, converter.script), checkpoint, '--outfile', output, ...converted.args], { cwd: source, env })
     const bytes = fs.statSync(output).size
     const sha256 = await sha256Of(output)
-    // The converter computes the positional encoding with torch and the mel filterbank with librosa, which can round
-    // the last bit otherwise on another processor than the Apple M5 the hashes were pinned on.
-    if (bytes !== converted.bytes || sha256 !== converted.sha256) {
-      throw new Error(`converting ${checkpoint} with ${converter.id} ${converter.commit.slice(0, 12)} made ${converted.file} of ${bytes} bytes with sha256 ${sha256}, not the pinned ${converted.bytes} bytes with ${converted.sha256}; the bench measures only the pinned file, which can be copied to ${target} from a machine that made it`)
+    const pinned = converted.sha256[platform()]
+    if (pinned === undefined) {
+      throw new Error(`converting ${checkpoint} with ${converter.id} ${converter.commit.slice(0, 12)} made ${converted.file} of ${bytes} bytes with sha256 ${sha256}, and no sha256 is pinned for ${platform()}; pin this one if the run should measure it`)
+    }
+    if (bytes !== converted.bytes || sha256 !== pinned) {
+      throw new Error(`converting ${checkpoint} with ${converter.id} ${converter.commit.slice(0, 12)} made ${converted.file} of ${bytes} bytes with sha256 ${sha256}, not the ${converted.bytes} bytes with ${pinned} pinned for ${platform()}; the bench measures only the pinned file`)
     }
     fs.renameSync(output, target)
   } finally {

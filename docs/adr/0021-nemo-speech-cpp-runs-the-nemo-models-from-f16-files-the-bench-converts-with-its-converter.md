@@ -10,7 +10,8 @@ whole, as it asks CrispASR, timed from sending the request to reading the answer
   pins) and ReazonSpeech not at all. The bench converts both checkpoints, the revisions speech.cpp's files were
   converted from, with NeMo-Speech.cpp's `convert_model.py --outtype fp16` at the commit of v0.2.0, the release it
   runs: Git fetches the converter by its commit, uv installs the packages `converters/nemo-speech.cpp/uv.lock` pins,
-  and the file is kept only when its size and sha256 are the ones the catalog pins from the conversion on an Apple M5.
+  and the file is kept only when its size and sha256 are the ones the catalog pins for the platform that converted it
+  (`darwin-arm64`, `win32-x64`). A result records the sha256 of the file it measured.
   NeMo-Speech.cpp's own guide names F16 for Apple silicon and older GPUs, which the M5 and the RTX 2080 are.
 - **Batching off.** `nemo-speech serve` batches the work of concurrent requests by default and waits up to 5 ms at
   each neural stage for more; the bench sends one request at a time and turns it off (`asr.batching.enabled=false`),
@@ -47,8 +48,11 @@ attends to the 128 frames on either side of each frame without it, where speech.
   voice, one clip came back with 松居 where speech.cpp wrote 松井.
 - parakeet-tdt-0.6b-v3 on the first 5 utterances of English FLEURS gave the same WER, 5.26%, as speech.cpp v0.7.1.
 
+- The same checkpoints converted on an Intel Windows machine with uv 0.4.24 made files of the same sizes and other
+  bytes: parakeet-tdt-0.6b-v3 `c44ce57a…` against the M5's `6e55f55e…`, ReazonSpeech `32b12198…` against `4b5806fd…`.
+  The converter computes the positional encoding with torch and the mel filterbank with librosa, which round a last
+  bit otherwise on another processor. So each platform has its own pin.
+
 ## Known limits
 
-- Whether a conversion on Windows writes the same bytes is not checked. The converter computes the positional
-  encoding with torch and the mel filterbank with librosa, whose results can differ in the last bit between
-  processors; a file of another sha256 stops the run, naming both.
+- A platform without a pin stops the run after converting, naming the sha256 it made, which is pinned once checked.
