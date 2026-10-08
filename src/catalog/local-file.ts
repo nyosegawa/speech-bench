@@ -17,11 +17,12 @@ export interface LocalFile {
 
 /** The file at `file` as the one of this sha256, which is checked whenever it is used. */
 export function localFile(file: string, sha256: string): LocalFile {
-  const hash = sha256.trim().toLowerCase()
-  if (!/^[0-9a-f]{64}$/.test(hash)) throw new Error(`${JSON.stringify(sha256)} is not a sha256, 64 hexadecimal digits`)
   const resolved = path.resolve(file)
-  if (!fs.statSync(resolved, { throwIfNoEntry: false })?.isFile()) throw new Error(`${resolved} is not a file`)
-  return { kind: 'local', path: resolved, file: path.basename(resolved), bytes: fs.statSync(resolved).size, sha256: hash }
+  const stat = fs.statSync(resolved, { throwIfNoEntry: false })
+  if (!stat?.isFile()) throw new Error(`${resolved} is not a file`)
+  const hash = sha256.trim().toLowerCase()
+  if (!/^[0-9a-f]{64}$/.test(hash)) throw new Error(`${JSON.stringify(sha256)} is not a sha256 of ${resolved}; give the 64 hexadecimal digits that shasum -a 256, or Get-FileHash on Windows, prints for it`)
+  return { kind: 'local', path: resolved, file: path.basename(resolved), bytes: stat.size, sha256: hash }
 }
 
 /** The path of a local file, once its size and sha256 are still the ones it is named by. */
