@@ -57,7 +57,7 @@ const NEMO_SPEECH_CONVERTER: Converter = {
  * files, so that the two runtimes are compared on the same weights: NVIDIA publishes parakeet-tdt-0.6b-v3 for
  * NeMo-Speech.cpp in Q8_0 alone, and ReazonSpeech not at all (2026-10-08).
  */
-const nemoSpeechF16 = (checkpoint: PinnedFile, file: string, bytes: number, sha256: string): ConvertedFile =>
+const nemoSpeechF16 = (checkpoint: PinnedFile, file: string, bytes: number, sha256: Readonly<Record<string, string>>): ConvertedFile =>
   ({ kind: 'converted', converter: NEMO_SPEECH_CONVERTER, checkpoint, args: ['--outtype', 'fp16'], file, bytes, sha256 })
 
 const QWEN3_ASR_1_7B = ['ggml-org/Qwen3-ASR-1.7B-GGUF', '36a678687ba7d07a74ca70ccb0e36902e005fb80'] as const
@@ -196,7 +196,8 @@ export const ASR_MODELS: readonly AsrModel[] = [
     runtime: 'nemo-speech.cpp',
     files: [nemoSpeechF16(
       model('nvidia/parakeet-tdt-0.6b-v3', '541d1f99c6b0c3cd0b11a95167540bb8edefd82b', 'parakeet-tdt-0.6b-v3.nemo', 2_509_332_480, '3cbdc85877e668ca7b82d0d56770eb1fac76691f55d6b97545e8d61ca588d10d'),
-      'parakeet-tdt-0.6b-v3.f16.gguf', 1_296_681_120, '6e55f55e5b2a141c98a000f24493fba52790e2fd54ef1c4dcfc130601136ebe7'
+      'parakeet-tdt-0.6b-v3.f16.gguf', 1_296_681_120,
+      { 'darwin-arm64': '6e55f55e5b2a141c98a000f24493fba52790e2fd54ef1c4dcfc130601136ebe7', 'win32-x64': 'c44ce57a060f8043e91e14771a5305b44f820c84b33f9789c9ae1aa7a3259e2f' }
     )],
     languages: PARAKEET_V3_LANGUAGES,
     languageHint: 'none',
@@ -212,7 +213,8 @@ export const ASR_MODELS: readonly AsrModel[] = [
     runtime: 'nemo-speech.cpp',
     files: [nemoSpeechF16(
       model('reazon-research/reazonspeech-nemo-v2', '33693408be76b7cba9fd4a7546a0a8772430211b', 'reazonspeech-nemo-v2.nemo', 2_477_946_880, 'd196d43ad03466ca88beeda4bf5fafb07bab7202d4b663b8e4f12cb0a4381fae'),
-      'reazonspeech-nemo-v2.f16.gguf', 1_281_776_672, '4b5806fd67f7bf9ff653c43f0343b6923dd88dc5620a64735011d222f8973e0e'
+      'reazonspeech-nemo-v2.f16.gguf', 1_281_776_672,
+      { 'darwin-arm64': '4b5806fd67f7bf9ff653c43f0343b6923dd88dc5620a64735011d222f8973e0e', 'win32-x64': '32b12198aeae0bda682ef115a23eca24d371dcffd6ab04d8a86de92518fcb833' }
     )],
     languages: ['ja'],
     languageHint: 'none',
