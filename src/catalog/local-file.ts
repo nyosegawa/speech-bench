@@ -35,11 +35,12 @@ export async function ensureLocalFile(local: LocalFile): Promise<string> {
 }
 
 /**
- * The catalog entry with the local file in place of its one file, under an id and a label of their own, so that its
- * runs are never taken for those of the published file. The rest of the entry, its runtime, its decoding or steps and
- * its languages, stays as it is.
+ * The catalog entry with the local file in place of its one file, under an id and a label of their own that carry the
+ * start of its sha256, so that its runs are never taken for those of the published file, nor for those of a file made
+ * again under the same name. The rest of the entry, its runtime, its decoding or steps and its languages, stays as it is.
  */
 export function withLocalFile<M extends { id: string; label: string; files: readonly ModelFile[] }>(model: M, local: LocalFile): M {
   if (model.files.length !== 1) throw new Error(`${model.id} runs on ${model.files.length} files; a local file takes the place of a model's one file`)
-  return { ...model, id: `${model.id}-local-${local.sha256.slice(0, 12)}`, label: `local ${local.file} as ${model.id}`, files: [local] }
+  const short = local.sha256.slice(0, 12)
+  return { ...model, id: `${model.id}-local-${short}`, label: `local ${local.file} (sha256 ${short}) as ${model.id}`, files: [local] }
 }

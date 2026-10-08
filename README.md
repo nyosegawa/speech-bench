@@ -421,8 +421,9 @@ that a file speech.cpp makes for its next release, such as a weight type it quan
 measured before it is on Hugging Face and compared with the published one (docs/adr/0023). `--model-sha256` names the
 file by its sha256, which the bench checks before every run that uses it. The rest of the model stays as it is: its
 runtime, its decoding or steps and its languages. A result records the file's name, size and sha256 as a local file,
-and the run is kept under an id and label of its own, such as `local Qwen3-ASR-1.7B-Q6_K.gguf as
-qwen3-asr-1.7b-speech.cpp`, so that it is never taken for a run of the published file.
+and the run is kept under an id and label of its own that carry the start of the sha256, such as
+`local Qwen3-ASR-1.7B-Q6_K.gguf (sha256 3c5d2a8e41f0) as qwen3-asr-1.7b-speech.cpp`, so that it is never taken for a
+run of the published file, nor for one of a file made again under the same name.
 
 ```sh
 # The Q6_K file of Qwen3-ASR 1.7B that speech.cpp made, in a local build of speech.cpp, beside the published Q8_0

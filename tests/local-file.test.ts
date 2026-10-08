@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ensureLocalFile, localFile, withLocalFile } from '../src/catalog/local-file.ts'
 import { asrModel, ttsModel } from '../src/catalog/models.ts'
 import { modelsNamed } from '../src/cli/measure.ts'
-import { latestRuns, type ListenedRun } from '../src/pages/listen.ts'
+import { latestRuns, runNames, type ListenedRun } from '../src/pages/listen.ts'
 import { modelRecord } from '../src/measure/run-asr.ts'
 import { ttsRun } from './run-records.ts'
 
@@ -61,6 +61,16 @@ describe('a local model file', () => {
     const models = [entry, withLocalFile(entry, localFile(file, sha256('weights'))), withLocalFile(entry, localFile(other, sha256('other weights')))]
     const runs = models.map((model) => ({ run: ttsRun({ model: modelRecord(model) }) }) as ListenedRun)
     expect(latestRuns(runs)).toHaveLength(3)
+  })
+
+  it('names the runs of a file made again under the same name apart from those of the file before it', () => {
+    const entry = ttsModel('irodori-tts-v4.1-small-16steps')
+    const again = path.join(folder, 'again', path.basename(file))
+    fs.mkdirSync(path.dirname(again))
+    fs.writeFileSync(again, 'weights made again')
+    const models = [withLocalFile(entry, localFile(file, sha256('weights'))), withLocalFile(entry, localFile(again, sha256('weights made again')))]
+    const runs = models.map((model) => ({ run: ttsRun({ model: modelRecord(model) }) }) as ListenedRun)
+    expect(new Set(runNames(latestRuns(runs)).names).size).toBe(2)
   })
 
   it('is refused for an entry of more than one file, and named for one model only, always with its sha256', () => {

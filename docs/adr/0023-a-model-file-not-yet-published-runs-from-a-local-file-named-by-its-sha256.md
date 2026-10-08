@@ -8,7 +8,8 @@ decoding or steps, its languages and whether it speaks like a reference. The fil
 time a run uses it, before the model is loaded, as a download is checked before it is renamed into place.
 
 The run is kept under an id of its own, the entry's id with `-local-` and the first 12 digits of the sha256, and a
-label that names the file and the entry, `local Qwen3-ASR-1.7B-Q6_K.gguf as qwen3-asr-1.7b-speech.cpp`. The result
+label that names the file, those digits and the entry, `local Qwen3-ASR-1.7B-Q6_K.gguf (sha256 3c5d2a8e41f0) as
+qwen3-asr-1.7b-speech.cpp`, so that a file made again under its name is told apart on the pages too. The result
 records the file as `{ source: 'local', file, bytes, sha256 }` (result format 14, where every published file has
 `source: 'huggingface'`), without the path it was read from.
 
