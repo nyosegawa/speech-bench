@@ -4,8 +4,8 @@ import path from 'node:path'
 import type { PlatformKey } from '../core/platform.ts'
 
 /**
- * The variable that names a CMake build directory of speech.cpp, run in place of the pinned release so that a
- * release candidate is measured before it is released.
+ * The variable that names a build of speech.cpp run in place of the pinned release, so that a release candidate is
+ * measured before it is released: a CMake build directory, or a run of speech.cpp's CI as `ci:<run id>`.
  */
 export const SPEECH_CPP_BUILD_VARIABLE = 'SPEECH_BENCH_SPEECH_CPP'
 
@@ -43,7 +43,14 @@ export function parseSpeechVersion(output: string): string | null {
 
 const run = (command: string, args: readonly string[]): string => execFileSync(command, args, { encoding: 'utf8', windowsHide: true }).trim()
 
-/** A local build of speech.cpp: its executable, the release number it reports and the commit of its source. */
+/** The release number a build of speech.cpp reports, refusing an executable that is not speech.cpp's. */
+export function speechVersionOf(executable: string): string {
+  const version = parseSpeechVersion(run(executable, ['--version']))
+  if (version === null) throw new Error(`${executable} --version does not print speech.cpp's version; ${SPEECH_CPP_BUILD_VARIABLE} names a build of speech.cpp`)
+  return version
+}
+
+/** A build of speech.cpp: its executable, the release number it reports and the commit it was built from. */
 export interface SpeechCppBuild {
   executable: string
   version: string
@@ -69,7 +76,5 @@ export function readSpeechCppBuild(directory: string, platform: PlatformKey): Sp
   }
   const changed = run('git', ['-C', source, 'status', '--porcelain', '--untracked-files=no'])
   if (changed !== '') throw new Error(`${source} has changes that are not committed, so commit ${commit.slice(0, 12)} does not name what ${folder} was built from; commit them, build again and measure:\n${changed}`)
-  const version = parseSpeechVersion(run(executable, ['--version']))
-  if (version === null) throw new Error(`${executable} --version does not print speech.cpp's version; ${SPEECH_CPP_BUILD_VARIABLE} names a build of speech.cpp`)
-  return { executable, version, commit }
+  return { executable, version: speechVersionOf(executable), commit }
 }

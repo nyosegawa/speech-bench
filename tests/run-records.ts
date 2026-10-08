@@ -7,7 +7,7 @@ const common = {
   machine: { platform: 'darwin-arm64' as const, hostname: 'mac', os: 'macOS 26.2', cpu: 'Apple M5', memoryGb: 32, gpus: ['Apple M5'] },
   set: { name: 'set', locale: 'ja-JP', size: 1 },
   model: { id: 'model', label: 'Model', license: 'MIT', files: [] },
-  runtime: { id: 'llama.cpp', version: 'b1', localBuild: null, options: {} },
+  runtime: { id: 'llama.cpp', version: 'b1', build: null, options: {} },
   loadSeconds: 1,
   warmupSeconds: 1
 }

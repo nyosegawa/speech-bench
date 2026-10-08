@@ -27,8 +27,8 @@ interface Column<R> {
 }
 
 const runtimeOf = (row: RunRow): string => {
-  const { id, version, localBuild } = row.run.runtime
-  return `${id} ${version}${localBuild === null ? '' : `, local build ${localBuild.commit.slice(0, 12)}`}`
+  const { id, version, build } = row.run.runtime
+  return `${id} ${version}${build === null ? '' : `, ${build.ciRun === null ? 'local' : 'CI'} build ${build.commit.slice(0, 12)}`}`
 }
 
 const optionsOf = (row: RunRow): string => Object.entries(row.run.runtime.options).map(([name, value]) => `${name}=${value}`).join(', ')

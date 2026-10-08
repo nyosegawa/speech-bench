@@ -59,10 +59,13 @@ const runCommon = {
   /** The runtime and the options it was loaded with, which can change what it produces. */
   runtime: z.strictObject({
     id: z.string(),
-    /** The pinned release, or the release number a local build reports. */
+    /** The pinned release, or the release number a build that ran in place of it reports. */
     version: z.string(),
-    /** The commit a local build that ran in place of the release was built from, or null for the release. */
-    localBuild: z.strictObject({ commit: z.string() }).nullable().default(null),
+    /**
+     * A build that ran in place of the release, by the commit it was built from and the run of speech.cpp's CI that
+     * built it, null for one built on the machine; null for the release.
+     */
+    build: z.strictObject({ commit: z.string(), ciRun: z.int().nullable() }).nullable(),
     options: z.record(z.string(), z.string())
   }),
   /** From starting the process to its being ready: loading the model and, on the first run, compiling GPU kernels. */
