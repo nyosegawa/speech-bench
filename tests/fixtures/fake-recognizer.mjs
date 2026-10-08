@@ -1,4 +1,4 @@
-// A worker that speaks speech.cpp's worker protocol 2 for the tests, as a recognition model of Japanese alone, whose
+// A worker that speaks speech.cpp's worker protocol 3 for the tests, as a recognition model of Japanese alone, whose
 // language steers it when its environment says so, and which offers the decodings its environment lists. It collects
 // the chunks of each request, refusing one out of its order, and answers its transcribe with progress and then, 0.1 s
 // later, an end whose text tells what it received: the number of samples, the rate, the first and last sample, and the
@@ -15,7 +15,7 @@ const decodingOption = decodings.length === 0 ? [] : [{ name: 'decoding', type: 
 console.error('loading the model')
 send({
   type: 'ready',
-  protocol: 2,
+  protocol: 3,
   version: '0.0.0',
   model: { task: 'recognition', sample_rate: 16000, languages: ['ja'], options: [{ name: 'language', type: 'string', required: false, steers, default: 'auto', choices: ['ja'] }, ...decodingOption] }
 })
@@ -41,7 +41,7 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
   const text = `${audio.length / 2} samples at ${request.sample_rate} Hz, first ${first}, last ${audio.readInt16LE(audio.length - 2)}${decoded}`
   send({ type: 'progress', id, done: 0.5 })
   setTimeout(() => {
-    if (first === 1) return send({ type: 'partial', id, text, stop: 'complete' })
+    if (first === 1) return send({ type: 'chunk', id, seq: 0, pcm: audio.toString('base64') })
     if (first === 2) return send({ type: 'end', id, stop: 'complete' })
     if (first === 3) return send({ type: 'end', id, text, stop: 'max_seconds' })
     send({ type: 'end', id, text, stop: first === 4 ? 'model_limit' : 'complete' })

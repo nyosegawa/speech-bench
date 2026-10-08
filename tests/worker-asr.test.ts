@@ -95,10 +95,10 @@ describe('WorkerAsr', () => {
     })
   })
 
-  it('takes a partial the bench did not ask for as the worker\'s defect, which fails every request after it', async () => {
+  it('takes an audio chunk for recognition as the worker\'s defect, which fails every request after it', async () => {
     await withWorker(fakeRecognizer(true, 'optional'), async (worker) => {
-      await expect(worker.transcribe(utterance(1), 'ja-JP')).rejects.toThrow(/sent partial for recognition request/)
-      await expect(worker.transcribe(utterance(0), 'ja-JP')).rejects.toThrow(/sent partial for recognition request/)
+      await expect(worker.transcribe(utterance(1), 'ja-JP')).rejects.toThrow(/sent chunk for recognition request/)
+      await expect(worker.transcribe(utterance(0), 'ja-JP')).rejects.toThrow(/sent chunk for recognition request/)
     })
   })
 

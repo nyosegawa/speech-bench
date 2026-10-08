@@ -1,7 +1,7 @@
 # A runtime run as a process speaks speech.cpp's worker protocol
 
 A runtime that runs as a process of its own, for synthesis or for recognition, is reached through one protocol:
-speech.cpp's worker protocol 2 (speech.cpp v0.7.0 on), JSON Lines on stdin and stdout with nothing else on stdout. The
+speech.cpp's worker protocol 3 (speech.cpp v0.8.0 on), JSON Lines on stdin and stdout with nothing else on stdout. The
 worker answers `ready` once, with the protocol's version and the model's information, or `fatal` when it cannot start.
 A synthesis request is `synthesize` with `id`, `text`, `voice`, `language` as a BCP 47 tag and the run's options as
 members: `seed`, the run's seed for the first request and the next one for each later request, and `steps` when the
@@ -40,9 +40,9 @@ seed a result records means the same in every run of these runtimes.
 A worker of another protocol is refused, and a line that breaks the protocol is the worker's defect and fails
 the run: a line that is not a JSON object, an answer without the id of a request, a message for a request that
 has had its terminal message or was never sent, a chunk out of its order, an `end` of a synthesis whose samples or
-seed are not what was sent, a `chunk` or a `partial` for a recognition (the bench does not peek), an `end` of a
+seed are not what was sent, a `chunk` for a recognition, an `end` of a
 recognition without a text or with a stop a recognition does not have, and a `cancelled` the bench did not ask for.
-A type of message the bench does not know is passed over, since protocol 2 may gain messages without being raised.
+A type of message the bench does not know is passed over, since protocol 3 may gain messages without being raised.
 
 ## Rejected
 

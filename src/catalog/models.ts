@@ -40,7 +40,7 @@ const model = (repo: string, revision: string, file: string, bytes: number, sha2
 
 /**
  * ReazonSpeech NeMo v2 as speech.cpp converts it, of layout 1, which decodes with the checkpoint's beam search by
- * default and greedily when a request sets `decoding` in speech.cpp's main branch (2026-10-08), not in v0.7.1.
+ * default and greedily when a request sets `decoding` in speech.cpp v0.8.0 and later.
  */
 const REAZONSPEECH_SPEECH_CPP = model('sakasegawa/reazonspeech-nemo-v2-GGUF', 'cb9e436cf3f9d9563c610cb5318adcfc5c0fe098', 'reazonspeech-nemo-619M-v2-F16.gguf', 1_240_465_696, '1492147d7d18fbb0503db2cbbb05df4932cb3451e391524c6a2411632e4823bf')
 
