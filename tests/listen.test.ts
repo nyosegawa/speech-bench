@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { latestRuns, listeningData, runNames, type ListenedRun } from '../src/pages/listen.ts'
-import type { SentenceRecord } from '../src/measure/result-file/format.ts'
+import type { SentenceRecord, TtsRunRecord } from '../src/measure/result-file/format.ts'
 import { ttsRun } from './run-records.ts'
 
 const runs = path.join(path.sep, 'data', 'runs')
@@ -9,7 +9,7 @@ const runs = path.join(path.sep, 'data', 'runs')
 const byPath = (file: string): string => `file:${file}`
 const sentence: SentenceRecord = { type: 'sentence', id: 'aizuchi-hai', kind: 'aizuchi', text: 'はい。', audio: 'aizuchi-hai.wav', audioSeconds: 0.5, firstAudioSeconds: 0.05, totalSeconds: 0.2, transcript: 'はい。' }
 
-interface RunOptions { set?: string; seed?: number; design?: string; reference?: string; durationScale?: number; gpu?: string; transcript?: string; pitches?: number[]; likeness?: Array<number | null> }
+interface RunOptions { set?: string; seed?: number; design?: string; reference?: string; durationScale?: number; gpu?: string; runtime?: TtsRunRecord['runtime']; transcript?: string; pitches?: number[]; likeness?: Array<number | null> }
 
 function run(model: string, startedAt: string, options: RunOptions = {}): ListenedRun {
   const record = ttsRun({
@@ -19,7 +19,7 @@ function run(model: string, startedAt: string, options: RunOptions = {}): Listen
     durationScale: options.durationScale ?? null,
     model: { id: model, label: `${model} label`, license: 'MIT', files: [] },
     machine: { platform: 'darwin-arm64', hostname: 'mac', os: 'macOS 26.2', cpu: 'Apple M5', memoryGb: 32, gpus: [options.gpu ?? 'Apple M5'] },
-    runtime: { id: 'audio.cpp', version: 'v1', build: null, options: {} }
+    runtime: options.runtime ?? { id: 'audio.cpp', version: 'v1', build: null, options: {} }
   })
   const pitches = options.pitches ?? [220]
   const sentences = pitches.map((_, index) => ({ ...sentence, id: `${sentence.id}-${index}`, ...(options.transcript === undefined ? {} : { transcript: options.transcript }) }))
@@ -57,6 +57,22 @@ describe('latestRuns', () => {
       run('a', '2026-09-30T04:00:00Z', { design: 'young-woman-words', reference: 'voice-30s', seed: 1 })
     ])
     expect(kept).toHaveLength(4)
+  })
+
+  it('keeps a run of the release beside one of every build of speech.cpp, and the newest of each', () => {
+    const speechCpp = (version: string, build: TtsRunRecord['runtime']['build']): TtsRunRecord['runtime'] => ({ id: 'speech.cpp', version, build, options: {} })
+    const commit = 'f5ab84c1710d919ad68293b6ff8897444d832939'
+    const builds = [
+      speechCpp('v0.7.1', null),
+      speechCpp('0.7.1', { commit, ciRun: null }),
+      speechCpp('0.7.1', { commit, ciRun: 37705728430 }),
+      speechCpp('0.7.1', { commit: '596b8d8c1f2a0000000000000000000000000000', ciRun: null })
+    ]
+    const measured = builds.map((runtime, index) => run('a', `2026-10-08T0${index + 1}:00:00Z`, { reference: 'voice', seed: 1, runtime }))
+    const again = run('a', '2026-10-08T09:00:00Z', { reference: 'voice', seed: 1, runtime: builds[2] })
+    const kept = latestRuns([...measured, again])
+    expect(kept.map((entry) => entry.run.startedAt)).toEqual(['2026-10-08T01:00:00Z', '2026-10-08T02:00:00Z', '2026-10-08T09:00:00Z', '2026-10-08T04:00:00Z'])
+    expect(new Set(runNames(kept).names).size).toBe(4)
   })
 
   it('keeps a run for every length factor of one reference, and tells them apart by name', () => {
