@@ -14,6 +14,12 @@ export function platformKey(): PlatformKey {
 export const gpuBackend = (): 'metal' | 'vulkan' => (platformKey() === 'darwin-arm64' ? 'metal' : 'vulkan')
 
 /**
+ * The GPU PyTorch runs the official implementations on here: Metal through MPS on a Mac, CUDA on Windows, where the
+ * adapters install PyTorch's CUDA build. The adapters refuse to start on a machine without it rather than run on the CPU.
+ */
+export const torchDevice = (): 'mps' | 'cuda' => (platformKey() === 'darwin-arm64' ? 'mps' : 'cuda')
+
+/**
  * The GPU the runtimes are told to use, in ggml's device names; SPEECH_BENCH_DEVICE picks another, for
  * example Vulkan1 on a Windows machine with two GPUs.
  */

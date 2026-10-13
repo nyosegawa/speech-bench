@@ -7,13 +7,15 @@ import { tagCovers } from '../core/language.ts'
  * Where a model runs: llama-server with the language model and its audio projector, CrispASR with one GGUF and
  * the backend it loads as, which CrispASR's /health reports, speech.cpp's worker with the model's one GGUF file,
  * its audio encoder inside, in the layout speech.cpp v0.7.0 reads, and the decoding every request asks for, or null
- * for the model's default, or NeMo-Speech.cpp's server with one GGUF file its converter made.
+ * for the model's default, NeMo-Speech.cpp's server with one GGUF file its converter made, or an adapter of the
+ * model's official implementation with the checkpoint as it is published.
  */
 export type AsrRuntime =
   | { runtime: 'llama-server' }
   | { runtime: 'crispasr'; backend: string }
   | { runtime: 'speech.cpp'; decoding: 'greedy' | null }
   | { runtime: 'nemo-speech.cpp' }
+  | { runtime: 'adapter'; adapter: 'qwen3-asr' }
 
 /** A speech recognition model the bench can run, with the languages its model card lists. */
 export type AsrModel = AsrRuntime & {
@@ -63,11 +65,40 @@ const nemoSpeechF16 = (checkpoint: PinnedFile, file: string, bytes: number, sha2
 const QWEN3_ASR_1_7B = ['ggml-org/Qwen3-ASR-1.7B-GGUF', '36a678687ba7d07a74ca70ccb0e36902e005fb80'] as const
 const QWEN3_ASR_0_6B = ['ggml-org/Qwen3-ASR-0.6B-GGUF', '928ab958557df9aa2ef1c93e0e83c7ad0933fae2'] as const
 
+/** A checkpoint as its repository publishes it, at one revision: each file with its size and sha256. */
+const checkpoint = (repo: string, revision: string, files: readonly [string, number, string][]): PinnedFile[] =>
+  files.map(([file, size, sha256]) => model(repo, revision, file, size, sha256))
+
+/** The tokenizer and the configurations Qwen3-ASR's two checkpoints share, the same files in both repositories. */
+const QWEN3_ASR_TOKENIZER: readonly [string, number, string][] = [
+  ['chat_template.json', 1_161, '75a8cfca24f00de72d796fbfed6858fc9614ef3dabd8696684cc3bc03a9c58ff'],
+  ['generation_config.json', 142, '1da527824d81e07118facff437e03f2e24a23311e3bdeb2368973fe77e5f275c'],
+  ['merges.txt', 1_671_853, '8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5'],
+  ['preprocessor_config.json', 330, '45e120a4eda2c20c5d7f2ea9354e63536bf35e27aa573fb7cdf78017b378770d'],
+  ['tokenizer_config.json', 12_487, '4942d005604266809309cabc9f4e9cb89ce855d59b14681fdc0e1cc62ea26c4c'],
+  ['vocab.json', 2_776_833, 'ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910']
+]
+
+/** Qwen3-ASR's checkpoints at the revisions speech.cpp converts and checks its port against. */
+const OFFICIAL_QWEN3_ASR_0_6B = checkpoint('Qwen/Qwen3-ASR-0.6B', '5eb144179a02acc5e5ba31e748d22b0cf3e303b0', [
+  ['config.json', 6_193, '76d3ae4601ce939830b2517f4a6cadb86cc51316c3900af6b020b051c21a478c'],
+  ['model.safetensors', 1_876_091_704, '79d6cbd4c98c7bbffe9db2edac07f56cd6637d0d5944b27f6c2b8353840323ea'],
+  ...QWEN3_ASR_TOKENIZER
+])
+const OFFICIAL_QWEN3_ASR_1_7B = checkpoint('Qwen/Qwen3-ASR-1.7B', '7278e1e70fe206f11671096ffdd38061171dd6e5', [
+  ['config.json', 6_194, '2e74a751548b8ad7d7526d29365ad8144c345d8b412b1152d25dc6698452712f'],
+  ['model-00001-of-00002.safetensors', 4_220_320_824, 'a4cd1f1a04d90b757dc7f7dd26254e69a013b19e80efe590a83c6a3bde8608d6'],
+  ['model-00002-of-00002.safetensors', 478_200_688, '6e0b9d9e09e2e0238e7ef3cc8a484ab387e91b90f1900bedf88bc92d7929ccfc'],
+  ['model.safetensors.index.json', 64_821, 'f994739fe38e5210b9e3e8ce6c6307315e2ceac3cb630e7b7414d69dce520f60'],
+  ...QWEN3_ASR_TOKENIZER
+])
+
 /**
  * Qwen3-ASR as ggml-org converts it for llama-server, the CrispASR conversions of the NeMo models, all five in
- * speech.cpp, from the files speech.cpp converts from the models' checkpoints, and two of the NeMo models in
- * NeMo-Speech.cpp. The ids and labels of the speech.cpp and NeMo-Speech.cpp entries name the runtime, so that runs
- * of one model in two runtimes stay apart wherever only the model is shown.
+ * speech.cpp, from the files speech.cpp converts from the models' checkpoints, two of the NeMo models in
+ * NeMo-Speech.cpp, and Qwen3-ASR in its official code. The ids and labels of the speech.cpp, NeMo-Speech.cpp and
+ * official entries name the runtime, so that runs of one model in two runtimes stay apart wherever only the model is
+ * shown.
  */
 export const ASR_MODELS: readonly AsrModel[] = [
   {
@@ -219,6 +250,26 @@ export const ASR_MODELS: readonly AsrModel[] = [
     languages: ['ja'],
     languageHint: 'none',
     license: 'Apache-2.0'
+  },
+  {
+    id: 'qwen3-asr-1.7b-official',
+    label: 'Qwen3-ASR 1.7B, official BF16',
+    runtime: 'adapter',
+    adapter: 'qwen3-asr',
+    files: OFFICIAL_QWEN3_ASR_1_7B,
+    languages: QWEN3_ASR_LANGUAGES,
+    languageHint: 'optional',
+    license: 'Apache-2.0'
+  },
+  {
+    id: 'qwen3-asr-0.6b-official',
+    label: 'Qwen3-ASR 0.6B, official BF16',
+    runtime: 'adapter',
+    adapter: 'qwen3-asr',
+    files: OFFICIAL_QWEN3_ASR_0_6B,
+    languages: QWEN3_ASR_LANGUAGES,
+    languageHint: 'optional',
+    license: 'Apache-2.0'
   }
 ]
 
@@ -239,13 +290,13 @@ export interface TtsVoice {
 /**
  * Where a synthesis model runs: speech.cpp's worker, on the model's one GGUF file with its codec inside (layout 1,
  * which speech.cpp reads from v0.7.0 on, refusing the files converted before it), or an adapter of the model's
- * official implementation, with the sampler's steps when not the model's own and whether it speaks like a reference voice, or audio.cpp's server with the family it loads as, the options it
+ * official implementation or of mlx-audio, with the sampler's steps when not the model's own and whether it speaks like a reference voice, or audio.cpp's server with the family it loads as, the options it
  * is loaded with on each GPU interface, the request options every sentence is sent with, and whether it takes
  * a voice described in words (`instruction`) and a reference voice to speak like.
  */
 export type TtsRuntime =
   | { runtime: 'speech.cpp'; steps: number | null; voiceReference: boolean }
-  | { runtime: 'adapter'; adapter: 'irodori-tts' | 'mlx-audio'; steps: number | null; voiceReference: boolean }
+  | { runtime: 'adapter'; adapter: 'irodori-tts' | 'mlx-audio' | 'qwen3-tts'; steps: number | null; voiceReference: boolean }
   | {
       runtime: 'audio.cpp'
       family: string
@@ -320,7 +371,7 @@ const officialIrodoriV41 = (id: string, label: string, files: PinnedFile[], step
 
 /** An mlx-community conversion of Irodori-TTS v4.1 for mlx-audio, its codec and tokenizer in the same repository. */
 const mlxIrodori = (repo: string, revision: string, files: readonly [string, number, string][]): PinnedFile[] => [
-  ...files.map(([file, size, sha256]) => model(repo, revision, file, size, sha256)),
+  ...checkpoint(repo, revision, files),
   model(repo, revision, 'tokenizer/tokenizer.json', 6_718_495, '6a0734cf21c802169defaffe719bc2ef12bb9d0be37e54b61ed27aa89394723d'),
   model(repo, revision, 'tokenizer/tokenizer_config.json', 668, 'd229a271c64de1a7939d20d3665498e873fa91d5ee2edf135d73ec752cb9c9d3')
 ]
@@ -363,6 +414,36 @@ const QWEN3_TTS_VOICES: readonly TtsVoice[] = [
   { id: 'dylan', native: 'zh' },
   { id: 'eric', native: 'zh' }
 ]
+
+/** The tokenizer and the codec Qwen3-TTS's two CustomVoice checkpoints share, the same files in both repositories. */
+const QWEN3_TTS_SHARED: readonly [string, number, string][] = [
+  ['generation_config.json', 245, 'f1b90b4513f3b34c62851049e2492d7b4c5940daf1276f89c82b8ef04127f3aa'],
+  ['merges.txt', 1_671_839, '599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3'],
+  ['preprocessor_config.json', 127, 'efdde1022ea9d76928bf7a9cd53139138f5ba2e466e837f08f6105ab1af1c119'],
+  ['tokenizer_config.json', 7_344, 'dc3c31c3bdaedd5016382bb3cbe07323026775ad51f5a4fb564505992ae4a670'],
+  ['vocab.json', 2_776_833, 'ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910'],
+  ['speech_tokenizer/config.json', 2_336, 'ee65bb901c876664ab8707c487157aa1a6ee57c65969b28fb5ec9dc211e68167'],
+  ['speech_tokenizer/configuration.json', 76, '6bc26d64eb5024b4d1dab5a52371958b429256d6c9d59787f1f5294a54e0cebd'],
+  ['speech_tokenizer/model.safetensors', 682_293_092, '836b7b357f5ea43e889936a3709af68dfe3751881acefe4ecf0dbd30ba571258'],
+  ['speech_tokenizer/preprocessor_config.json', 234, 'fcb3805e597e786d4067706e602f6688524640f8d3396790e2e09b5942fcbdfb']
+]
+
+/**
+ * Qwen3-TTS CustomVoice in its official PyTorch implementation, from the checkpoints at the revisions speech.cpp
+ * converts, sampled with the checkpoint's own settings.
+ */
+const officialQwen3Tts = (id: string, label: string, repo: string, revision: string, files: readonly [string, number, string][]): TtsModel => ({
+  id,
+  label,
+  runtime: 'adapter',
+  adapter: 'qwen3-tts',
+  steps: null,
+  voiceReference: false,
+  files: checkpoint(repo, revision, [...files, ...QWEN3_TTS_SHARED]),
+  languages: QWEN3_TTS_LANGUAGES,
+  voices: QWEN3_TTS_VOICES,
+  license: 'Apache-2.0'
+})
 
 const IRODORI_V4_SMALL = {
   q8_0: model('audio-cpp/audio.cpp-gguf', '83c5d96c03023ff5a7712570d057ce26c8769f98', 'Irodori-TTS-v4-Small-GGUF/irodori-tts-v4-small-q8_0.gguf', 1_368_991_360, '0f1b96a1608f0a15ef2289e4d23f37c121cb8db3da702d1d5c4c2455b2437190'),
@@ -421,6 +502,14 @@ export const TTS_MODELS: readonly TtsModel[] = [
     voices: QWEN3_TTS_VOICES,
     license: 'Apache-2.0'
   },
+  officialQwen3Tts('qwen3-tts-0.6b-official', 'Qwen3-TTS 0.6B CustomVoice, official BF16', 'Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice', '85e237c12c027371202489a0ec509ded67b5e4b5', [
+    ['config.json', 4_908, '81aca2b6fac304944d8acf345272d8a9a727d5fc2e2e66b222ab4729340c7455'],
+    ['model.safetensors', 1_811_626_576, 'bc3c7e785eb961179c25450d1acff03f839e0002f2f3a5aeb67b5735c0fa2adb']
+  ]),
+  officialQwen3Tts('qwen3-tts-1.7b-official', 'Qwen3-TTS 1.7B CustomVoice, official BF16', 'Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice', '0c0e3051f131929182e2c023b9537f8b1c68adfe', [
+    ['config.json', 4_908, '17a07f527a1c25ea30b4e023a184482a23d3e279d697b1dc81b1bde498d29cf9'],
+    ['model.safetensors', 3_833_402_552, '38b1d5971bdbd982b561cccec982669a53b0537c3cf5e9bd4778ed07bb2f5137']
+  ]),
   irodoriV41('irodori-tts-v4.1-small-mf', 'Irodori-TTS v4.1 Small MF F16', IRODORI_V4_1_MF, null),
   irodoriV41('irodori-tts-v4.1-small-16steps', 'Irodori-TTS v4.1 Small F16, 16 steps', IRODORI_V4_1_RF, 16),
   irodoriV41('irodori-tts-v4.1-small', 'Irodori-TTS v4.1 Small F16, 40 steps', IRODORI_V4_1_RF, null),

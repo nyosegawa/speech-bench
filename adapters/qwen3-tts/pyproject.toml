@@ -1,0 +1,25 @@
+[project]
+name = "speech-bench-qwen3-tts"
+version = "0"
+description = "Qwen3-TTS's official PyTorch implementation behind speech.cpp's worker protocol, for speech-bench"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "qwen-tts @ git+https://github.com/QwenLM/Qwen3-TTS@022e286b98fbec7e1e916cb940cdf532cd9f488e",
+  "torch==2.9.1",
+  "torchaudio==2.9.1",
+  "numpy",
+]
+
+[tool.uv]
+package = false
+environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'", "sys_platform == 'win32' and platform_machine == 'AMD64'"]
+
+# PyPI's PyTorch for Windows runs on the CPU alone; the CUDA build comes from PyTorch's own index.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu128", marker = "sys_platform == 'win32'" }]
+torchaudio = [{ index = "pytorch-cu128", marker = "sys_platform == 'win32'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true

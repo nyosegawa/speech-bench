@@ -33,8 +33,11 @@ function decodingChoices(model: Record<string, unknown>): unknown[] {
   return decoding && Array.isArray(decoding.choices) ? decoding.choices : []
 }
 
-/** What the engine needs of a model in speech.cpp: its id, whether it can be told the language, and its decoding. */
-type WorkerModel = Pick<Extract<AsrModel, { runtime: 'speech.cpp' }>, 'id' | 'languageHint' | 'decoding'>
+/**
+ * What the engine needs of a model behind the protocol, in speech.cpp or an adapter: its id, whether it can be told
+ * the language, and its decoding.
+ */
+type WorkerModel = Pick<AsrModel, 'id' | 'languageHint'> & Pick<Extract<AsrModel, { runtime: 'speech.cpp' }>, 'decoding'>
 
 /**
  * A speech recognition model behind speech.cpp's worker protocol 3. Each utterance is one request: its audio in

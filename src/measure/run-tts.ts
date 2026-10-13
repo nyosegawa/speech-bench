@@ -11,13 +11,13 @@ import { irodoriVoiceFile } from '../engines/irodori-voice.ts'
 import { REFERENCE_VOICE, speechWorkerArgs } from '../engines/worker.ts'
 import { WorkerTts } from '../engines/worker-tts.ts'
 import type { Synthesis, TtsEngine } from '../engines/tts-engine.ts'
-import { gpuBackend, gpuDevice, machineInfo, platformKey } from '../core/platform.ts'
+import { gpuBackend, gpuDevice, machineInfo, platformKey, torchDevice } from '../core/platform.ts'
 import { resultText } from './result-file/file.ts'
 import { RESULT_FORMAT, type SentenceRecord, type TtsRunRecord } from './result-file/format.ts'
 import { modelRecord, prepareAsr } from './run-asr.ts'
 import { runFile, runFolder } from './runs.ts'
 import { AUDIO_CPP, ensureRuntime, ensureSpeechCpp, releaseOf, runtimeTag, type RuntimeIdentity } from '../catalog/runtimes.ts'
-import { adapterCommand, adapterVersion, IRODORI_TTS_ADAPTER, MLX_AUDIO_ADAPTER, syncAdapter } from '../engines/adapter.ts'
+import { adapterCommand, adapterVersion, IRODORI_TTS_ADAPTER, MLX_AUDIO_ADAPTER, QWEN3_TTS_ADAPTER, syncAdapter, type Adapter } from '../engines/adapter.ts'
 import { ensureModelFile } from '../catalog/model-file.ts'
 import { durationSeconds, encodeWav16, peakNormalize, resample } from '../core/wav.ts'
 
@@ -58,22 +58,35 @@ async function prepareTts(model: TtsModel, { seed, design, reference, durationSc
     return { engine, runtime, loadOptions: voiceFile === null ? {} : { voice: 'voice file made on the CPU' } }
   }
   if (model.runtime === 'adapter') {
-    if (reference === null) throw new Error(`${model.id} has no voice of its own; give it one with --reference`)
-    // PyTorch from PyPI runs on the CPU only on Windows, and MLX runs only on Apple silicon.
-    if (platformKey() !== 'darwin-arm64') throw new Error(`${model.id} runs on a Mac here, on its GPU`)
+    if (model.voiceReference && reference === null) throw new Error(`${model.id} has no voice of its own; give it one with --reference`)
     const fileOf = (name: string): string => files[model.files.findIndex((file) => file.file === name)]!
-    const voice = ['--add-voice', `${REFERENCE_VOICE}=${reference.file}`]
-    const { adapter, args, loadOptions } = model.adapter === 'irodori-tts'
-      ? { adapter: IRODORI_TTS_ADAPTER, args: ['--checkpoint', fileOf('model.safetensors'), '--codec', fileOf('weights.pth'), '--device', 'mps', ...voice], loadOptions: { device: 'mps', precision: 'fp32' } }
-      : { adapter: MLX_AUDIO_ADAPTER, args: ['--model', path.dirname(fileOf('config.json')), ...voice], loadOptions: { device: 'metal', precision: 'fp16' } }
+    const voice = reference === null ? [] : ['--add-voice', `${REFERENCE_VOICE}=${reference.file}`]
+    const { adapter, args, loadOptions } = adapterRun(model.adapter, fileOf, voice)
     syncAdapter(adapter)
-    const engine = new WorkerTts(adapterCommand(adapter, model.id, args), { voice: REFERENCE_VOICE, seed, options: stepsOption(model.steps) })
+    const engine = new WorkerTts(adapterCommand(adapter, model.id, args), { voice: reference === null ? null : REFERENCE_VOICE, seed, options: stepsOption(model.steps) })
     return { engine, runtime: releaseOf({ id: adapter.id, version: adapterVersion(adapter) }), loadOptions }
   }
   const [gguf] = files
   if (!gguf) throw new Error(`${model.id} has no GGUF`)
   const runOptions = { ...(seed === null ? {} : { seed }), ...(design === null ? {} : { instruction: design.instruction }), ...(durationScale === null ? {} : { duration_scale: durationScale }) }
   return { engine: new AudioCppTts(await ensureRuntime(AUDIO_CPP), model, gguf, gpuBackend(), runOptions, reference?.file ?? null), runtime: releaseOf(AUDIO_CPP), loadOptions: model.loadOptions[gpuBackend()] ?? {} }
+}
+
+/**
+ * The adapter that runs a synthesis model, its arguments and the options it is loaded with. The official
+ * implementations run in PyTorch on the GPU of the machine, each in the precision it is released in; mlx-audio runs
+ * only on Apple silicon.
+ */
+function adapterRun(id: Extract<TtsModel, { runtime: 'adapter' }>['adapter'], fileOf: (name: string) => string, voice: readonly string[]): { adapter: Adapter; args: string[]; loadOptions: Record<string, string> } {
+  if (id === 'mlx-audio') {
+    if (platformKey() !== 'darwin-arm64') throw new Error('mlx-audio runs on Apple silicon alone')
+    return { adapter: MLX_AUDIO_ADAPTER, args: ['--model', path.dirname(fileOf('config.json')), ...voice], loadOptions: { device: 'metal', precision: 'fp16' } }
+  }
+  const device = torchDevice()
+  if (id === 'irodori-tts') {
+    return { adapter: IRODORI_TTS_ADAPTER, args: ['--checkpoint', fileOf('model.safetensors'), '--codec', fileOf('weights.pth'), '--device', device, ...voice], loadOptions: { device, precision: 'fp32' } }
+  }
+  return { adapter: QWEN3_TTS_ADAPTER, args: ['--model', path.dirname(fileOf('config.json')), '--device', device], loadOptions: { device, precision: 'bf16' } }
 }
 
 const stamp = (date: Date): string => date.toISOString().replace(/[:.]/g, '-')

@@ -11,7 +11,8 @@ import { NEMO_SPEECH_LOAD_OPTIONS, nemoSpeechDevice, NemoSpeechAsr } from '../en
 import { speechWorkerArgs } from '../engines/worker.ts'
 import { WorkerAsr } from '../engines/worker-asr.ts'
 import { VoiceDetector } from '../engines/voice-activity.ts'
-import { gpuDevice, machineInfo } from '../core/platform.ts'
+import { gpuDevice, machineInfo, torchDevice } from '../core/platform.ts'
+import { adapterCommand, adapterVersion, QWEN3_ASR_ADAPTER, syncAdapter } from '../engines/adapter.ts'
 import { RESULT_FORMAT, type AsrRunRecord, type ModelRecord, type NewPreparation, type UtteranceRecord } from './result-file/format.ts'
 import { runFile } from './runs.ts'
 import { CRISPASR, ensureRuntime, ensureSpeechCpp, LLAMA_CPP, NEMO_SPEECH_CPP, releaseOf, type RuntimeIdentity } from '../catalog/runtimes.ts'
@@ -41,6 +42,13 @@ export async function prepareAsr(model: AsrModel): Promise<{ engine: AsrEngine; 
   for (const file of model.files) files.push(await ensureModelFile(file))
   if (model.runtime === 'llama-server') {
     return { engine: new LlamaServerAsr(await ensureRuntime(LLAMA_CPP), model, files, gpuDevice()), runtime: releaseOf(LLAMA_CPP), loadOptions: {} }
+  }
+  if (model.runtime === 'adapter') {
+    const device = torchDevice()
+    const folder = path.dirname(files[model.files.findIndex((file) => file.file === 'config.json')]!)
+    syncAdapter(QWEN3_ASR_ADAPTER)
+    const engine = new WorkerAsr(adapterCommand(QWEN3_ASR_ADAPTER, model.id, ['--model', folder, '--device', device]), { ...model, decoding: null })
+    return { engine, runtime: releaseOf({ id: QWEN3_ASR_ADAPTER.id, version: adapterVersion(QWEN3_ASR_ADAPTER) }), loadOptions: { device, precision: 'bf16' } }
   }
   const [gguf] = files
   if (!gguf || files.length !== 1) throw new Error(`${model.id} is one GGUF file in ${model.runtime}`)
