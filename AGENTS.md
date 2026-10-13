@@ -5,7 +5,12 @@
 speech-bench measures local speech models (speech recognition and speech synthesis) under one set of
 conditions, across the runtimes they run in and the machines they run on (macOS arm64 with Metal, Windows x64
 with Vulkan), so that speech.cpp takes up a model on numbers and a port can be checked against the model it
-came from. It also makes voices for models without built-in ones. It serves no one application: an
+came from. It measures what a user sees, speed, latency, memory and accuracy, in two roles: speech.cpp's builds
+against each other and against the other runtimes, and a model speech.cpp is considering, in its official
+implementation and the runtimes that already run it, before speech.cpp takes it up. What passes or fails (speech.cpp's
+stage checks, its C API check, smoke scripts and bit-for-bit comparisons) and what is measured from inside the library
+(the time of each stage, the delay of live transcription) stay in speech.cpp. It also makes voices for models without
+built-in ones. It serves no one application: an
 application's own conditions, such as its VAD, stay out of it. It is a TypeScript command-line tool on Node
 22.18 or later, tested with Vitest. README.md is the documentation
 for users; `docs/adr/` keeps the decisions. Read the relevant implementation and tests before changing
