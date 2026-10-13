@@ -1,0 +1,31 @@
+[project]
+name = "speech-bench-qwen3-asr"
+version = "0"
+description = "Qwen3-ASR in transformers, with qwen-asr's audio handling, prompt and parse, behind speech.cpp's worker protocol, for speech-bench"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "transformers==5.18.0",
+  # Only qwen_asr/inference/utils.py is imported: the normalization of the audio, the split of long audio, the
+  # language names and the parse of the output, none of which needs transformers.
+  "qwen-asr==0.0.6",
+  "torch==2.10.0",
+  "numpy",
+]
+
+[tool.uv]
+# The lock file is made and run with uv 0.11; older releases are not checked against it.
+required-version = ">=0.11"
+package = false
+environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'", "sys_platform == 'win32' and platform_machine == 'AMD64'"]
+# qwen-asr 0.0.6 requires transformers 4.57.6 for its own copy of the model, which does not import with 5.18 and
+# which this environment does not run.
+override-dependencies = ["transformers==5.18.0"]
+
+# PyPI's PyTorch for Windows runs on the CPU alone; the CUDA build comes from PyTorch's own index.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu128", marker = "sys_platform == 'win32'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true

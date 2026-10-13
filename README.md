@@ -10,8 +10,9 @@ also makes voices for models that have none built in, from a description and lin
 
 - macOS on Apple Silicon, or Windows x64 with a discrete GPU
 - Node.js 22.18 or later (TypeScript runs directly through type stripping)
-- [uv](https://docs.astral.sh/uv/), only for the implementations the adapters run (Irodori-TTS's official one and mlx-audio)
-  and for NeMo-Speech.cpp's converter, and Git, which fetches the converter
+- [uv](https://docs.astral.sh/uv/) 0.11 or later, only for the implementations the adapters run (the official ones of Irodori-TTS,
+  Qwen3-TTS and Qwen3-ASR, and mlx-audio) and for NeMo-Speech.cpp's converter, and Git, which fetches the converter;
+  on Windows the official implementations need an NVIDIA GPU, on which they run through CUDA
 - [GitHub CLI](https://cli.github.com/), logged in, only to measure a build of speech.cpp's CI
 
 ```sh
@@ -35,8 +36,11 @@ node src/cli.ts tts --locale ja-JP --models qwen3-tts-0.6b,qwen3-tts-1.7b
 # Irodori-TTS v4.1 in speech.cpp, which speaks like a reference voice
 node src/cli.ts tts --locale ja-JP --models irodori-tts-v4.1-small-mf,irodori-tts-v4.1-small-16steps --reference voice-bright-young-woman --seeds 1
 
-# The same in Irodori-TTS's official PyTorch runtime, to check speech.cpp's port against it (on a Mac, through uv)
+# The same in Irodori-TTS's official PyTorch runtime, to check speech.cpp's port against it (through uv, on the GPU)
 node src/cli.ts tts --locale ja-JP --models irodori-tts-v4.1-small-mf-official --reference voice-bright-young-woman --seeds 1
+
+# Qwen3-TTS in its official PyTorch implementation, beside speech.cpp's port
+node src/cli.ts tts --locale ja-JP --models qwen3-tts-0.6b-official,qwen3-tts-0.6b --seeds 1
 
 # The same in mlx-audio's port, on a Mac through MLX
 node src/cli.ts tts --locale ja-JP --models irodori-tts-v4.1-small-mf-mlx --reference voice-bright-young-woman --seeds 1
@@ -48,8 +52,8 @@ node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-q8_0-16steps --
 # The test split of Common Voice 8.0 Japanese, which Japanese models report their rates on (4,483 clips)
 node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b --set common-voice --count 4483
 
-# Qwen3-ASR in llama.cpp and in speech.cpp, on the same clips
-node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b,qwen3-asr-1.7b-speech.cpp --set common-voice --count 100
+# Qwen3-ASR in llama.cpp, in speech.cpp and in its official code, on the same clips
+node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b,qwen3-asr-1.7b-speech.cpp,qwen3-asr-1.7b-official --set common-voice --count 100
 
 # The same in a local build of speech.cpp, a release candidate, in place of the pinned release
 SPEECH_BENCH_SPEECH_CPP=~/src/speech.cpp/build node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b-speech.cpp --set common-voice --count 100
@@ -174,6 +178,11 @@ chunk to the text. ReazonSpeech NeMo v2 decodes with its checkpoint's beam searc
 `reazonspeech-nemo-v2-greedy-speech.cpp` asks every request for greedy decoding, which speech.cpp v0.8.0 and later
 offer (docs/adr/0020); a worker whose model does not offer it stops the run before it measures.
 
+`qwen3-asr-0.6b-official` and `qwen3-asr-1.7b-official` run Qwen3-ASR in its official code, from the checkpoints
+speech.cpp converts, in an adapter that speaks the same protocol (docs/adr/0012): transformers' model in BF16 with
+qwen-asr's handling of the audio, its prompt and its parse of the output, as speech.cpp's port is checked against
+(docs/adr/0024). They are told the language as the other Qwen3-ASR entries are.
+
 parakeet-tdt-0.6b-v3 and ReazonSpeech NeMo v2 also run in NVIDIA's NeMo-Speech.cpp, its `nemo-speech serve` asked
 as CrispASR is, with the utterance whole, batching off and the model's own text (docs/adr/0021). NVIDIA publishes
 parakeet-tdt-0.6b-v3 for it in Q8_0 alone and ReazonSpeech not at all, so the bench converts both checkpoints to F16,
@@ -260,12 +269,16 @@ file names and the release of speech.cpp, so that a release that refuses the voi
 as v0.7.0 does, makes its own from the reference.
 
 A model's official implementation runs in an adapter of the bench's own that speaks the same protocol
-(docs/adr/0012): `adapters/irodori-tts/` runs Irodori-TTS v4.1's official PyTorch runtime at FP32 on the Mac's
-GPU, from the revisions of the checkpoints speech.cpp's GGUFs were converted from. The adapter encodes the
+(docs/adr/0012), on the GPU: through MPS on a Mac and through CUDA on Windows, where an adapter that finds no CUDA
+device stops the run rather than run on the CPU. `adapters/irodori-tts/` runs Irodori-TTS v4.1's official PyTorch
+runtime at FP32, from the revisions of the checkpoints speech.cpp's GGUFs were converted from. The adapter encodes the
 reference voice's WAVE file once, as the runtime would, and gives every sentence the latent, as speech.cpp's
-worker is given a voice file. uv installs the packages the adapter's lock file pins into `adapters/` of the data folder on the
-first run, before the timing starts. The official runtime does not stream, so its first audio arrives with the
-last.
+worker is given a voice file. `adapters/qwen3-tts/` runs Qwen3-TTS CustomVoice 0.6B and 1.7B in their official
+implementation in BF16, with the checkpoint's sampling settings, as `qwen3-tts-0.6b-official` and
+`qwen3-tts-1.7b-official`. uv installs the packages the adapter's lock file pins, on Windows PyTorch's CUDA build,
+into `adapters/` of the data folder on the first run, before the timing starts; uv keeps what it downloads in its
+cache (`UV_CACHE_DIR`), about 2.9 GB for each CUDA build of PyTorch. Neither official implementation streams, so the
+first audio arrives with the last.
 
 `adapters/mlx-audio/` runs mlx-audio's port of Irodori-TTS v4.1 on the Mac's GPU through MLX, from
 mlx-community's FP16 conversions. `generate()` encodes the reference for every sentence, so the adapter keeps
@@ -368,6 +381,10 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 | parakeet-tdt-0.6b-v3, parakeet-tdt_ctc-0.6b-ja, ReazonSpeech NeMo v2 in speech.cpp | sakasegawa/parakeet-tdt-0.6b-v3-GGUF, sakasegawa/parakeet-tdt_ctc-0.6b-ja-GGUF and sakasegawa/reazonspeech-nemo-v2-GGUF, one F16 file each, the layout speech.cpp v0.7.0 reads |
 | Qwen3-TTS 0.6B and 1.7B CustomVoice | sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF and sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF, one Q8_0 file each with the F16 codec inside, the layout speech.cpp v0.7.0 reads |
 | Irodori-TTS v4.1 Small, MF and RF | sakasegawa/Irodori-TTS-v4.1-Small-MF-GGUF and sakasegawa/Irodori-TTS-v4.1-Small-GGUF, one F16 file each with the F32 codec inside, the layout speech.cpp v0.7.0 reads |
+| Irodori-TTS v4.1 Small, official | Aratako/Irodori-TTS-v4.1-Small-MF and Aratako/Irodori-TTS-v4.1-Small with Aratako/Semantic-DACVAE-Japanese-32dim, in Irodori-TTS at 89f9d8fb with the packages of `adapters/irodori-tts/uv.lock` |
+| Qwen3-TTS 0.6B and 1.7B CustomVoice, official | Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice at 85e237c1 and Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice at 0c0e3051, in qwen-tts at 022e286b with the packages of `adapters/qwen3-tts/uv.lock` |
+| Qwen3-ASR 0.6B and 1.7B, official | Qwen/Qwen3-ASR-0.6B at 5eb14417 and Qwen/Qwen3-ASR-1.7B at 7278e1e7, in transformers 5.18.0 with qwen-asr 0.0.6 and the packages of `adapters/qwen3-asr/uv.lock` |
+| PyTorch for the official implementations | PyPI's on a Mac; on Windows the CUDA 12.8 build from PyTorch's index, pinned in each adapter's lock file |
 | NeMo-Speech.cpp | v0.2.0, `nemo-speech serve` |
 | parakeet-tdt-0.6b-v3 and ReazonSpeech NeMo v2 in NeMo-Speech.cpp | nvidia/parakeet-tdt-0.6b-v3 and reazon-research/reazonspeech-nemo-v2, the `.nemo` checkpoints speech.cpp's files were converted from, converted to F16 by NeMo-Speech.cpp's `convert_model.py` at v0.2.0 (6a3ca369) with the packages of `converters/nemo-speech.cpp/uv.lock`, and pinned by the size and sha256 of the result |
 | audio.cpp | v0.9.0 |

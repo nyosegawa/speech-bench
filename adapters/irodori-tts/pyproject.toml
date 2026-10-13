@@ -16,4 +16,18 @@ dependencies = [
 ]
 
 [tool.uv]
+# Irodori-TTS's own pyproject.toml gives sources an `extra`, which uv 0.4.24 refuses to read; the lock file is made
+# and run with uv 0.11.
+required-version = ">=0.11"
 package = false
+environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'", "sys_platform == 'win32' and platform_machine == 'AMD64'"]
+
+# PyPI's PyTorch for Windows runs on the CPU alone; the CUDA build comes from PyTorch's own index.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu128", marker = "sys_platform == 'win32'" }]
+torchaudio = [{ index = "pytorch-cu128", marker = "sys_platform == 'win32'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
