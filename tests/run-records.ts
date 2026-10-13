@@ -9,6 +9,7 @@ const common = {
   model: { id: 'model', label: 'Model', license: 'MIT', files: [] },
   runtime: { id: 'llama.cpp', version: 'b1', build: null, options: {} },
   loadSeconds: 1,
+  coldLoad: false,
   warmupSeconds: 1,
   memory: null,
   gpuPower: null,

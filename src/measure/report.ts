@@ -197,7 +197,7 @@ function gpuMemoryHeader(rows: readonly Summary[]): string {
  */
 function runtimeColumns(rows: readonly Summary[]): Array<[string, (run: RunRecord) => string]> {
   return [
-    ['Load s', (run) => run.loadSeconds.toFixed(1)],
+    ['Load s', (run) => `${run.loadSeconds.toFixed(1)}${run.coldLoad ? ' cold' : ''}`],
     ['First request s', (run) => run.warmupSeconds.toFixed(3)],
     ['Peak memory GiB', ({ memory }) => (memory === null ? 'not measured' : gib(memory.peakResidentBytes))],
     [gpuMemoryHeader(rows), ({ memory }) => (memory === null ? 'not measured' : memory.gpu === null ? 'none' : gib(memory.gpu.peakBytes))],

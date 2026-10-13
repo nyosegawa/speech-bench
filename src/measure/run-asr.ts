@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { modelCovers, VAD_MODEL, type AsrModel } from '../catalog/models.ts'
 import type { UtteranceSet } from '../datasets/item.ts'
+import { coldCopies } from '../catalog/cold-copy.ts'
 import { ensureModelFile, type ModelFile } from '../catalog/model-file.ts'
 import { convertedSha256 } from '../catalog/convert.ts'
 import { CrispAsr } from '../engines/crispasr.ts'
@@ -35,13 +36,32 @@ export function prepareAudio(pcm: Pcm, preparation: NewPreparation, detector: Pi
   return span && peakNormalize(trimAround(pcm, span.start, span.end, preparation.marginSeconds))
 }
 
-/**
- * The engine that runs the model, with its runtime and the options it is loaded with, after fetching or converting
- * whatever is missing.
- */
-export async function prepareAsr(model: AsrModel): Promise<{ engine: AsrEngine; runtime: RuntimeIdentity; loadOptions: Readonly<Record<string, string>> }> {
+/** The local paths of a model's files, in the order the catalog lists them, after fetching or converting whatever is missing. */
+export async function modelFiles(model: { files: readonly ModelFile[] }): Promise<string[]> {
   const files: string[] = []
   for (const file of model.files) files.push(await ensureModelFile(file))
+  return files
+}
+
+/** How a run is made beyond its model and its set. */
+export interface RunSetup {
+  /** Whether the runtime loads the model from copies no file cache holds, for a cold load time. */
+  coldLoad: boolean
+}
+
+export const WARM_SETUP: RunSetup = { coldLoad: false }
+
+/**
+ * The model's files as the run reads them, copies that no file cache holds for a cold load, and how to remove those
+ * copies once the runtime has stopped.
+ */
+export async function filesFor(model: { files: readonly ModelFile[] }, setup: RunSetup): Promise<{ files: string[]; remove: () => void }> {
+  const files = await modelFiles(model)
+  return setup.coldLoad ? coldCopies(files) : { files, remove: () => undefined }
+}
+
+/** The engine that runs the model from `files`, the local paths of its files, with its runtime and the options it is loaded with. */
+export async function prepareAsr(model: AsrModel, files: readonly string[]): Promise<{ engine: AsrEngine; runtime: RuntimeIdentity; loadOptions: Readonly<Record<string, string>> }> {
   if (model.runtime === 'llama-server') {
     return { engine: new LlamaServerAsr(await ensureRuntime(LLAMA_CPP), model, files, gpuDevice()), runtime: releaseOf(LLAMA_CPP), loadOptions: {} }
   }
@@ -90,10 +110,11 @@ const stamp = (date: Date): string => date.toISOString().replace(/[:.]/g, '-')
  * a run cut short still leaves what it measured; what was watched while the runtime ran, its memory among it, is
  * written into the run line once the runtime has stopped. Returns the path of the result file.
  */
-export async function runAsr(model: AsrModel, set: UtteranceSet, audio: NewPreparation): Promise<string> {
+export async function runAsr(model: AsrModel, set: UtteranceSet, audio: NewPreparation, setup: RunSetup = WARM_SETUP): Promise<string> {
   if (!modelCovers(model, set.locale)) throw new Error(`${model.id} does not list ${set.locale} among its languages`)
   if (set.utterances.length === 0) throw new Error(`${set.name} has no utterances`)
-  const { engine, runtime, loadOptions } = await prepareAsr(model)
+  const read = await filesFor(model, setup)
+  const { engine, runtime, loadOptions } = await prepareAsr(model, read.files)
   const detector = audio.edges === 'voice' ? await VoiceDetector.open(VAD_MODEL) : null
   const startedAt = new Date()
   const machine = machineInfo()
@@ -123,6 +144,7 @@ export async function runAsr(model: AsrModel, set: UtteranceSet, audio: NewPrepa
       runtime: { ...runtime, options: loadOptions },
       audio,
       loadSeconds,
+      coldLoad: setup.coldLoad,
       warmupSeconds,
       memory: null,
       gpuPower: null,
@@ -154,5 +176,6 @@ export async function runAsr(model: AsrModel, set: UtteranceSet, audio: NewPrepa
   } finally {
     await watch.close()
     await engine.stop()
+    read.remove()
   }
 }

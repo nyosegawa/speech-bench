@@ -106,6 +106,11 @@ const runCommon = {
   }),
   /** From starting the process to its being ready: loading the model and, on the first run, compiling GPU kernels. */
   loadSeconds: z.number(),
+  /**
+   * Whether the model was loaded from fresh copies of its files that no file cache held, so that the load time is a
+   * cold one; false for files read as the system found them, which every run before format 18 did.
+   */
+  coldLoad: z.boolean().default(false),
   /** The first item, repeated untimed because it pays for the GPU's first use. */
   warmupSeconds: z.number(),
   /** Null for a run made before memory was measured, or one cut short before its runtime stopped. */

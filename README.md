@@ -99,6 +99,7 @@ folder `SPEECH_BENCH_DATA` names.
   references/  reference voices made from synthesized takes, <name>.wav and <name>.json
   voice-files/ Irodori-TTS voice files made from the references for speech.cpp, by reference, codec and release or build
   adapters/    the Python environments of the adapters
+  cold/        copies of model files for a cold load, while the run lasts
   logs/        server output
   runs/        a folder per run: run.jsonl, the speech of each sentence and analysis.json
   campaigns/   the runs of each experiment, <name>.json
@@ -350,6 +351,9 @@ Every recognition and synthesis run also records what its runtime cost besides i
 to stopping it, which the report and the web app's runs page show after the speed:
 
 - **Load time**: from starting the runtime to its being ready.
+- **Cold load time**: with `--cold-load`, the load time from copies of the model files that no file cache holds,
+  made before the runtime starts and removed after it stops, without administrator rights: APFS clones (`cp -c`) on a
+  Mac, `robocopy /J` on Windows (docs/adr/0029). The report writes such a load time `cold`.
 - **First request**: the first utterance or sentence after loading, run once more untimed, apart from the rest, since
   it pays for the GPU's first use (Vulkan and Metal prepare their shaders then).
 - **Peak memory**: the resident memory of the process the bench starts and every process under it (uv and the Python

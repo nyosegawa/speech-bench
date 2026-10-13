@@ -65,7 +65,7 @@ const notMeasured = <span className="text-muted-foreground">—</span>
 
 /** The load time and the memory the runtime took, which every run has, beside each other. */
 const loadAndMemory: Array<Column<RunRow>> = [
-  { key: 'load', label: 'Load', numeric: true, hint: 'Seconds from starting the runtime to its being ready, and below, the first request after it, which pays for the GPU\'s first use.', value: (row) => row.run.loadSeconds, cell: (row) => <div className="tabular-nums whitespace-nowrap">{seconds(row.run.loadSeconds, 1)}<div className="text-xs text-muted-foreground">first {seconds(row.run.warmupSeconds)}</div></div> },
+  { key: 'load', label: 'Load', numeric: true, hint: 'Seconds from starting the runtime to its being ready, and below, the first request after it, which pays for the GPU\'s first use.', value: (row) => row.run.loadSeconds, cell: (row) => <div className="tabular-nums whitespace-nowrap">{seconds(row.run.loadSeconds, 1)}{row.run.coldLoad && ' cold'}<div className="text-xs text-muted-foreground">first {seconds(row.run.warmupSeconds)}</div></div> },
   {
     key: 'memory',
     label: 'Peak memory',

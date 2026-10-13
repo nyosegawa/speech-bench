@@ -86,6 +86,7 @@ export async function asr(args: string[]): Promise<void> {
       margin: { type: 'string' },
       'trailing-silence': { type: 'string' },
       campaign: { type: 'string' },
+      'cold-load': { type: 'boolean', default: false },
       'model-file': { type: 'string' },
       'model-sha256': { type: 'string' }
     }
@@ -116,7 +117,7 @@ export async function asr(args: string[]): Promise<void> {
   const files: string[] = []
   for (const model of models) {
     process.stderr.write(`${model.id} on ${set.name}\n`)
-    const file = await runAsr(model, set, audio)
+    const file = await runAsr(model, set, audio, { coldLoad: values['cold-load'] })
     if (values.campaign !== undefined) joinCampaign(values.campaign, runIdOf(file))
     files.push(file)
   }
@@ -138,6 +139,7 @@ export async function tts(args: string[]): Promise<void> {
       sentences: { type: 'string' },
       only: { type: 'string' },
       campaign: { type: 'string' },
+      'cold-load': { type: 'boolean', default: false },
       'model-file': { type: 'string' },
       'model-sha256': { type: 'string' }
     }
@@ -162,7 +164,7 @@ export async function tts(args: string[]): Promise<void> {
       for (const seed of seeds) {
         const how = [design === null ? '' : ` as ${design.id}`, seed === null ? '' : ` with seed ${seed}`].join('')
         process.stderr.write(`${model.id}${how} speaking ${sentences.length} sentences\n`)
-        const file = await runTts(model, locale, sentences, { voice: values.voice, seed, design, reference, durationScale })
+        const file = await runTts(model, locale, sentences, { voice: values.voice, seed, design, reference, durationScale }, { coldLoad: values['cold-load'] })
         if (values.campaign !== undefined) joinCampaign(values.campaign, runIdOf(file))
         files.push(file)
       }
