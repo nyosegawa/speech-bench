@@ -80,6 +80,35 @@ describe('summarize a speech recognition run', () => {
   })
 })
 
+describe('the memory a runtime took', () => {
+  const columns = (report: string, row: number): Record<string, string> => {
+    const lines = report.split('\n').filter((line) => line.startsWith('|'))
+    const cells = (line: string): string[] => line.split('|').slice(1, -1).map((cell) => cell.trim())
+    const headers = cells(lines[0]!)
+    return Object.fromEntries(cells(lines[row + 2]!).map((cell, index) => [headers[index]!, cell]))
+  }
+
+  it('gives the peak resident memory and the GPU memory in GiB, the GPU\'s named for what a Mac or Windows measures', () => {
+    const mac = columns(formatReport([asr(summarize(fixture('v15-asr.jsonl'), noSpellings))]), 0)
+    expect(mac['Peak memory GiB']).toBe('2.01')
+    expect(mac['GPU memory (Metal) GiB']).toBe('0.04')
+    const windows = columns(formatReport([tts(summarize(fixture('v15-tts.jsonl'), noSpellings))]), 0)
+    expect(windows['Peak memory GiB']).toBe('1.20')
+    expect(windows['VRAM GiB']).toBe('2.20')
+  })
+
+  it('says a run made before memory was measured was not, rather than give a zero', () => {
+    const old = columns(formatReport([asr(summarize(fixture('v14-asr-ci-build.jsonl'), noSpellings))]), 0)
+    expect(old['Peak memory GiB']).toBe('not measured')
+    expect(Object.entries(old).find(([header]) => header.includes('VRAM'))?.[1]).toBe('not measured')
+  })
+
+  it('says a machine without GPU memory of its own has none', () => {
+    const line = JSON.stringify(asrRunOf({ memory: { intervalMs: 100, samples: 10, peakResidentBytes: 1024 ** 3, gpu: null } }))
+    expect(Object.entries(columns(formatReport([asr(summarize([line, utterance('あ', 'あ', 0.1, 1)], noSpellings))]), 0)).find(([header]) => header.includes('VRAM'))?.[1]).toBe('none')
+  })
+})
+
 describe('percentiles', () => {
   it('gives each percentile as a time that was measured, by the nearest rank', () => {
     const times = Array.from({ length: 100 }, (_, index) => (100 - index) / 100)

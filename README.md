@@ -336,6 +336,24 @@ node src/cli.ts reference --name bright-young-woman-30s --seconds 30 ~/speech-be
 node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-q8_0-16steps --reference bright-young-woman-30s --seeds 1
 ```
 
+### Memory
+
+Every recognition and synthesis run records the memory its runtime took, from starting the runtime to stopping it:
+the process the bench starts and every process under it (uv and the Python it runs, for an adapter), looked at every
+100 ms, each figure the largest sum over those processes in one look (docs/adr/0026). The report and the web app's
+runs page show both next to the load time.
+
+- **Peak memory**: the resident memory, RSS on macOS and the working set on Windows. On a Mac it holds the weights
+  ggml gives Metal from its own memory and a model file llama.cpp maps into memory.
+- **VRAM**: on Windows the dedicated GPU memory Windows counts for each process, read from its performance counters
+  (no administrator rights needed); a machine on which no process holds dedicated GPU memory records none. A Mac's GPU
+  shares its memory with the CPU, and its figure is **GPU memory (Metal)**: the memory macOS tags as graphics, which
+  Metal's driver allocated for the runtime and the GPU or the CPU has written. A buffer allocated but never written
+  takes no memory and is not counted.
+
+A run cut short, and every run made before memory was measured, records none, which the report writes as
+`not measured`.
+
 ### Making a voice
 
 A voice for a model without built-in voices is made from its recipe in `prompts/voices-<locale>.json`: an id, a

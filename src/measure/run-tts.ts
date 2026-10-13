@@ -13,7 +13,8 @@ import { WorkerTts } from '../engines/worker-tts.ts'
 import type { Synthesis, TtsEngine } from '../engines/tts-engine.ts'
 import { gpuBackend, gpuDevice, machineInfo, platformKey, torchDevice } from '../core/platform.ts'
 import { resultText } from './result-file/file.ts'
-import { RESULT_FORMAT, type SentenceRecord, type TtsRunRecord } from './result-file/format.ts'
+import { RESULT_FORMAT, type MemoryRecord, type SentenceRecord, type TtsRunRecord } from './result-file/format.ts'
+import { MemorySampler } from './memory/sampler.ts'
 import { modelRecord, prepareAsr } from './run-asr.ts'
 import { runFile, runFolder } from './runs.ts'
 import { AUDIO_CPP, ensureRuntime, ensureSpeechCpp, releaseOf, runtimeTag, type RuntimeIdentity } from '../catalog/runtimes.ts'
@@ -121,6 +122,8 @@ export async function runTts(model: TtsModel, locale: string, sentences: readonl
   const spoken: Spoken[] = []
   let loadSeconds = 0
   let warmupSeconds = 0
+  let memory: MemoryRecord | null = null
+  const sampler = await MemorySampler.start(() => engine.pid)
   try {
     const loadStarted = performance.now()
     await engine.start()
@@ -133,10 +136,12 @@ export async function runTts(model: TtsModel, locale: string, sentences: readonl
       spoken.push({ prompt, audio, synthesis })
       process.stderr.write(`  ${model.id} ${index + 1}/${sentences.length} first audio ${synthesis.firstAudioSeconds.toFixed(2)} s\n`)
     }
+    memory = await sampler.stop()
   } catch (error) {
     const log = engine.log ? ` (log: ${engine.log})` : ''
     throw new Error(`${model.id} failed${log}: ${error instanceof Error ? error.message : String(error)}`, { cause: error })
   } finally {
+    await sampler.close()
     await engine.stop()
   }
 
@@ -179,7 +184,8 @@ export async function runTts(model: TtsModel, locale: string, sentences: readonl
     durationScale,
     recognizer: { id: recognizer.id, label: recognizer.label },
     loadSeconds,
-    warmupSeconds
+    warmupSeconds,
+    memory
   }
   const file = runFile(stem)
   fs.writeFileSync(file, resultText({ run, sentences: records }))

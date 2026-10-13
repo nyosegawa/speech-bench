@@ -52,6 +52,10 @@ export class AudioCppTts implements TtsEngine {
     return this.server?.log ?? null
   }
 
+  get pid(): number | null {
+    return this.server?.child.pid ?? null
+  }
+
   async start(): Promise<void> {
     fs.mkdirSync(logsDir(), { recursive: true })
     const config = path.join(logsDir(), `${this.model.id}-server.json`)

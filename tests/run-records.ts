@@ -9,7 +9,8 @@ const common = {
   model: { id: 'model', label: 'Model', license: 'MIT', files: [] },
   runtime: { id: 'llama.cpp', version: 'b1', build: null, options: {} },
   loadSeconds: 1,
-  warmupSeconds: 1
+  warmupSeconds: 1,
+  memory: null
 }
 
 /** A whole run line of a recognition run, with the fields a test cares about given. */

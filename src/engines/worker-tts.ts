@@ -37,6 +37,10 @@ export class WorkerTts implements TtsEngine {
     return this.worker.log
   }
 
+  get pid(): number | null {
+    return this.worker.pid
+  }
+
   async start(): Promise<void> {
     const rate = (await this.worker.start()).sample_rate
     if (typeof rate !== 'number') throw new Error(`the worker's ready gives no sample_rate in its model information; see ${this.worker.log}`)

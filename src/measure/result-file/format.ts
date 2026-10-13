@@ -40,6 +40,26 @@ const publishedFile = z.strictObject({
 /** A file on the machine that was not published, run in place of an entry's pinned file. */
 const localFile = z.strictObject({ source: z.literal('local'), file: z.string(), bytes: z.int(), sha256: z.string() })
 
+/**
+ * The memory the runtime's processes took, sampled from starting the runtime to stopping it: the process it started
+ * and every process under it, such as uv and the Python it runs. Each figure is the peak over the samples of the sum
+ * over the processes.
+ */
+const memoryRecord = z.strictObject({
+  /** The time asked between the starts of two samples; a sample that takes longer delays the next. */
+  intervalMs: z.int(),
+  samples: z.int(),
+  /** The peak of the resident memory: RSS on macOS, the working set on Windows. */
+  peakResidentBytes: z.int(),
+  /**
+   * The peak of the GPU memory, or null on a machine without GPU memory of its own: `metal` is the memory macOS tags as
+   * graphics, which Metal's driver allocated and the GPU or the CPU has written, and `dedicated` the dedicated GPU
+   * memory Windows counts for each process.
+   */
+  gpu: z.strictObject({ measure: z.enum(['metal', 'dedicated']), peakBytes: z.int() }).nullable()
+})
+export type MemoryRecord = z.infer<typeof memoryRecord>
+
 /** The files a run used, so that a result names exactly what it measured. */
 const modelRecord = z.strictObject({
   id: z.string(),
@@ -78,7 +98,9 @@ const runCommon = {
   /** From starting the process to its being ready: loading the model and, on the first run, compiling GPU kernels. */
   loadSeconds: z.number(),
   /** The first item, repeated untimed because it pays for the GPU's first use. */
-  warmupSeconds: z.number()
+  warmupSeconds: z.number(),
+  /** Null for a run made before memory was measured, or one cut short before its runtime stopped. */
+  memory: memoryRecord.nullable().default(null)
 }
 
 /** The first line of a speech recognition result file. */

@@ -62,6 +62,10 @@ export class WorkerAsr implements AsrEngine {
     return this.worker.log
   }
 
+  get pid(): number | null {
+    return this.worker.pid
+  }
+
   /**
    * Starts the worker on a model that takes the language and the decoding as the catalog says, so that a request
    * means what it says.

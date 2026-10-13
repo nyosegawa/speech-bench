@@ -54,6 +54,10 @@ export class NemoSpeechAsr implements AsrEngine {
     return this.server?.log ?? null
   }
 
+  get pid(): number | null {
+    return this.server?.child.pid ?? null
+  }
+
   async start(): Promise<void> {
     // The server's own warm-up is left out, so that the load time is the loading alone, as for speech.cpp's worker;
     // the run's first utterance, run once untimed, pays for the GPU's first use.

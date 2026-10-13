@@ -42,8 +42,8 @@ behavior.
 - `src/measure/` runs a model over a set and writes the result (`run-asr.ts`, `run-tts.ts`), owns the form of
   result files (`result-file/`), where a run is kept (`runs.ts`), the campaigns (`campaigns.ts`, their form in
   `campaign-file/`), the scoring of recognized texts (`scoring.ts`, with the kanji forms of `kanji-forms.ts`, and
-  against accepted spellings `accepted.ts`) and of synthesized speech as heard (`heard.ts`), and the report
-  (`report.ts`).
+  against accepted spellings `accepted.ts`) and of synthesized speech as heard (`heard.ts`), the memory a runtime's
+  processes take, sampled with the tools of each system (`memory/`), and the report (`report.ts`).
 - `src/spellings/` handles the annotations of reference sentences in `spellings/`: the notation of readings
   and accepted spellings (`notation.ts`), the files (`files.ts`), the sentences of each source (`sources.ts`),
   the agent's draft (`draft.ts`), the work directories it annotates in (`work.ts`) and the rows published on

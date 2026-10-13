@@ -60,6 +60,32 @@ function LatencyCell({ latency }: { latency: AsrRow['latencySeconds'] }) {
   return <div className="tabular-nums whitespace-nowrap">{seconds(latency.p50)}<div className="text-xs text-muted-foreground">p90 {seconds(latency.p90)} · p99 {seconds(latency.p99)}</div></div>
 }
 
+const gib = (bytes: number): string => `${(bytes / 1024 ** 3).toFixed(2)} GiB`
+const notMeasured = <span className="text-muted-foreground">—</span>
+
+/** The load time and the memory the runtime took, which every run has, beside each other. */
+const loadAndMemory: Array<Column<RunRow>> = [
+  { key: 'load', label: 'Load', numeric: true, hint: 'Seconds from starting the runtime to its being ready.', value: (row) => row.run.loadSeconds, cell: (row) => number(seconds(row.run.loadSeconds, 1)) },
+  {
+    key: 'memory',
+    label: 'Peak memory',
+    numeric: true,
+    hint: 'The peak resident memory of the runtime\'s processes, summed over them: RSS on macOS, the working set on Windows.',
+    value: (row) => row.run.memory?.peakResidentBytes ?? Number.POSITIVE_INFINITY,
+    cell: (row) => (row.run.memory === null ? notMeasured : number(gib(row.run.memory.peakResidentBytes)))
+  },
+  {
+    key: 'gpu',
+    label: 'VRAM',
+    numeric: true,
+    hint: 'The peak GPU memory of the runtime\'s processes: the dedicated memory of a discrete GPU on Windows, and on a Mac the memory Metal\'s driver allocated, which a runtime\'s own buffers given to Metal leave out.',
+    value: (row) => row.run.memory?.gpu?.peakBytes ?? Number.POSITIVE_INFINITY,
+    cell: (row) => (row.run.memory?.gpu
+      ? <div className="tabular-nums whitespace-nowrap">{gib(row.run.memory.gpu.peakBytes)}<div className="text-xs text-muted-foreground">{row.gpuMemory}</div></div>
+      : row.run.memory === null ? notMeasured : <span className="text-muted-foreground">none</span>)
+  }
+]
+
 const TTS_COLUMNS: Array<Column<TtsRow>> = [
   common.started,
   common.model,
@@ -70,7 +96,8 @@ const TTS_COLUMNS: Array<Column<TtsRow>> = [
   { key: 'said', label: 'Heard as said', numeric: true, firstDescending: true, hint: 'Sentences the recognizer heard as they were written, apart from how it spells them.', value: (row) => row.heardAsSaid / row.sentences, cell: (row) => number(`${row.heardAsSaid} / ${row.sentences}`) },
   { key: 'first', label: 'First audio', numeric: true, hint: 'Seconds from asking for a sentence to its first audio: p50, and p90 and p99 below.', value: (row) => row.firstAudioSeconds.p50, cell: (row) => <LatencyCell latency={row.firstAudioSeconds} /> },
   { key: 'rtfx', label: 'RTFx', numeric: true, firstDescending: true, hint: 'The duration of the speech over the synthesis time; larger is faster.', value: (row) => row.inverseRealTimeFactor, cell: (row) => number(row.inverseRealTimeFactor.toFixed(2)) },
-  { key: 'pace', label: 's / char', numeric: true, hint: 'Seconds of speech per character of text, which shows speech that runs on or rushes.', value: (row) => row.secondsPerCharacter, cell: (row) => number(row.secondsPerCharacter.toFixed(3)) }
+  { key: 'pace', label: 's / char', numeric: true, hint: 'Seconds of speech per character of text, which shows speech that runs on or rushes.', value: (row) => row.secondsPerCharacter, cell: (row) => number(row.secondsPerCharacter.toFixed(3)) },
+  ...loadAndMemory
 ]
 
 const ASR_COLUMNS: Array<Column<AsrRow>> = [
@@ -93,7 +120,8 @@ const ASR_COLUMNS: Array<Column<AsrRow>> = [
   { key: 'dropped', label: 'Dropped', numeric: true, hint: 'Utterances in which the VAD found no voice; the other figures leave them out.', value: (row) => row.dropped, cell: (row) => number(`${row.dropped} / ${row.utterances}`) },
   { key: 'empty', label: 'Empty', numeric: true, hint: 'Utterances the model heard nothing in.', value: (row) => row.empty, cell: (row) => number(String(row.empty)) },
   { key: 'time', label: 'Time', numeric: true, hint: 'Seconds to transcribe an utterance: p50, and p90 and p99 below.', value: (row) => row.latencySeconds.p50, cell: (row) => <LatencyCell latency={row.latencySeconds} /> },
-  { key: 'rtfx', label: 'RTFx', numeric: true, firstDescending: true, hint: 'The duration of the audio over the transcription time; larger is faster.', value: (row) => row.inverseRealTimeFactor, cell: (row) => number(row.inverseRealTimeFactor.toFixed(1)) }
+  { key: 'rtfx', label: 'RTFx', numeric: true, firstDescending: true, hint: 'The duration of the audio over the transcription time; larger is faster.', value: (row) => row.inverseRealTimeFactor, cell: (row) => number(row.inverseRealTimeFactor.toFixed(1)) },
+  ...loadAndMemory
 ]
 
 const ALL = 'all'

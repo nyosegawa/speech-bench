@@ -14,6 +14,8 @@ import { VoiceDetector } from '../engines/voice-activity.ts'
 import { gpuDevice, machineInfo, torchDevice } from '../core/platform.ts'
 import { adapterCommand, adapterVersion, QWEN3_ASR_ADAPTER, syncAdapter } from '../engines/adapter.ts'
 import { RESULT_FORMAT, type AsrRunRecord, type ModelRecord, type NewPreparation, type UtteranceRecord } from './result-file/format.ts'
+import { MemorySampler } from './memory/sampler.ts'
+import { resultText } from './result-file/file.ts'
 import { runFile } from './runs.ts'
 import { CRISPASR, ensureRuntime, ensureSpeechCpp, LLAMA_CPP, NEMO_SPEECH_CPP, releaseOf, type RuntimeIdentity } from '../catalog/runtimes.ts'
 import { durationSeconds, peakNormalize, readWav, trimAround, withTrailingSilence, type Pcm } from '../core/wav.ts'
@@ -85,7 +87,8 @@ const stamp = (date: Date): string => date.toISOString().replace(/[:.]/g, '-')
 
 /**
  * Transcribes every utterance of the set with the model and writes one JSON line per utterance, so that
- * a run cut short still leaves what it measured. Returns the path of the result file.
+ * a run cut short still leaves what it measured; the memory the runtime took is written into the run line once
+ * the runtime has stopped. Returns the path of the result file.
  */
 export async function runAsr(model: AsrModel, set: UtteranceSet, audio: NewPreparation): Promise<string> {
   if (!modelCovers(model, set.locale)) throw new Error(`${model.id} does not list ${set.locale} among its languages`)
@@ -94,6 +97,7 @@ export async function runAsr(model: AsrModel, set: UtteranceSet, audio: NewPrepa
   const detector = audio.edges === 'voice' ? await VoiceDetector.open(VAD_MODEL) : null
   const startedAt = new Date()
   const machine = machineInfo()
+  const sampler = await MemorySampler.start(() => engine.pid)
   const loadStarted = performance.now()
   try {
     await engine.start()
@@ -119,9 +123,11 @@ export async function runAsr(model: AsrModel, set: UtteranceSet, audio: NewPrepa
       runtime: { ...runtime, options: loadOptions },
       audio,
       loadSeconds,
-      warmupSeconds
+      warmupSeconds,
+      memory: null
     }
     fs.writeFileSync(file, `${JSON.stringify(run)}\n`)
+    const utterances: UtteranceRecord[] = []
     for (const [index, utterance] of set.utterances.entries()) {
       const pcm = load(utterance.audio)
       let record: UtteranceRecord
@@ -133,13 +139,16 @@ export async function runAsr(model: AsrModel, set: UtteranceSet, audio: NewPrepa
         record = { type: 'utterance', id: utterance.id, reference: utterance.reference, droppedBy: 'no-voice' }
         process.stderr.write(`  ${model.id} ${index + 1}/${set.utterances.length} no voice found\n`)
       }
+      utterances.push(record)
       fs.appendFileSync(file, `${JSON.stringify(record)}\n`)
     }
+    fs.writeFileSync(file, resultText({ run: { ...run, memory: await sampler.stop() }, utterances }))
     return file
   } catch (error) {
     const log = engine.log ? ` (server log: ${engine.log})` : ''
     throw new Error(`${model.id} failed${log}: ${error instanceof Error ? error.message : String(error)}`, { cause: error })
   } finally {
+    await sampler.close()
     await engine.stop()
   }
 }

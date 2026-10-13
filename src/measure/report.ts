@@ -2,7 +2,7 @@ import { scoredByCharacter } from '../core/language.ts'
 import { sentenceKey, spellingsReader, type Spellings } from '../spellings/files.ts'
 import { countAcceptedErrors } from './accepted.ts'
 import { readResultFile } from './result-file/file.ts'
-import { isDropped, type AsrRunRecord, type AudioPreparation, type HeardUtterance, type ResultFile, type RunRecord, type TtsRunRecord } from './result-file/format.ts'
+import { isDropped, type AsrRunRecord, type AudioPreparation, type HeardUtterance, type MemoryRecord, type ResultFile, type RunRecord, type TtsRunRecord } from './result-file/format.ts'
 import { countHeardErrors, heardAsSaid } from './heard.ts'
 import { countErrors, type ErrorCount } from './scoring.ts'
 
@@ -141,6 +141,27 @@ const runtimeOf = (summary: Summary): string => {
 const percent = (rate: number): string => `${(rate * 100).toFixed(2)}%`
 const percentileCells = ({ p50, p90, p99 }: Percentiles): string[] => [p50, p90, p99].map((value) => value.toFixed(3))
 
+/**
+ * What each measure of GPU memory is called: the dedicated memory of a discrete GPU is its VRAM, and a Mac's GPU shares
+ * its memory with the CPU, so that what Metal's driver allocated is named for Metal.
+ */
+export const GPU_MEMORY_NAMES: Record<NonNullable<MemoryRecord['gpu']>['measure'], string> = { dedicated: 'VRAM', metal: 'GPU memory (Metal)' }
+
+const gib = (bytes: number): string => (bytes / 1024 ** 3).toFixed(2)
+
+/** The headers of the memory columns, the GPU's named by the measures of the rows. */
+function memoryHeaders(rows: readonly Summary[]): string[] {
+  const measures = new Set(rows.flatMap(({ run }) => (run.memory?.gpu ? [run.memory.gpu.measure] : [])))
+  const names = (measures.size > 0 ? [...measures] : Object.keys(GPU_MEMORY_NAMES) as Array<keyof typeof GPU_MEMORY_NAMES>).map((measure) => GPU_MEMORY_NAMES[measure])
+  return ['Peak memory GiB', `${names.join(' or ')} GiB`]
+}
+
+/** The peak resident memory and GPU memory of a run's runtime, for a run made before memory was measured too. */
+const memoryCells = ({ memory }: RunRecord): string[] => {
+  if (memory === null) return ['not measured', 'not measured']
+  return [gib(memory.peakResidentBytes), memory.gpu === null ? 'none' : gib(memory.gpu.peakBytes)]
+}
+
 /** The rate with accepted spellings, or how many of the utterances heard are annotated while some are not. */
 const acceptedCell = (row: AsrSummary): string =>
   row.acceptedErrorRate === null ? `${row.annotated} of ${row.utterances - row.dropped} annotated` : percent(row.acceptedErrorRate)
@@ -150,22 +171,22 @@ function asrTable(rows: readonly AsrSummary[]): string[] {
   const metric = byCharacter ? 'CER' : 'WER'
   const accepted = byCharacter ? ' CER, accepted spellings |' : ''
   return [
-    `| Model | GPU, system | Runtime | N | Dropped by VAD | ${metric} |${accepted} Empty | p50 s | p90 s | p99 s | RTFx | Load s |`,
-    `|---|---|---|---|---|---|${byCharacter ? '---|' : ''}---|---|---|---|---|---|`,
+    `| Model | GPU, system | Runtime | N | Dropped by VAD | ${metric} |${accepted} Empty | p50 s | p90 s | p99 s | RTFx | Load s | ${memoryHeaders(rows).join(' | ')} |`,
+    `|---|---|---|---|---|---|${byCharacter ? '---|' : ''}---|---|---|---|---|---|---|---|`,
     ...rows.map((row) => `| ${[row.run.model.label, machineOf(row), runtimeOf(row), row.utterances, row.dropped, percent(row.errorRate),
       ...(byCharacter ? [acceptedCell(row)] : []), row.empty,
-      ...percentileCells(row.latencySeconds), row.inverseRealTimeFactor.toFixed(1), row.run.loadSeconds.toFixed(1)].join(' | ')} |`)
+      ...percentileCells(row.latencySeconds), row.inverseRealTimeFactor.toFixed(1), row.run.loadSeconds.toFixed(1), ...memoryCells(row.run)].join(' | ')} |`)
   ]
 }
 
 function ttsTable(rows: readonly TtsSummary[]): string[] {
   const metric = scoredByCharacter(rows[0]!.run.set.locale) ? 'CER' : 'WER'
   return [
-    `| Model | Voice | Design or reference | Seed | GPU, system | Runtime | N | Heard ${metric} | Heard as said | p50 first audio s | p90 first audio s | p99 first audio s | RTFx | s per character | Load s |`,
-    '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|',
+    `| Model | Voice | Design or reference | Seed | GPU, system | Runtime | N | Heard ${metric} | Heard as said | p50 first audio s | p90 first audio s | p99 first audio s | RTFx | s per character | Load s | ${memoryHeaders(rows).join(' | ')} |`,
+    '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|',
     ...rows.map((row) => `| ${[row.run.model.label, row.run.voice ?? 'none', [row.run.design?.id, row.run.reference ? `reference ${row.run.reference.name}` : null, row.run.durationScale === null ? null : `length ×${row.run.durationScale}`].filter(Boolean).join(' + ') || 'none', row.run.seed ?? 'random', machineOf(row), runtimeOf(row), row.sentences, percent(row.errorRate), row.heardAsSaid,
       ...percentileCells(row.firstAudioSeconds), row.inverseRealTimeFactor.toFixed(2), row.secondsPerCharacter.toFixed(3),
-      row.run.loadSeconds.toFixed(1)].join(' | ')} |`)
+      row.run.loadSeconds.toFixed(1), ...memoryCells(row.run)].join(' | ')} |`)
   ]
 }
 

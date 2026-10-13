@@ -15,4 +15,6 @@ export interface TtsEngine {
   stop(): Promise<void>
   /** The process's log file, for the report of a failure. */
   readonly log: string | null
+  /** The process the engine started, once it is started, whose processes the bench measures the memory of. */
+  readonly pid: number | null
 }
