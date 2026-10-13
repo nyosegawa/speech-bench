@@ -75,7 +75,7 @@ export function syncAdapter(adapter: Adapter): void {
 export const adapterCommand = (adapter: Adapter, name: string, args: readonly string[]): WorkerCommand => ({
   name,
   executable: 'uv',
-  // --no-sync alone: it implies --frozen, and uv 0.4.24 refuses the two together.
+  // --no-sync implies --frozen: the worker runs in the environment syncAdapter() installed from the lock file.
   args: ['run', '--no-sync', '--project', folderOf(adapter), 'python', path.join(folderOf(adapter), adapter.script), ...args],
   env: { ...environmentOf(adapter), HF_HUB_OFFLINE: '1' }
 })

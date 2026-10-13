@@ -10,7 +10,7 @@ also makes voices for models that have none built in, from a description and lin
 
 - macOS on Apple Silicon, or Windows x64 with a discrete GPU
 - Node.js 22.18 or later (TypeScript runs directly through type stripping)
-- [uv](https://docs.astral.sh/uv/), only for the implementations the adapters run (the official ones of Irodori-TTS,
+- [uv](https://docs.astral.sh/uv/) 0.11 or later, only for the implementations the adapters run (the official ones of Irodori-TTS,
   Qwen3-TTS and Qwen3-ASR, and mlx-audio) and for NeMo-Speech.cpp's converter, and Git, which fetches the converter;
   on Windows the official implementations need an NVIDIA GPU, on which they run through CUDA
 - [GitHub CLI](https://cli.github.com/), logged in, only to measure a build of speech.cpp's CI
