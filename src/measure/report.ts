@@ -1,3 +1,4 @@
+import { gpuNames } from '../core/platform.ts'
 import { scoredByCharacter } from '../core/language.ts'
 import { sentenceKey, spellingsReader, type Spellings } from '../spellings/files.ts'
 import { countAcceptedErrors } from './accepted.ts'
@@ -133,13 +134,12 @@ export const describeRuntime = ({ id, version, build }: RunRecord['runtime']): s
 }
 
 /** The GPU the models ran on, which on a Mac is the chip that also names the CPU. */
-const machineOf = (summary: Summary): string => `${summary.run.machine.gpus.join(' + ')}, ${summary.run.machine.os}`
+const machineOf = (summary: Summary): string => `${gpuNames(summary.run.machine)}, ${summary.run.machine.os}`
 const runtimeOf = (summary: Summary): string => {
   const options = Object.entries(summary.run.runtime.options).map(([name, value]) => `${name}=${value}`)
   return `${describeRuntime(summary.run.runtime)}${options.length > 0 ? ` (${options.join(', ')})` : ''}`
 }
 const percent = (rate: number): string => `${(rate * 100).toFixed(2)}%`
-const percentileCells = ({ p50, p90, p99 }: Percentiles): string[] => [p50, p90, p99].map((value) => value.toFixed(3))
 
 /**
  * What each measure of GPU memory is called: the dedicated memory of a discrete GPU is its VRAM, and a Mac's GPU shares
@@ -149,17 +149,32 @@ export const GPU_MEMORY_NAMES: Record<NonNullable<MemoryRecord['gpu']>['measure'
 
 const gib = (bytes: number): string => (bytes / 1024 ** 3).toFixed(2)
 
-/** The headers of the memory columns, the GPU's named by the measures of the rows. */
-function memoryHeaders(rows: readonly Summary[]): string[] {
+/** The name of the GPU memory column, from the measures of the rows. */
+function gpuMemoryHeader(rows: readonly Summary[]): string {
   const measures = new Set(rows.flatMap(({ run }) => (run.memory?.gpu ? [run.memory.gpu.measure] : [])))
   const names = (measures.size > 0 ? [...measures] : Object.keys(GPU_MEMORY_NAMES) as Array<keyof typeof GPU_MEMORY_NAMES>).map((measure) => GPU_MEMORY_NAMES[measure])
-  return ['Peak memory GiB', `${names.join(' or ')} GiB`]
+  return `${names.join(' or ')} GiB`
 }
 
-/** The peak resident memory and GPU memory of a run's runtime, for a run made before memory was measured too. */
-const memoryCells = ({ memory }: RunRecord): string[] => {
-  if (memory === null) return ['not measured', 'not measured']
-  return [gib(memory.peakResidentBytes), memory.gpu === null ? 'none' : gib(memory.gpu.peakBytes)]
+/**
+ * The columns of what the runtime cost besides its speed, which every run has: its load time, its first request after
+ * loading, which pays for the GPU's first use, its memory and the GPU's power. A run made before one was measured
+ * says so, and a machine that does not have it says none.
+ */
+function runtimeColumns(rows: readonly Summary[]): Array<[string, (run: RunRecord) => string]> {
+  return [
+    ['Load s', (run) => run.loadSeconds.toFixed(1)],
+    ['First request s', (run) => run.warmupSeconds.toFixed(3)],
+    ['Peak memory GiB', ({ memory }) => (memory === null ? 'not measured' : gib(memory.peakResidentBytes))],
+    [gpuMemoryHeader(rows), ({ memory }) => (memory === null ? 'not measured' : memory.gpu === null ? 'none' : gib(memory.gpu.peakBytes))],
+    ['GPU power W, peak / mean', ({ gpuPower, load }) => (gpuPower !== null ? `${gpuPower.peakWatts.toFixed(0)} / ${gpuPower.meanWatts.toFixed(0)}` : load === null ? 'not measured' : 'none')]
+  ]
+}
+
+/** A Markdown table of `rows`, each column a header and how to write a row's cell. */
+function table<R>(rows: readonly R[], columns: ReadonlyArray<[string, (row: R) => string | number]>): string[] {
+  const line = (cells: ReadonlyArray<string | number>): string => `| ${cells.join(' | ')} |`
+  return [line(columns.map(([header]) => header)), `|${columns.map(() => '---|').join('')}`, ...rows.map((row) => line(columns.map(([, cell]) => cell(row))))]
 }
 
 /** The rate with accepted spellings, or how many of the utterances heard are annotated while some are not. */
@@ -169,25 +184,45 @@ const acceptedCell = (row: AsrSummary): string =>
 function asrTable(rows: readonly AsrSummary[]): string[] {
   const byCharacter = scoredByCharacter(rows[0]!.run.set.locale)
   const metric = byCharacter ? 'CER' : 'WER'
-  const accepted = byCharacter ? ' CER, accepted spellings |' : ''
-  return [
-    `| Model | GPU, system | Runtime | N | Dropped by VAD | ${metric} |${accepted} Empty | p50 s | p90 s | p99 s | RTFx | Load s | ${memoryHeaders(rows).join(' | ')} |`,
-    `|---|---|---|---|---|---|${byCharacter ? '---|' : ''}---|---|---|---|---|---|---|---|`,
-    ...rows.map((row) => `| ${[row.run.model.label, machineOf(row), runtimeOf(row), row.utterances, row.dropped, percent(row.errorRate),
-      ...(byCharacter ? [acceptedCell(row)] : []), row.empty,
-      ...percentileCells(row.latencySeconds), row.inverseRealTimeFactor.toFixed(1), row.run.loadSeconds.toFixed(1), ...memoryCells(row.run)].join(' | ')} |`)
-  ]
+  return table<AsrSummary>(rows, [
+    ['Model', (row) => row.run.model.label],
+    ['GPU, system', machineOf],
+    ['Runtime', runtimeOf],
+    ['N', (row) => row.utterances],
+    ['Dropped by VAD', (row) => row.dropped],
+    [metric, (row) => percent(row.errorRate)],
+    ...(byCharacter ? [['CER, accepted spellings', acceptedCell] as [string, (row: AsrSummary) => string]] : []),
+    ['Empty', (row) => row.empty],
+    ...percentileColumns<AsrSummary>('', (row) => row.latencySeconds),
+    ['RTFx', (row) => row.inverseRealTimeFactor.toFixed(1)],
+    ...runtimeColumns(rows).map(([header, cell]): [string, (row: AsrSummary) => string] => [header, (row) => cell(row.run)])
+  ])
 }
+
+/** The columns of a latency at p50, p90 and p99, named after `what` it is the time to. */
+const percentileColumns = <R>(what: string, of: (row: R) => Percentiles): Array<[string, (row: R) => string]> =>
+  (['p50', 'p90', 'p99'] as const).map((rank) => [`${rank}${what} s`, (row) => of(row)[rank].toFixed(3)])
+
+const voiceDescription = ({ run }: TtsSummary): string =>
+  [run.design?.id, run.reference ? `reference ${run.reference.name}` : null, run.durationScale === null ? null : `length ×${run.durationScale}`].filter(Boolean).join(' + ') || 'none'
 
 function ttsTable(rows: readonly TtsSummary[]): string[] {
   const metric = scoredByCharacter(rows[0]!.run.set.locale) ? 'CER' : 'WER'
-  return [
-    `| Model | Voice | Design or reference | Seed | GPU, system | Runtime | N | Heard ${metric} | Heard as said | p50 first audio s | p90 first audio s | p99 first audio s | RTFx | s per character | Load s | ${memoryHeaders(rows).join(' | ')} |`,
-    '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|',
-    ...rows.map((row) => `| ${[row.run.model.label, row.run.voice ?? 'none', [row.run.design?.id, row.run.reference ? `reference ${row.run.reference.name}` : null, row.run.durationScale === null ? null : `length ×${row.run.durationScale}`].filter(Boolean).join(' + ') || 'none', row.run.seed ?? 'random', machineOf(row), runtimeOf(row), row.sentences, percent(row.errorRate), row.heardAsSaid,
-      ...percentileCells(row.firstAudioSeconds), row.inverseRealTimeFactor.toFixed(2), row.secondsPerCharacter.toFixed(3),
-      row.run.loadSeconds.toFixed(1), ...memoryCells(row.run)].join(' | ')} |`)
-  ]
+  return table<TtsSummary>(rows, [
+    ['Model', (row) => row.run.model.label],
+    ['Voice', (row) => row.run.voice ?? 'none'],
+    ['Design or reference', voiceDescription],
+    ['Seed', (row) => row.run.seed ?? 'random'],
+    ['GPU, system', machineOf],
+    ['Runtime', runtimeOf],
+    ['N', (row) => row.sentences],
+    [`Heard ${metric}`, (row) => percent(row.errorRate)],
+    ['Heard as said', (row) => row.heardAsSaid],
+    ...percentileColumns<TtsSummary>(' first audio', (row) => row.firstAudioSeconds),
+    ['RTFx', (row) => row.inverseRealTimeFactor.toFixed(2)],
+    ['s per character', (row) => row.secondsPerCharacter.toFixed(3)],
+    ...runtimeColumns(rows).map(([header, cell]): [string, (row: TtsSummary) => string] => [header, (row) => cell(row.run)])
+  ])
 }
 
 /** A Markdown table per set and way of measuring, one row per model and machine, in the order the runs were made. */

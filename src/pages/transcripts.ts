@@ -1,3 +1,4 @@
+import { gpuNames } from '../core/platform.ts'
 import { describeAudio, describeRuntime, summarize, type AsrSummary } from '../measure/report.ts'
 import { readResultFile } from '../measure/result-file/file.ts'
 import { isDropped, type AsrRunRecord, type UtteranceRecord } from '../measure/result-file/format.ts'
@@ -38,7 +39,7 @@ const describe: Array<(run: AsrRunRecord) => string | null> = [
   (run) => run.model.label,
   (run) => describeRuntime(run.runtime),
   (run) => describeAudio(run.audio),
-  (run) => run.machine.gpus.join(' + '),
+  (run) => gpuNames(run.machine),
   (run) => Object.entries(run.runtime.options).map(([name, value]) => `${name}=${value}`).join(', ') || null,
   (run) => run.startedAt.slice(0, 16).replace('T', ' ')
 ]

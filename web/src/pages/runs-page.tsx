@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs.tsx'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip.tsx'
 import { useApi, type CampaignRow, type RunRow } from '@/lib/api.ts'
-import { isTts, machineOf, percent, preparationOf, seconds, voiceOf, when, type AsrRow, type TtsRow } from '@/lib/format.ts'
+import { gpuNamesOf, isTts, machineOf, percent, preparationOf, seconds, voiceOf, when, type AsrRow, type TtsRow } from '@/lib/format.ts'
 
 interface Column<R> {
   key: string
@@ -41,7 +41,7 @@ function ModelCell({ row }: { row: RunRow }) {
 function MachineCell({ row }: { row: RunRow }) {
   return (
     <div className="min-w-36">
-      <div>{row.run.machine.gpus.join(' + ')}</div>
+      <div>{gpuNamesOf(row)}</div>
       <div className="text-xs text-muted-foreground">{row.run.machine.hostname}</div>
     </div>
   )
@@ -65,7 +65,7 @@ const notMeasured = <span className="text-muted-foreground">—</span>
 
 /** The load time and the memory the runtime took, which every run has, beside each other. */
 const loadAndMemory: Array<Column<RunRow>> = [
-  { key: 'load', label: 'Load', numeric: true, hint: 'Seconds from starting the runtime to its being ready.', value: (row) => row.run.loadSeconds, cell: (row) => number(seconds(row.run.loadSeconds, 1)) },
+  { key: 'load', label: 'Load', numeric: true, hint: 'Seconds from starting the runtime to its being ready, and below, the first request after it, which pays for the GPU\'s first use.', value: (row) => row.run.loadSeconds, cell: (row) => <div className="tabular-nums whitespace-nowrap">{seconds(row.run.loadSeconds, 1)}<div className="text-xs text-muted-foreground">first {seconds(row.run.warmupSeconds)}</div></div> },
   {
     key: 'memory',
     label: 'Peak memory',
@@ -83,6 +83,16 @@ const loadAndMemory: Array<Column<RunRow>> = [
     cell: (row) => (row.run.memory?.gpu
       ? <div className="tabular-nums whitespace-nowrap">{gib(row.run.memory.gpu.peakBytes)}<div className="text-xs text-muted-foreground">{row.gpuMemory}</div></div>
       : row.run.memory === null ? notMeasured : <span className="text-muted-foreground">none</span>)
+  },
+  {
+    key: 'power',
+    label: 'GPU power',
+    numeric: true,
+    hint: 'The power of the machine\'s NVIDIA GPUs while the runtime ran, whatever else ran on them: the peak, and the mean below.',
+    value: (row) => row.run.gpuPower?.peakWatts ?? Number.POSITIVE_INFINITY,
+    cell: (row) => (row.run.gpuPower
+      ? <div className="tabular-nums whitespace-nowrap">{row.run.gpuPower.peakWatts.toFixed(0)} W<div className="text-xs text-muted-foreground">mean {row.run.gpuPower.meanWatts.toFixed(0)} W</div></div>
+      : notMeasured)
   }
 ]
 

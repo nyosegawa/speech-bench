@@ -109,6 +109,23 @@ describe('the memory a runtime took', () => {
   })
 })
 
+describe('the environment of a run', () => {
+  it('reads a GPU named alone, before format 16, as one whose driver was not recorded', () => {
+    expect(asr(summarize(fixture('v15-asr.jsonl'), noSpellings)).run.machine.gpus).toEqual([{ name: 'Apple M5', driver: null }])
+  })
+
+  it('gives the peak and mean power of an NVIDIA GPU, and says none where a run recorded the machine without one', () => {
+    const report = formatReport([tts(summarize(fixture('v16-tts.jsonl'), noSpellings)), asr(summarize(fixture('v16-asr.jsonl'), noSpellings))])
+    expect(report).toContain('| 212 / 96 |')
+    expect(report).toMatch(/\| none \|$/m)
+  })
+
+  it('gives the first request after loading apart from the rest', () => {
+    const lines = [JSON.stringify(asrRunOf({ warmupSeconds: 2.5 })), utterance('あ', 'あ', 0.1, 1)]
+    expect(formatReport([asr(summarize(lines, noSpellings))])).toContain('| 2.500 |')
+  })
+})
+
 describe('percentiles', () => {
   it('gives each percentile as a time that was measured, by the nearest rank', () => {
     const times = Array.from({ length: 100 }, (_, index) => (100 - index) / 100)

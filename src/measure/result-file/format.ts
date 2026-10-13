@@ -60,6 +60,12 @@ const memoryRecord = z.strictObject({
 })
 export type MemoryRecord = z.infer<typeof memoryRecord>
 
+/** The peak and mean power in watts over the readings of nvidia-smi, every 100 ms. */
+const gpuPowerRecord = z.strictObject({ peakWatts: z.number(), meanWatts: z.number(), samples: z.int() })
+export type GpuPowerRecord = z.infer<typeof gpuPowerRecord>
+
+const machineLoad = z.strictObject({ cpuBusy: z.number(), loadAverage: z.number().nullable() })
+
 /** The files a run used, so that a result names exactly what it measured. */
 const modelRecord = z.strictObject({
   id: z.string(),
@@ -79,7 +85,10 @@ const runCommon = {
     os: z.string(),
     cpu: z.string(),
     memoryGb: z.number(),
-    gpus: z.array(z.string())
+    /** Each GPU with its driver's version, null on a Mac, whose driver comes with the system `os` names with its build. */
+    gpus: z.array(z.strictObject({ name: z.string(), driver: z.string().nullable() })),
+    /** Where a Mac drew its power from and whether Low Power Mode slowed it; null on Windows. */
+    power: z.strictObject({ source: z.enum(['ac', 'battery']), lowPowerMode: z.boolean() }).nullable()
   }),
   set: z.strictObject({ name: z.string(), locale: z.string(), size: z.int() }),
   model: modelRecord,
@@ -100,7 +109,18 @@ const runCommon = {
   /** The first item, repeated untimed because it pays for the GPU's first use. */
   warmupSeconds: z.number(),
   /** Null for a run made before memory was measured, or one cut short before its runtime stopped. */
-  memory: memoryRecord.nullable().default(null)
+  memory: memoryRecord.nullable().default(null),
+  /**
+   * The power of the machine's NVIDIA GPUs together while the runtime ran, whatever ran on them; null on a machine
+   * without one, for a run made before it was measured, and for one cut short.
+   */
+  gpuPower: gpuPowerRecord.nullable().default(null),
+  /**
+   * How busy the machine was over the second before the runtime started and the second after it stopped: the share of
+   * the CPUs' time spent working, and the load average of the last minute on macOS. Null for a run made before it was
+   * recorded, and for one cut short.
+   */
+  load: z.strictObject({ before: machineLoad, after: machineLoad }).nullable().default(null)
 }
 
 /** The first line of a speech recognition result file. */

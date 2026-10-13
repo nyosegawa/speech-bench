@@ -336,23 +336,32 @@ node src/cli.ts reference --name bright-young-woman-30s --seconds 30 ~/speech-be
 node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-q8_0-16steps --reference bright-young-woman-30s --seeds 1
 ```
 
-### Memory
+### Load, memory, power and the machine
 
-Every recognition and synthesis run records the memory its runtime took, from starting the runtime to stopping it:
-the process the bench starts and every process under it (uv and the Python it runs, for an adapter), looked at every
-100 ms, each figure the largest sum over those processes in one look (docs/adr/0026). The report and the web app's
-runs page show both next to the load time.
+Every recognition and synthesis run also records what its runtime cost besides its speed, from starting the runtime
+to stopping it, which the report and the web app's runs page show after the speed:
 
-- **Peak memory**: the resident memory, RSS on macOS and the working set on Windows. On a Mac it holds the weights
-  ggml gives Metal from its own memory and a model file llama.cpp maps into memory.
-- **VRAM**: on Windows the dedicated GPU memory Windows counts for each process, read from its performance counters
-  (no administrator rights needed); a machine on which no process holds dedicated GPU memory records none. A Mac's GPU
-  shares its memory with the CPU, and its figure is **GPU memory (Metal)**: the memory macOS tags as graphics, which
-  Metal's driver allocated for the runtime and the GPU or the CPU has written. A buffer allocated but never written
-  takes no memory and is not counted.
+- **Load time**: from starting the runtime to its being ready.
+- **First request**: the first utterance or sentence after loading, run once more untimed, apart from the rest, since
+  it pays for the GPU's first use (Vulkan and Metal prepare their shaders then).
+- **Peak memory**: the resident memory of the process the bench starts and every process under it (uv and the Python
+  it runs, for an adapter), looked at every 100 ms, the largest sum over those processes in one look
+  (docs/adr/0026): RSS on macOS, the working set on Windows. On a Mac it holds the weights ggml gives Metal from its
+  own memory and a model file llama.cpp maps into memory.
+- **VRAM**: on Windows the dedicated GPU memory Windows counts for each of those processes, read from its performance
+  counters (no administrator rights needed); a machine on which no process holds dedicated GPU memory records none. A
+  Mac's GPU shares its memory with the CPU, and its figure is **GPU memory (Metal)**: the memory macOS tags as
+  graphics, which Metal's driver allocated for the runtime and the GPU or the CPU has written. A buffer allocated but
+  never written takes no memory and is not counted.
+- **GPU power**: on Windows with an NVIDIA GPU, its power every 100 ms from `nvidia-smi` (in `System32`, installed
+  with the driver), the peak and the mean. It is the whole GPU's, whatever else runs on it.
 
-A run cut short, and every run made before memory was measured, records none, which the report writes as
-`not measured`.
+Each run also records the machine it ran on (docs/adr/0027): the system and its version (with its build on a Mac),
+the CPU, the memory, each GPU with its driver's version on Windows, a Mac's power source and Low Power Mode, and how
+busy the machine was over the second before the runtime started and the second after it stopped (the share of the
+CPUs' time spent working, and on a Mac the load average), so that a figure that does not agree with the others can be
+traced to the machine. A run cut short, and every run made before these were recorded, records none of them, which
+the report writes as `not measured`.
 
 ### Making a voice
 
