@@ -21,7 +21,7 @@ function run(reference: string, seed: number, embeddings: number[][], options: {
   })
   const sentences: SentenceRecord[] = embeddings.map((_, index) => ({
     type: 'sentence', id: `s${index}`, kind: 'reply', text: 'はい、わかりました。', audio: `s${index}.wav`, audioSeconds: 2, firstAudioSeconds: 0.5, totalSeconds: 1, chunks: null,
-    transcript: index === options.misheard ? 'いいえ、ちがいます。' : 'はい、わかりました。'
+    transcript: index === options.misheard ? 'いいえ、ちがいます。' : 'はい、わかりました。', secondTranscript: null
   }))
   return {
     file: path.join(runs, `tts-${reference}-seed${seed}`, 'run.jsonl'),

@@ -35,5 +35,6 @@ export const ttsRun = (fields: Partial<TtsRunRecord> = {}): TtsRunRecord => ({
   reference: null,
   durationScale: null,
   recognizer: { id: 'qwen3-asr-1.7b', label: 'Qwen3-ASR 1.7B' },
+  secondRecognizer: null,
   ...fields
 })

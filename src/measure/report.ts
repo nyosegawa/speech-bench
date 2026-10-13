@@ -33,6 +33,8 @@ export interface TtsSummary {
   sentences: number
   /** What the recognizer misheard in the synthesized speech, over the whole set, each sentence counting at most all of its characters. */
   errorRate: number
+  /** The same of the second recognizer, of another family, or null for a run without one. */
+  secondErrorRate: number | null
   /**
    * The heard error rate of each kind of sentence the prompts name (short answers, numbers, mixed English and the
    * like), in the order the kinds first come.
@@ -131,6 +133,12 @@ export function summarize(file: ResultFile, spellingsOf: (locale: string) => Spe
     run,
     sentences: sentences.length,
     errorRate: corpusErrorRate(counts),
+    secondErrorRate: run.secondRecognizer === null
+      ? null
+      : corpusErrorRate(sentences.map((record) => {
+        if (record.secondTranscript === null) throw new Error(`sentence ${record.id} has no transcript of ${run.secondRecognizer!.id}, which its run names`)
+        return countHeardErrors(record.text, record.secondTranscript, run.set.locale)
+      })),
     errorRateByKind: [...new Set(sentences.map((record) => record.kind))].map((kind) => ({
       kind,
       sentences: sentences.filter((record) => record.kind === kind).length,
@@ -243,6 +251,12 @@ const voiceDescription = ({ run }: TtsSummary): string =>
 /** Why a run has no figures of streaming: its sentences came whole, or it did not record their pieces. */
 const streamingAbsent = (streaming: 'whole' | null): string => streaming ?? 'not recorded'
 
+/** The header of the second recognizer's column, named by the recognizers of the rows. */
+function secondHeader(rows: readonly TtsSummary[], metric: string): string {
+  const labels = [...new Set(rows.flatMap(({ run }) => (run.secondRecognizer === null ? [] : [run.secondRecognizer.label])))]
+  return `Heard ${metric}, ${labels.length > 0 ? labels.join(' or ') : 'second recognizer'}`
+}
+
 function ttsTable(rows: readonly TtsSummary[]): string[] {
   const metric = scoredByCharacter(rows[0]!.run.set.locale) ? 'CER' : 'WER'
   return table<TtsSummary>(rows, [
@@ -254,6 +268,7 @@ function ttsTable(rows: readonly TtsSummary[]): string[] {
     ['Runtime', runtimeOf],
     ['N', (row) => row.sentences],
     [`Heard ${metric}`, (row) => percent(row.errorRate)],
+    [secondHeader(rows, metric), (row) => (row.secondErrorRate === null ? '—' : percent(row.secondErrorRate))],
     ['Heard as said', (row) => row.heardAsSaid],
     ...percentileColumns<TtsSummary>(' first audio', (row) => row.firstAudioSeconds),
     ['RTFx', (row) => row.inverseRealTimeFactor.toFixed(2)],

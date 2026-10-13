@@ -7,7 +7,7 @@ import { ttsRun } from './run-records.ts'
 const runs = path.join(path.sep, 'data', 'runs')
 /** Links a file by its path, so that a test sees which file a take plays. */
 const byPath = (file: string): string => `file:${file}`
-const sentence: SentenceRecord = { type: 'sentence', id: 'aizuchi-hai', kind: 'aizuchi', text: 'はい。', audio: 'aizuchi-hai.wav', audioSeconds: 0.5, firstAudioSeconds: 0.05, totalSeconds: 0.2, chunks: null, transcript: 'はい。' }
+const sentence: SentenceRecord = { type: 'sentence', id: 'aizuchi-hai', kind: 'aizuchi', text: 'はい。', audio: 'aizuchi-hai.wav', audioSeconds: 0.5, firstAudioSeconds: 0.05, totalSeconds: 0.2, chunks: null, transcript: 'はい。', secondTranscript: null }
 
 interface RunOptions { set?: string; seed?: number; design?: string; reference?: string; durationScale?: number; gpu?: string; runtime?: TtsRunRecord['runtime']; transcript?: string; pitches?: number[]; likeness?: Array<number | null> }
 

@@ -152,7 +152,12 @@ const ttsRunRecord = z.strictObject({
   /** What the length the model predicted for each sentence was multiplied by, or null when it was left as predicted. */
   durationScale: z.number().nullable(),
   /** The speech recognition model the synthesized audio is transcribed with, to count what it misread. */
-  recognizer: z.strictObject({ id: z.string(), label: z.string() })
+  recognizer: z.strictObject({ id: z.string(), label: z.string() }),
+  /**
+   * A recognizer of another family that transcribes the audio too, with the runtime it ran in, so that a model is not
+   * judged by one family's ears alone; null for a locale it does not transcribe and for a run before format 20.
+   */
+  secondRecognizer: z.strictObject({ id: z.string(), label: z.string(), runtime: z.string() }).nullable().default(null)
 })
 export type TtsRunRecord = z.infer<typeof ttsRunRecord>
 
@@ -202,7 +207,9 @@ export const sentenceRecord = z.strictObject({
    */
   chunks: z.array(z.strictObject({ seconds: z.number(), audioSeconds: z.number() })).nullable().default(null),
   /** What the recognizer heard. */
-  transcript: z.string()
+  transcript: z.string(),
+  /** What the second recognizer heard, null where the run has none. */
+  secondTranscript: z.string().nullable().default(null)
 })
 export type SentenceRecord = z.infer<typeof sentenceRecord>
 

@@ -256,6 +256,10 @@ hf upload sakasegawa/common-voice-ja-accepted-spellings ~/speech-bench-data/hugg
   sentence counts at most all of its characters as errors, so that one take that runs on cannot decide the
   rate of a voice. It counts
   misreadings, dropped or repeated words, and speech that runs on past the sentence.
+- **Heard error rate, second recognizer**: the same rate from ReazonSpeech NeMo v2, a FastConformer of another
+  family than Qwen3-ASR, with its beam search in the release of speech.cpp the bench pins, whatever build the run
+  measures, so that Qwen3-TTS is not judged only by a recognizer of its own family (docs/adr/0031). It transcribes
+  Japanese alone; a run of another language has none.
 - **Heard error rate by kind**: the same rate for each kind of sentence the prompts name (aizuchi, replies,
   numbers and dates, mixed English, questions, long sentences), in a table of its own under each synthesis table.
 - **Heard as said**: the sentences the recognizer heard as they were written, apart from how it spells them

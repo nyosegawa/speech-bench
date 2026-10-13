@@ -102,7 +102,14 @@ const TTS_COLUMNS: Array<Column<TtsRow>> = [
   { key: 'voice', label: 'Voice', value: voiceOf, cell: (row) => <span className="block min-w-40">{voiceOf(row) || <span className="text-muted-foreground">model's own</span>}</span> },
   common.set,
   common.machine,
-  { key: 'cer', label: 'Heard CER', numeric: true, hint: 'What the recognizer misheard in the speech, each sentence counting at most all of its characters.', value: (row) => row.errorRate, cell: (row) => number(percent(row.errorRate)) },
+  {
+    key: 'cer',
+    label: 'Heard CER',
+    numeric: true,
+    hint: 'What the recognizer misheard in the speech, each sentence counting at most all of its characters, and below, what a second recognizer of another family misheard.',
+    value: (row) => row.errorRate,
+    cell: (row) => <div className="tabular-nums whitespace-nowrap">{percent(row.errorRate)}{row.secondErrorRate !== null && row.run.secondRecognizer && <div className="text-xs text-muted-foreground" title={row.run.secondRecognizer.label}>{percent(row.secondErrorRate)} second</div>}</div>
+  },
   { key: 'said', label: 'Heard as said', numeric: true, firstDescending: true, hint: 'Sentences the recognizer heard as they were written, apart from how it spells them.', value: (row) => row.heardAsSaid / row.sentences, cell: (row) => number(`${row.heardAsSaid} / ${row.sentences}`) },
   { key: 'first', label: 'First audio', numeric: true, hint: 'Seconds from asking for a sentence to its first audio: p50, and p90 and p99 below.', value: (row) => row.firstAudioSeconds.p50, cell: (row) => <LatencyCell latency={row.firstAudioSeconds} /> },
   { key: 'rtfx', label: 'RTFx', numeric: true, firstDescending: true, hint: 'The duration of the speech over the synthesis time; larger is faster.', value: (row) => row.inverseRealTimeFactor, cell: (row) => number(row.inverseRealTimeFactor.toFixed(2)) },

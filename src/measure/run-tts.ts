@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { asrModel, modelCovers, SPEAKER_MODEL, ttsVoiceFor, type TtsModel } from '../catalog/models.ts'
+import { asrModel, modelCovers, SPEAKER_MODEL, ttsVoiceFor, type AsrModel, type TtsModel } from '../catalog/models.ts'
 import { analyzeRun } from '../analysis/run-analysis.ts'
 import { SpeakerEmbedder } from '../engines/speaker-embedding.ts'
 import type { VoiceDesign } from '../make/recipes.ts'
@@ -17,12 +17,35 @@ import { RESULT_FORMAT, type SentenceRecord, type TtsRunRecord } from './result-
 import { RuntimeWatch, type Watched } from './watch.ts'
 import { checkSetupFor, DEFAULT_SETUP, deviceOf, filesFor, modelFiles, modelRecord, prepareAsr, type RunSetup } from './run-asr.ts'
 import { runFile, runFolder } from './runs.ts'
-import { AUDIO_CPP, ensureRuntime, ensureSpeechCpp, releaseOf, runtimeTag, type RuntimeIdentity } from '../catalog/runtimes.ts'
+import { AUDIO_CPP, ensureRuntime, ensureSpeechCpp, releaseOf, runtimeTag, SPEECH_CPP, type RuntimeIdentity } from '../catalog/runtimes.ts'
+import { describeRuntime } from './report.ts'
 import { adapterCommand, adapterVersion, IRODORI_TTS_ADAPTER, MLX_AUDIO_ADAPTER, QWEN3_TTS_ADAPTER, syncAdapter, type Adapter } from '../engines/adapter.ts'
 import { durationSeconds, encodeWav16, peakNormalize, resample } from '../core/wav.ts'
 
 /** The model the synthesized speech is transcribed with: the most accurate local recognizer measured (FLEURS ja-JP 5.31%, 2026-09-30). */
 const RECOGNIZER = 'qwen3-asr-1.7b'
+
+/**
+ * The second recognizer, of another family than Qwen3-ASR, so that a synthesis model of Qwen's family is not judged
+ * only by a recognizer that may hear it more kindly: ReazonSpeech NeMo v2, a FastConformer of Japanese alone, with its
+ * checkpoint's beam search, in the release of speech.cpp the bench pins, whatever build a run measures. A locale it
+ * does not transcribe has none.
+ */
+const SECOND_RECOGNIZER = 'reazonspeech-nemo-v2-speech.cpp'
+
+/** What the recognizer heard in each sentence's speech, resampled to 16 kHz and scaled to a peak of 0.9. */
+async function transcribeSpeech(recognizer: AsrModel, setup: RunSetup, spoken: readonly Spoken[], locale: string): Promise<{ texts: string[]; runtime: RuntimeIdentity }> {
+  process.stderr.write(`  transcribing with ${recognizer.id}\n`)
+  const { engine, runtime } = await prepareAsr(recognizer, await modelFiles(recognizer), setup)
+  try {
+    await engine.start()
+    const texts: string[] = []
+    for (const { synthesis } of spoken) texts.push((await engine.transcribe(peakNormalize(resample(synthesis.pcm, 16_000)), locale)).text)
+    return { texts, runtime }
+  } finally {
+    await engine.stop()
+  }
+}
 
 /**
  * How a run picks the voice a model speaks with, a built-in voice, the seed it samples from, a voice described
@@ -133,6 +156,7 @@ export async function runTts(model: TtsModel, locale: string, sentences: readonl
   if (!first) throw new Error('there are no sentences to speak')
   const voice = ttsVoiceFor(model, locale, choice.voice)
   const recognizer = asrModel(RECOGNIZER)
+  const secondRecognizer = asrModel(SECOND_RECOGNIZER)
   if (!modelCovers(recognizer, locale)) throw new Error(`${recognizer.id} cannot transcribe ${locale}, so the speech cannot be checked`)
   const startedAt = new Date()
   const machine = machineInfo()
@@ -172,29 +196,23 @@ export async function runTts(model: TtsModel, locale: string, sentences: readonl
     remove()
   }
 
-  process.stderr.write(`  transcribing with ${recognizer.id}\n`)
-  const { engine: asr } = await prepareAsr(recognizer, await modelFiles(recognizer), DEFAULT_SETUP)
-  const records: SentenceRecord[] = []
-  try {
-    await asr.start()
-    for (const { prompt, audio, synthesis } of spoken) {
-      const heard = await asr.transcribe(peakNormalize(resample(synthesis.pcm, 16_000)), locale)
-      records.push({
-        type: 'sentence',
-        id: prompt.id,
-        kind: prompt.kind,
-        text: prompt.text,
-        audio,
-        audioSeconds: durationSeconds(synthesis.pcm),
-        firstAudioSeconds: synthesis.firstAudioSeconds,
-        totalSeconds: synthesis.totalSeconds,
-        chunks: synthesis.chunks,
-        transcript: heard.text
-      })
-    }
-  } finally {
-    await asr.stop()
-  }
+  const heard = await transcribeSpeech(recognizer, DEFAULT_SETUP, spoken, locale)
+  const second = modelCovers(secondRecognizer, locale)
+    ? await transcribeSpeech(secondRecognizer, { ...DEFAULT_SETUP, speechCpp: SPEECH_CPP.version }, spoken, locale)
+    : null
+  const records: SentenceRecord[] = spoken.map(({ prompt, audio, synthesis }, index) => ({
+    type: 'sentence',
+    id: prompt.id,
+    kind: prompt.kind,
+    text: prompt.text,
+    audio,
+    audioSeconds: durationSeconds(synthesis.pcm),
+    firstAudioSeconds: synthesis.firstAudioSeconds,
+    totalSeconds: synthesis.totalSeconds,
+    chunks: synthesis.chunks,
+    transcript: heard.texts[index]!,
+    secondTranscript: second === null ? null : second.texts[index]!
+  }))
 
   const run: TtsRunRecord = {
     type: 'run',
@@ -211,6 +229,7 @@ export async function runTts(model: TtsModel, locale: string, sentences: readonl
     reference: reference === null ? null : { name: reference.name, sha256: reference.sha256, seconds: reference.seconds },
     durationScale,
     recognizer: { id: recognizer.id, label: recognizer.label },
+    secondRecognizer: second === null ? null : { id: secondRecognizer.id, label: secondRecognizer.label, runtime: describeRuntime({ ...second.runtime, options: {} }) },
     loadSeconds,
     coldLoad: setup.coldLoad,
     warmupSeconds,

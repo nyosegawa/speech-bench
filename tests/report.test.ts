@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { describeRuntime, formatReport, percentiles, summarize as summarizeFile, type AsrSummary, type Summary, type TtsSummary } from '../src/measure/report.ts'
+import { countHeardErrors } from '../src/measure/heard.ts'
 import { parseResultFile } from '../src/measure/result-file/file.ts'
 import { sentenceKey, type Spellings } from '../src/spellings/files.ts'
 import { parseAnnotated } from '../src/spellings/notation.ts'
@@ -145,6 +146,28 @@ describe('how a run was made', () => {
     expect(asr(summarize(fixture('v18-asr-cold.jsonl'), noSpellings)).run.coldLoad).toBe(true)
     expect(formatReport([asr(summarize(fixture('v18-asr-cold.jsonl'), noSpellings))])).toContain(' cold |')
     expect(tts(summarize(fixture('v17-tts.jsonl'), noSpellings)).run.coldLoad).toBe(false)
+  })
+})
+
+describe('a second recognizer of synthesized speech', () => {
+  it('counts what it misheard apart from the first, in a column named for it', () => {
+    const summary = tts(summarize(fixture('v20-tts.jsonl'), noSpellings))
+    // The second recognizer heard nothing of はい。, which the first heard right, and the rest as the first did.
+    const file = parseResultFile(fixture('v20-tts.jsonl').join('\n'), 'v20')
+    if (!('sentences' in file)) throw new Error('expected a synthesis result')
+    const first = file.sentences.map((sentence) => sentence.transcript)
+    const counts = (heard: (index: number) => string): number => {
+      const all = file.sentences.map((sentence, index) => countHeardErrors(sentence.text, heard(index), 'ja-JP'))
+      return all.reduce((sum, count) => sum + count.errors, 0) / all.reduce((sum, count) => sum + count.referenceLength, 0)
+    }
+    expect(summary.errorRate).toBeCloseTo(counts((index) => first[index]!))
+    expect(summary.secondErrorRate).toBeCloseTo(counts((index) => (index === 0 ? '' : first[index]!)))
+    expect(summary.secondErrorRate!).toBeGreaterThan(summary.errorRate)
+    expect(formatReport([summary])).toContain('| Heard CER, ReazonSpeech NeMo v2, speech.cpp F16 |')
+  })
+
+  it('has none for a run made before it was recorded', () => {
+    expect(tts(summarize(fixture('v17-tts.jsonl'), noSpellings)).secondErrorRate).toBeNull()
   })
 })
 
