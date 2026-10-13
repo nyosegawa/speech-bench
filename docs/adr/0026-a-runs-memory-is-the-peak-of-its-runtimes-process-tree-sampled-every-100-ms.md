@@ -56,5 +56,8 @@ a run is:
 | 1 GiB shared | yes | 1.036 GiB | 0.015 GiB |
 
 Ten utterances of FLEURS ja-JP, Qwen3-ASR 0.6B: speech.cpp v0.8.2 Q8_0 1.08 GiB resident and 0.04 GiB of Metal,
-llama.cpp b11246 Q8_0 1.76 and 0.05, the official implementation through MPS in BF16 2.34 and 4.98. One look took
-about 100 ms with speech.cpp's worker, 57 looks over the run.
+llama.cpp b11246 Q8_0 1.76 and 0.05, the official implementation through MPS in BF16 2.34 and 4.98. A look came
+every 100 ms with speech.cpp's worker and about every 210 ms with Qwen3-TTS's adapter, whose uv and Python `footprint`
+read in 60 to 80 ms. Three sentences of Qwen3-TTS 0.6B in its adapter, twice each way and alternated, took 79 and
+113 s without sampling and 91 and 82 s with it, on a machine whose CPUs other work kept 90% busy: the sampling is
+within that noise.
