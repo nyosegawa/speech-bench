@@ -25,11 +25,14 @@ import importlib.util
 import json
 import os
 import sys
+import traceback
 
 # The protocol keeps the stdout the bench gave; descriptor 1 then writes to stderr, so whatever a package prints
 # to stdout while it loads or runs lands in the log instead of between two messages.
 PROTOCOL = os.fdopen(os.dup(1), "w", encoding="utf-8")
 os.dup2(2, 1)
+# Python writes a pipe in the ANSI code page on Windows; the log is UTF-8 on every system.
+sys.stderr.reconfigure(encoding="utf-8", errors="backslashreplace")
 sys.stdout = sys.stderr
 
 import numpy as np  # noqa: E402
@@ -254,6 +257,7 @@ def main():
         check_device(args.device)
         recognizer = Recognizer(args.model, args.device)
     except Exception as error:
+        traceback.print_exc()
         send({"type": "fatal", "error": {"code": "model_file", "option": None, "message": str(error)}})
         return 1
     send({"type": "ready", "protocol": 3, "version": version, "model": model_info(args.device)})
@@ -261,7 +265,9 @@ def main():
     # The audio of each request whose transcribe has not come, and the requests refused before it came, whose later
     # lines are passed over until then.
     audio, refused = {}, set()
-    for line in sys.stdin:
+    # The lines are read as bytes, which json.loads() decodes as UTF-8, the protocol's encoding. Read as text, a pipe
+    # is decoded in the ANSI code page on Windows, which turns Japanese into lone surrogates that a tokenizer refuses.
+    for line in sys.stdin.buffer:
         try:
             request = json.loads(line)
         except ValueError:
@@ -289,6 +295,8 @@ def main():
             else:
                 raise RequestError("unsupported", "type", f"the Qwen3-ASR adapter takes no {kind}")
         except Exception as error:
+            if not isinstance(error, RequestError):
+                traceback.print_exc()
             if kind == "chunk":
                 audio.pop(rid, None)
                 refused.add(rid)
