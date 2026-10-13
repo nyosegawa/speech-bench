@@ -54,6 +54,11 @@ export class GpuPowerSampler {
     // The driver installs nvidia-smi in System32, which a shell's PATH may not reach.
     const executable = path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'nvidia-smi.exe')
     const child = spawn(executable, ['--query-gpu=timestamp,index,power.draw', '--format=csv,noheader,nounits', `-lms`, String(INTERVAL_MS)], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
+    return GpuPowerSampler.reading(child, executable)
+  }
+
+  /** Reads the lines of `child`, an nvidia-smi started from `executable` as start() starts it. */
+  static reading(child: ChildProcessWithoutNullStreams, executable: string): Promise<GpuPowerSampler> {
     const sampler = new GpuPowerSampler(child)
     let stderr = ''
     child.stderr.setEncoding('utf8').on('data', (text: string) => { stderr += text })
@@ -68,7 +73,9 @@ export class GpuPowerSampler {
         if (!sampler.stopped) fail(new Error(`nvidia-smi stopped reading the GPUs' power with code ${String(code)}: ${stderr.trim() || 'no message'}`))
       })
       readline.createInterface({ input: child.stdout }).on('line', (line) => {
-        if (line.trim() === '') return
+        // nvidia-smi stopped in the middle of a line leaves a piece of it, such as its time alone, which readline gives
+        // as a last line; what arrives once the sampler is stopping is not read.
+        if (sampler.stopped || line.trim() === '') return
         try {
           sampler.readings.push(parsePowerLine(line))
           if (!started) {
