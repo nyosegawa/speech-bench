@@ -19,10 +19,10 @@ export interface AsrSummary {
   /** The error rate with the readings and accepted spellings, once every utterance heard is annotated, or null. */
   acceptedErrorRate: number | null
   empty: number
-  medianSeconds: number
-  p90Seconds: number
-  /** The summed transcription time over the summed audio duration. */
-  realTimeFactor: number
+  /** The time to transcribe an utterance at the 50th, 90th and 99th percentiles. */
+  latencySeconds: Percentiles
+  /** RTFx: the summed audio duration over the summed transcription time, larger being faster. */
+  inverseRealTimeFactor: number
 }
 
 /** What one speech synthesis result file adds up to. */
@@ -33,19 +33,30 @@ export interface TtsSummary {
   errorRate: number
   /** The sentences the recognizer heard as they were written, apart from how it spells them. */
   heardAsSaid: number
-  medianFirstAudioSeconds: number
-  p90FirstAudioSeconds: number
-  /** The summed synthesis time over the summed duration of the speech. */
-  realTimeFactor: number
+  /** The time to the first audio of a sentence at the 50th, 90th and 99th percentiles. */
+  firstAudioSeconds: Percentiles
+  /** RTFx: the summed duration of the speech over the summed synthesis time, larger being faster. */
+  inverseRealTimeFactor: number
   /** Seconds of speech per character of text, which shows speech that runs on or rushes. */
   secondsPerCharacter: number
 }
 
 export type Summary = AsrSummary | TtsSummary
 
-const quantile = (values: readonly number[], share: number): number => {
+/** A latency at the percentiles it is reported at. */
+export interface Percentiles {
+  p50: number
+  p90: number
+  p99: number
+}
+
+const quantile = (sorted: readonly number[], share: number): number =>
+  sorted.length === 0 ? Number.NaN : sorted[Math.min(sorted.length - 1, Math.ceil(share * sorted.length) - 1)] ?? Number.NaN
+
+/** The percentiles of a set of times by the nearest rank, so that each is a time that was measured. */
+export function percentiles(values: readonly number[]): Percentiles {
   const sorted = [...values].sort((a, b) => a - b)
-  return sorted.length === 0 ? Number.NaN : sorted[Math.min(sorted.length - 1, Math.ceil(share * sorted.length) - 1)] ?? Number.NaN
+  return { p50: quantile(sorted, 0.5), p90: quantile(sorted, 0.9), p99: quantile(sorted, 0.99) }
 }
 
 const sum = <T>(items: readonly T[], pick: (item: T) => number): number => items.reduce((total, item) => total + pick(item), 0)
@@ -75,7 +86,6 @@ export function summarize(file: ResultFile, spellingsOf: (locale: string) => Spe
   if ('utterances' in file) {
     const { run, utterances } = file
     const heard = utterances.filter((record): record is HeardUtterance => !isDropped(record))
-    const seconds = heard.map((record) => record.seconds)
     return {
       run,
       utterances: utterances.length,
@@ -83,21 +93,18 @@ export function summarize(file: ResultFile, spellingsOf: (locale: string) => Spe
       errorRate: corpusErrorRate(heard.map((record) => countErrors(record.reference, record.text, run.set.locale))),
       ...accepted(heard, run.set.locale, spellingsOf),
       empty: heard.filter((record) => record.text.trim() === '').length,
-      medianSeconds: quantile(seconds, 0.5),
-      p90Seconds: quantile(seconds, 0.9),
-      realTimeFactor: sum(heard, (record) => record.seconds) / sum(heard, (record) => record.audioSeconds)
+      latencySeconds: percentiles(heard.map((record) => record.seconds)),
+      inverseRealTimeFactor: sum(heard, (record) => record.audioSeconds) / sum(heard, (record) => record.seconds)
     }
   }
   const { run, sentences } = file
-  const firstAudio = sentences.map((record) => record.firstAudioSeconds)
   return {
     run,
     sentences: sentences.length,
     errorRate: corpusErrorRate(sentences.map((record) => countHeardErrors(record.text, record.transcript, run.set.locale))),
     heardAsSaid: sentences.filter((record) => heardAsSaid(record.text, record.transcript, run.set.locale)).length,
-    medianFirstAudioSeconds: quantile(firstAudio, 0.5),
-    p90FirstAudioSeconds: quantile(firstAudio, 0.9),
-    realTimeFactor: sum(sentences, (record) => record.totalSeconds) / sum(sentences, (record) => record.audioSeconds),
+    firstAudioSeconds: percentiles(sentences.map((record) => record.firstAudioSeconds)),
+    inverseRealTimeFactor: sum(sentences, (record) => record.audioSeconds) / sum(sentences, (record) => record.totalSeconds),
     secondsPerCharacter: sum(sentences, (record) => record.audioSeconds) / sum(sentences, (record) => [...record.text].length)
   }
 }
@@ -132,6 +139,7 @@ const runtimeOf = (summary: Summary): string => {
   return `${describeRuntime(summary.run.runtime)}${options.length > 0 ? ` (${options.join(', ')})` : ''}`
 }
 const percent = (rate: number): string => `${(rate * 100).toFixed(2)}%`
+const percentileCells = ({ p50, p90, p99 }: Percentiles): string[] => [p50, p90, p99].map((value) => value.toFixed(3))
 
 /** The rate with accepted spellings, or how many of the utterances heard are annotated while some are not. */
 const acceptedCell = (row: AsrSummary): string =>
@@ -142,21 +150,21 @@ function asrTable(rows: readonly AsrSummary[]): string[] {
   const metric = byCharacter ? 'CER' : 'WER'
   const accepted = byCharacter ? ' CER, accepted spellings |' : ''
   return [
-    `| Model | GPU, system | Runtime | N | Dropped by VAD | ${metric} |${accepted} Empty | Median s | p90 s | RTF | Load s |`,
-    `|---|---|---|---|---|---|${byCharacter ? '---|' : ''}---|---|---|---|---|`,
+    `| Model | GPU, system | Runtime | N | Dropped by VAD | ${metric} |${accepted} Empty | p50 s | p90 s | p99 s | RTFx | Load s |`,
+    `|---|---|---|---|---|---|${byCharacter ? '---|' : ''}---|---|---|---|---|---|`,
     ...rows.map((row) => `| ${[row.run.model.label, machineOf(row), runtimeOf(row), row.utterances, row.dropped, percent(row.errorRate),
       ...(byCharacter ? [acceptedCell(row)] : []), row.empty,
-      row.medianSeconds.toFixed(3), row.p90Seconds.toFixed(3), row.realTimeFactor.toFixed(3), row.run.loadSeconds.toFixed(1)].join(' | ')} |`)
+      ...percentileCells(row.latencySeconds), row.inverseRealTimeFactor.toFixed(1), row.run.loadSeconds.toFixed(1)].join(' | ')} |`)
   ]
 }
 
 function ttsTable(rows: readonly TtsSummary[]): string[] {
   const metric = scoredByCharacter(rows[0]!.run.set.locale) ? 'CER' : 'WER'
   return [
-    `| Model | Voice | Design or reference | Seed | GPU, system | Runtime | N | Heard ${metric} | Heard as said | Median first audio s | p90 first audio s | RTF | s per character | Load s |`,
-    '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|',
+    `| Model | Voice | Design or reference | Seed | GPU, system | Runtime | N | Heard ${metric} | Heard as said | p50 first audio s | p90 first audio s | p99 first audio s | RTFx | s per character | Load s |`,
+    '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|',
     ...rows.map((row) => `| ${[row.run.model.label, row.run.voice ?? 'none', [row.run.design?.id, row.run.reference ? `reference ${row.run.reference.name}` : null, row.run.durationScale === null ? null : `length ×${row.run.durationScale}`].filter(Boolean).join(' + ') || 'none', row.run.seed ?? 'random', machineOf(row), runtimeOf(row), row.sentences, percent(row.errorRate), row.heardAsSaid,
-      row.medianFirstAudioSeconds.toFixed(3), row.p90FirstAudioSeconds.toFixed(3), row.realTimeFactor.toFixed(3), row.secondsPerCharacter.toFixed(3),
+      ...percentileCells(row.firstAudioSeconds), row.inverseRealTimeFactor.toFixed(2), row.secondsPerCharacter.toFixed(3),
       row.run.loadSeconds.toFixed(1)].join(' | ')} |`)
   ]
 }

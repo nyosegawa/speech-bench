@@ -56,6 +56,10 @@ const common = {
 
 const number = (text: string): ReactNode => <span className="tabular-nums whitespace-nowrap">{text}</span>
 
+function LatencyCell({ latency }: { latency: AsrRow['latencySeconds'] }) {
+  return <div className="tabular-nums whitespace-nowrap">{seconds(latency.p50)}<div className="text-xs text-muted-foreground">p90 {seconds(latency.p90)} · p99 {seconds(latency.p99)}</div></div>
+}
+
 const TTS_COLUMNS: Array<Column<TtsRow>> = [
   common.started,
   common.model,
@@ -64,8 +68,8 @@ const TTS_COLUMNS: Array<Column<TtsRow>> = [
   common.machine,
   { key: 'cer', label: 'Heard CER', numeric: true, hint: 'What the recognizer misheard in the speech, each sentence counting at most all of its characters.', value: (row) => row.errorRate, cell: (row) => number(percent(row.errorRate)) },
   { key: 'said', label: 'Heard as said', numeric: true, firstDescending: true, hint: 'Sentences the recognizer heard as they were written, apart from how it spells them.', value: (row) => row.heardAsSaid / row.sentences, cell: (row) => number(`${row.heardAsSaid} / ${row.sentences}`) },
-  { key: 'first', label: 'First audio', numeric: true, hint: 'Seconds from asking for a sentence to its first audio: median, and the 90th percentile below.', value: (row) => row.medianFirstAudioSeconds, cell: (row) => <div className="tabular-nums whitespace-nowrap">{seconds(row.medianFirstAudioSeconds)}<div className="text-xs text-muted-foreground">p90 {seconds(row.p90FirstAudioSeconds)}</div></div> },
-  { key: 'rtf', label: 'RTF', numeric: true, hint: 'Synthesis time over the duration of the speech.', value: (row) => row.realTimeFactor, cell: (row) => number(row.realTimeFactor.toFixed(2)) },
+  { key: 'first', label: 'First audio', numeric: true, hint: 'Seconds from asking for a sentence to its first audio: p50, and p90 and p99 below.', value: (row) => row.firstAudioSeconds.p50, cell: (row) => <LatencyCell latency={row.firstAudioSeconds} /> },
+  { key: 'rtfx', label: 'RTFx', numeric: true, firstDescending: true, hint: 'The duration of the speech over the synthesis time; larger is faster.', value: (row) => row.inverseRealTimeFactor, cell: (row) => number(row.inverseRealTimeFactor.toFixed(2)) },
   { key: 'pace', label: 's / char', numeric: true, hint: 'Seconds of speech per character of text, which shows speech that runs on or rushes.', value: (row) => row.secondsPerCharacter, cell: (row) => number(row.secondsPerCharacter.toFixed(3)) }
 ]
 
@@ -88,8 +92,8 @@ const ASR_COLUMNS: Array<Column<AsrRow>> = [
   },
   { key: 'dropped', label: 'Dropped', numeric: true, hint: 'Utterances in which the VAD found no voice; the other figures leave them out.', value: (row) => row.dropped, cell: (row) => number(`${row.dropped} / ${row.utterances}`) },
   { key: 'empty', label: 'Empty', numeric: true, hint: 'Utterances the model heard nothing in.', value: (row) => row.empty, cell: (row) => number(String(row.empty)) },
-  { key: 'time', label: 'Time', numeric: true, hint: 'Seconds to transcribe an utterance: median, and the 90th percentile below.', value: (row) => row.medianSeconds, cell: (row) => <div className="tabular-nums whitespace-nowrap">{seconds(row.medianSeconds)}<div className="text-xs text-muted-foreground">p90 {seconds(row.p90Seconds)}</div></div> },
-  { key: 'rtf', label: 'RTF', numeric: true, hint: 'Transcription time over the duration of the audio.', value: (row) => row.realTimeFactor, cell: (row) => number(row.realTimeFactor.toFixed(3)) }
+  { key: 'time', label: 'Time', numeric: true, hint: 'Seconds to transcribe an utterance: p50, and p90 and p99 below.', value: (row) => row.latencySeconds.p50, cell: (row) => <LatencyCell latency={row.latencySeconds} /> },
+  { key: 'rtfx', label: 'RTFx', numeric: true, firstDescending: true, hint: 'The duration of the audio over the transcription time; larger is faster.', value: (row) => row.inverseRealTimeFactor, cell: (row) => number(row.inverseRealTimeFactor.toFixed(1)) }
 ]
 
 const ALL = 'all'

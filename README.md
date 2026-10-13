@@ -162,8 +162,11 @@ which shows how a model takes long silences.
   `明日《あした》` and other spellings `［九《く》時《じ》／9時］` (docs/adr/0013). A run gets the rate once every
   utterance it heard is annotated; until then the report says how many are.
 - **Time**: from sending the whole utterance to receiving its text, which is what a speaker waits for once
-  an application's VAD has closed the utterance. The first utterance is transcribed once more, untimed, because it pays
-  for the GPU's first use.
+  an application's VAD has closed the utterance, reported at the 50th, 90th and 99th percentiles (p50, p90, p99),
+  each a time that was measured (the nearest rank). The first utterance is transcribed once more, untimed, because it
+  pays for the GPU's first use.
+- **RTFx**: the duration of the audio heard over the time taken to transcribe it, summed over the set, as NeMo and
+  Hugging Face's Open ASR Leaderboard report it; larger is faster.
 - **Empty results**: utterances that came back without text.
 
 Qwen3-ASR runs in llama.cpp's llama-server from ggml-org's files, the NeMo models in CrispASR, and all five in
@@ -235,11 +238,11 @@ hf upload sakasegawa/common-voice-ja-accepted-spellings ~/speech-bench-data/hugg
 
 ### Speech synthesis
 
-- **First audio**: from sending a sentence to receiving its first audio. speech.cpp's Qwen3-TTS streams audio
+- **First audio**: from sending a sentence to receiving its first audio, at p50, p90 and p99. speech.cpp's Qwen3-TTS streams audio
   frame by frame while it generates, and its Irodori-TTS makes a sentence at once and streams it as the codec
   decodes it; audio.cpp's Irodori-TTS answers with the whole sentence, so its first audio arrives with the
   last.
-- **Real-time factor**: the synthesis time over the length of the speech.
+- **RTFx**: the length of the speech over the time taken to synthesize it, summed over the set; larger is faster.
 - **Heard error rate**: the speech is transcribed by Qwen3-ASR 1.7B, after the synthesis model has
   stopped, and compared with the sentence after NFKC and without punctuation, symbols and spaces, Japanese
   numbers read as Arabic digits and a long vowel mark as the vowel it lengthens (docs/adr/0002, 0006). A

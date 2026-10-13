@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { describeRuntime, formatReport, summarize as summarizeFile, type AsrSummary, type Summary, type TtsSummary } from '../src/measure/report.ts'
+import { describeRuntime, formatReport, percentiles, summarize as summarizeFile, type AsrSummary, type Summary, type TtsSummary } from '../src/measure/report.ts'
 import { parseResultFile } from '../src/measure/result-file/file.ts'
 import { sentenceKey, type Spellings } from '../src/spellings/files.ts'
 import { parseAnnotated } from '../src/spellings/notation.ts'
@@ -28,7 +28,7 @@ describe('summarize a speech recognition run', () => {
     // Per-utterance rates would average (1/1 + 0/9) / 2 = 50%; the corpus rate is 1/10.
     const summary = asr(summarize([JSON.stringify(asrRun), utterance('あ', 'い', 0.2, 2), utterance('かきくけこさしすせ', 'かきくけこさしすせ', 0.4, 4)], noSpellings))
     expect(summary.errorRate).toBeCloseTo(0.1)
-    expect(summary.realTimeFactor).toBeCloseTo(0.1)
+    expect(summary.inverseRealTimeFactor).toBeCloseTo(10)
   })
 
   it('counts the utterances dropped by the VAD apart, leaving them out of the error rate and the timings', () => {
@@ -38,8 +38,8 @@ describe('summarize a speech recognition run', () => {
     expect(summary.dropped).toBe(1)
     expect(summary.errorRate).toBeCloseTo(1 / 5)
     expect(summary.empty).toBe(0)
-    expect(summary.medianSeconds).toBeCloseTo(0.4)
-    expect(summary.realTimeFactor).toBeCloseTo(0.1)
+    expect(summary.latencySeconds).toEqual({ p50: 0.4, p90: 0.4, p99: 0.4 })
+    expect(summary.inverseRealTimeFactor).toBeCloseTo(10)
   })
 
   it('counts transcriptions that came back empty', () => {
@@ -77,6 +77,17 @@ describe('summarize a speech recognition run', () => {
     expect(run.run.audio).toEqual({ edges: 'voice', detector: 'silero-vad-v4', marginSeconds: 0.2 })
     expect(run.dropped).toBe(1)
     expect(formatReport([run])).toContain('trimmed to the voice silero-vad-v4 finds, with 0.2 s around it')
+  })
+})
+
+describe('percentiles', () => {
+  it('gives each percentile as a time that was measured, by the nearest rank', () => {
+    const times = Array.from({ length: 100 }, (_, index) => (100 - index) / 100)
+    expect(percentiles(times)).toEqual({ p50: 0.5, p90: 0.9, p99: 0.99 })
+  })
+
+  it('gives the slowest of fewer than a hundred times as the 99th percentile', () => {
+    expect(percentiles([0.3, 0.1, 0.2])).toEqual({ p50: 0.2, p90: 0.3, p99: 0.3 })
   })
 })
 
@@ -122,8 +133,8 @@ describe('summarize a speech synthesis run', () => {
   it('adds up what was misheard, the time to the first audio and the pace of the speech', () => {
     const summary = tts(summarize([JSON.stringify(ttsRun), sentence('はい', 'はい', 0.05, 0.3, 0.5), sentence('こんにちは', 'こんばんは', 0.07, 0.5, 1.5)], noSpellings))
     expect(summary.errorRate).toBeCloseTo(2 / 7)
-    expect(summary.medianFirstAudioSeconds).toBeCloseTo(0.05)
-    expect(summary.realTimeFactor).toBeCloseTo(0.8 / 2)
+    expect(summary.firstAudioSeconds.p50).toBeCloseTo(0.05)
+    expect(summary.inverseRealTimeFactor).toBeCloseTo(2 / 0.8)
     expect(summary.secondsPerCharacter).toBeCloseTo(2 / 7)
   })
 })
