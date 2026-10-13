@@ -79,6 +79,11 @@ export class WindowsProbe implements Probe {
     // Windows PowerShell 5.1 takes the double quotes of a script given with -Command apart; an encoded one arrives whole.
     const encoded = Buffer.from(countersScript(this.intervalMs), 'utf16le').toString('base64')
     const child = spawn('powershell', ['-NoProfile', '-NonInteractive', '-EncodedCommand', encoded], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
+    return this.reading(child, root, take)
+  }
+
+  /** Reads the lines of `child`, a PowerShell running countersScript() as start() starts it. */
+  reading(child: ChildProcessWithoutNullStreams, root: () => number | null, take: (snapshot: Snapshot, root: number | null) => void): Promise<void> {
     this.child = child
     let stderr = ''
     child.stderr.setEncoding('utf8').on('data', (text: string) => { stderr += text })
@@ -93,6 +98,9 @@ export class WindowsProbe implements Probe {
         if (this.child === child) fail(new Error(`PowerShell stopped reading the memory counters with code ${String(code)}: ${stderr.trim() || 'no message'}; a Windows without the GPU Process Memory counters (Windows 10 1709 or later with a WDDM 2 driver) cannot measure GPU memory`))
       })
       readline.createInterface({ input: child.stdout }).on('line', (line) => {
+        // PowerShell stopped in the middle of a line leaves a piece of it, which readline gives as a last line; what
+        // arrives once the probe is stopping is not read.
+        if (this.child !== child) return
         try {
           const pid = root()
           take(parseCountersLine(line), pid)

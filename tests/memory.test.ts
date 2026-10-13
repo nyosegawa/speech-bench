@@ -1,9 +1,10 @@
+import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { graphicsBytes, parsePs } from '../src/measure/memory/macos.ts'
 import { PeakMemory, processTree, type ProcessRow, type Snapshot } from '../src/measure/memory/snapshot.ts'
-import { parseCountersLine } from '../src/measure/memory/windows.ts'
+import { parseCountersLine, WindowsProbe } from '../src/measure/memory/windows.ts'
 
 const MIB = 1024 * 1024
 const row = (pid: number, parent: number, mib: number): ProcessRow => ({ pid, parent, residentBytes: mib * MIB })
@@ -91,5 +92,24 @@ describe('reading the memory on Windows', () => {
     expect(() => parseCountersLine('{"processes":[[5120,,52428800]],"gpu":[]}')).toThrow(/not JSON/)
     expect(() => parseCountersLine('{"processes":[[5120,52428800]],"gpu":[]}')).toThrow(/pid, a parent and a working set/)
     expect(() => parseCountersLine('{"processes":[],"gpu":[["luid_0x00000000_0x0000D1B5_phys_0",1]]}')).toThrow(/instance of a process/)
+  })
+})
+
+describe('the Windows probe', () => {
+  it('ignores the piece of a line PowerShell leaves when it is stopped', async () => {
+    // Writes a look every 20 ms, and on SIGTERM the start of one, as PowerShell stopped mid-line did.
+    const script = [
+      "const look = JSON.stringify({ processes: [[10, 1, 4096]], gpu: [] })",
+      "const timer = setInterval(() => process.stdout.write(look + '\\n'), 20)",
+      "process.on('SIGTERM', () => { clearInterval(timer); process.stdout.write('{\"processes\":[[34720,1776,45133824],[20932,130', () => process.exit(0)) })"
+    ].join('\n')
+    const child = spawn(process.execPath, ['-e', script], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
+    const looks: Snapshot[] = []
+    const probe = new WindowsProbe(20)
+    await probe.reading(child, () => 10, (snapshot) => looks.push(snapshot))
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    await probe.stop()
+    expect(looks.length).toBeGreaterThan(0)
+    expect(looks.every((look) => look.processes[0]?.residentBytes === 4096)).toBe(true)
   })
 })
