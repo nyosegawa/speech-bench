@@ -47,9 +47,31 @@ export async function modelFiles(model: { files: readonly ModelFile[] }): Promis
 export interface RunSetup {
   /** Whether the runtime loads the model from copies no file cache holds, for a cold load time. */
   coldLoad: boolean
+  /**
+   * The build of speech.cpp a speech.cpp entry runs, as `ensureSpeechCpp` takes it: a pinned release's tag, a local
+   * build directory or `ci:<run id>`; null for the one SPEECH_BENCH_SPEECH_CPP names or the pinned release.
+   */
+  speechCpp: string | null
+  /**
+   * The device in ggml's names that a runtime built on ggml is told to use, such as CPU, which the run records among
+   * its options; null for the GPU (SPEECH_BENCH_DEVICE), which a run does not record.
+   */
+  device: string | null
+  /** The combination of a measurement plan the run is made for and its round, or null for a run made by hand. */
+  plan: { combination: string; round: number } | null
 }
 
-export const WARM_SETUP: RunSetup = { coldLoad: false }
+export const DEFAULT_SETUP: RunSetup = { coldLoad: false, speechCpp: null, device: null, plan: null }
+
+/** The device a runtime built on ggml is told to use, and the options a run records of it. */
+export const deviceOf = (setup: RunSetup): { device: string; options: Record<string, string> } =>
+  setup.device === null ? { device: gpuDevice(), options: {} } : { device: setup.device, options: { device: setup.device } }
+
+/** Refuses what a runtime that does not run on ggml or is not speech.cpp cannot be given. */
+export function checkSetupFor(model: { id: string; runtime: string }, setup: RunSetup): void {
+  if (setup.speechCpp !== null && model.runtime !== 'speech.cpp') throw new Error(`${model.id} runs in ${model.runtime}, not in a build of speech.cpp`)
+  if (setup.device !== null && !['speech.cpp', 'llama-server', 'nemo-speech.cpp'].includes(model.runtime)) throw new Error(`${model.id} runs in ${model.runtime}, which the bench gives no device`)
+}
 
 /**
  * The model's files as the run reads them, copies that no file cache holds for a cold load, and how to remove those
@@ -61,9 +83,11 @@ export async function filesFor(model: { files: readonly ModelFile[] }, setup: Ru
 }
 
 /** The engine that runs the model from `files`, the local paths of its files, with its runtime and the options it is loaded with. */
-export async function prepareAsr(model: AsrModel, files: readonly string[]): Promise<{ engine: AsrEngine; runtime: RuntimeIdentity; loadOptions: Readonly<Record<string, string>> }> {
+export async function prepareAsr(model: AsrModel, files: readonly string[], setup: RunSetup): Promise<{ engine: AsrEngine; runtime: RuntimeIdentity; loadOptions: Readonly<Record<string, string>> }> {
+  checkSetupFor(model, setup)
+  const { device, options } = deviceOf(setup)
   if (model.runtime === 'llama-server') {
-    return { engine: new LlamaServerAsr(await ensureRuntime(LLAMA_CPP), model, files, gpuDevice()), runtime: releaseOf(LLAMA_CPP), loadOptions: {} }
+    return { engine: new LlamaServerAsr(await ensureRuntime(LLAMA_CPP), model, files, device), runtime: releaseOf(LLAMA_CPP), loadOptions: options }
   }
   if (model.runtime === 'adapter') {
     const device = torchDevice()
@@ -75,12 +99,12 @@ export async function prepareAsr(model: AsrModel, files: readonly string[]): Pro
   const [gguf] = files
   if (!gguf || files.length !== 1) throw new Error(`${model.id} is one GGUF file in ${model.runtime}`)
   if (model.runtime === 'speech.cpp') {
-    const { executable, runtime } = await ensureSpeechCpp()
-    return { engine: new WorkerAsr({ name: model.id, executable, args: speechWorkerArgs(gguf, gpuDevice(), null) }, model), runtime, loadOptions: {} }
+    const { executable, runtime } = await ensureSpeechCpp(setup.speechCpp)
+    return { engine: new WorkerAsr({ name: model.id, executable, args: speechWorkerArgs(gguf, device, null) }, model), runtime, loadOptions: options }
   }
   if (model.runtime === 'nemo-speech.cpp') {
-    const engine = new NemoSpeechAsr(await ensureRuntime(NEMO_SPEECH_CPP), model, gguf, nemoSpeechDevice(gpuDevice()))
-    return { engine, runtime: releaseOf(NEMO_SPEECH_CPP), loadOptions: NEMO_SPEECH_LOAD_OPTIONS }
+    const engine = new NemoSpeechAsr(await ensureRuntime(NEMO_SPEECH_CPP), model, gguf, nemoSpeechDevice(device))
+    return { engine, runtime: releaseOf(NEMO_SPEECH_CPP), loadOptions: { ...NEMO_SPEECH_LOAD_OPTIONS, ...options } }
   }
   return { engine: new CrispAsr(await ensureRuntime(CRISPASR), model, gguf), runtime: releaseOf(CRISPASR), loadOptions: {} }
 }
@@ -110,11 +134,12 @@ const stamp = (date: Date): string => date.toISOString().replace(/[:.]/g, '-')
  * a run cut short still leaves what it measured; what was watched while the runtime ran, its memory among it, is
  * written into the run line once the runtime has stopped. Returns the path of the result file.
  */
-export async function runAsr(model: AsrModel, set: UtteranceSet, audio: NewPreparation, setup: RunSetup = WARM_SETUP): Promise<string> {
+export async function runAsr(model: AsrModel, set: UtteranceSet, audio: NewPreparation, setup: RunSetup = DEFAULT_SETUP): Promise<string> {
   if (!modelCovers(model, set.locale)) throw new Error(`${model.id} does not list ${set.locale} among its languages`)
   if (set.utterances.length === 0) throw new Error(`${set.name} has no utterances`)
+  checkSetupFor(model, setup)
   const read = await filesFor(model, setup)
-  const { engine, runtime, loadOptions } = await prepareAsr(model, read.files)
+  const { engine, runtime, loadOptions } = await prepareAsr(model, read.files, setup)
   const detector = audio.edges === 'voice' ? await VoiceDetector.open(VAD_MODEL) : null
   const startedAt = new Date()
   const machine = machineInfo()
@@ -148,7 +173,8 @@ export async function runAsr(model: AsrModel, set: UtteranceSet, audio: NewPrepa
       warmupSeconds,
       memory: null,
       gpuPower: null,
-      load: null
+      load: null,
+      plan: setup.plan
     }
     fs.writeFileSync(file, `${JSON.stringify(run)}\n`)
     const utterances: UtteranceRecord[] = []

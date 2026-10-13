@@ -11,13 +11,15 @@ import { recordingSet } from '../datasets/recordings.ts'
 import { loadDesigns } from '../make/recipes.ts'
 import { loadPrompts } from '../datasets/prompts.ts'
 import { isLanguageTag } from '../core/language.ts'
-import { joinCampaign, readCampaign } from '../measure/campaigns.ts'
+import { campaignRuns, joinCampaign, readCampaign } from '../measure/campaigns.ts'
+import { readPlan } from '../measure/plan-file/file.ts'
+import { checkPlan, describeCombination, doneOf, runPlan, schedule } from '../measure/plans.ts'
 import { allRunFiles, runFile, runIdOf } from '../measure/runs.ts'
 import { loadReference } from '../make/references.ts'
 import { formatReport, readSummaries } from '../measure/report.ts'
 import { readResultFile } from '../measure/result-file/file.ts'
 import type { NewPreparation } from '../measure/result-file/format.ts'
-import { runAsr, TRIM_TO_VOICE } from '../measure/run-asr.ts'
+import { DEFAULT_SETUP, runAsr, TRIM_TO_VOICE } from '../measure/run-asr.ts'
 import { runTts } from '../measure/run-tts.ts'
 
 export function listModels(): void {
@@ -117,7 +119,7 @@ export async function asr(args: string[]): Promise<void> {
   const files: string[] = []
   for (const model of models) {
     process.stderr.write(`${model.id} on ${set.name}\n`)
-    const file = await runAsr(model, set, audio, { coldLoad: values['cold-load'] })
+    const file = await runAsr(model, set, audio, { ...DEFAULT_SETUP, coldLoad: values['cold-load'] })
     if (values.campaign !== undefined) joinCampaign(values.campaign, runIdOf(file))
     files.push(file)
   }
@@ -164,7 +166,7 @@ export async function tts(args: string[]): Promise<void> {
       for (const seed of seeds) {
         const how = [design === null ? '' : ` as ${design.id}`, seed === null ? '' : ` with seed ${seed}`].join('')
         process.stderr.write(`${model.id}${how} speaking ${sentences.length} sentences\n`)
-        const file = await runTts(model, locale, sentences, { voice: values.voice, seed, design, reference, durationScale }, { coldLoad: values['cold-load'] })
+        const file = await runTts(model, locale, sentences, { voice: values.voice, seed, design, reference, durationScale }, { ...DEFAULT_SETUP, coldLoad: values['cold-load'] })
         if (values.campaign !== undefined) joinCampaign(values.campaign, runIdOf(file))
         files.push(file)
       }
@@ -179,3 +181,18 @@ export const seedList = (given: string): number[] => given.split(',').map((seed)
   if (!Number.isSafeInteger(value) || value < 0) throw new Error(`--seeds lists whole numbers from 0, separated by commas, not ${JSON.stringify(seed)}`)
   return value
 })
+
+/** Runs a measurement plan, or with --dry-run lists its runs in the order they would be made and which are made. */
+export async function plan(args: string[]): Promise<void> {
+  const { values, positionals } = parseArgs({ args, allowPositionals: true, options: { 'dry-run': { type: 'boolean', default: false } } })
+  if (positionals.length !== 1) throw new Error('plan takes one plan file')
+  const measurement = readPlan(positionals[0]!)
+  checkPlan(measurement)
+  if (values['dry-run']) {
+    const steps = schedule(measurement, doneOf(campaignRuns(measurement.campaign).map((run) => readResultFile(runFile(run)).run)))
+    for (const { round, combination, done } of steps) console.log(`${done ? 'made ' : 'to do'}  round ${round}  ${describeCombination(combination)}`)
+    return
+  }
+  await runPlan(measurement)
+  console.log(formatReport(readSummaries(campaignRuns(measurement.campaign).map(runFile))))
+}

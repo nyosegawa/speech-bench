@@ -125,7 +125,12 @@ const runCommon = {
    * the CPUs' time spent working, and the load average of the last minute on macOS. Null for a run made before it was
    * recorded, and for one cut short.
    */
-  load: z.strictObject({ before: machineLoad, after: machineLoad }).nullable().default(null)
+  load: z.strictObject({ before: machineLoad, after: machineLoad }).nullable().default(null),
+  /**
+   * The combination of a measurement plan the run was made for, as the plan's runner writes it, and its round; null for
+   * a run made by hand.
+   */
+  plan: z.strictObject({ combination: z.string(), round: z.int() }).nullable().default(null)
 }
 
 /** The first line of a speech recognition result file. */

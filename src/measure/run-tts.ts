@@ -11,11 +11,11 @@ import { irodoriVoiceFile } from '../engines/irodori-voice.ts'
 import { REFERENCE_VOICE, speechWorkerArgs } from '../engines/worker.ts'
 import { WorkerTts } from '../engines/worker-tts.ts'
 import type { Synthesis, TtsEngine } from '../engines/tts-engine.ts'
-import { gpuBackend, gpuDevice, machineInfo, platformKey, torchDevice } from '../core/platform.ts'
+import { gpuBackend, machineInfo, platformKey, torchDevice } from '../core/platform.ts'
 import { resultText } from './result-file/file.ts'
 import { RESULT_FORMAT, type SentenceRecord, type TtsRunRecord } from './result-file/format.ts'
 import { RuntimeWatch, type Watched } from './watch.ts'
-import { filesFor, modelFiles, modelRecord, prepareAsr, WARM_SETUP, type RunSetup } from './run-asr.ts'
+import { checkSetupFor, DEFAULT_SETUP, deviceOf, filesFor, modelFiles, modelRecord, prepareAsr, type RunSetup } from './run-asr.ts'
 import { runFile, runFolder } from './runs.ts'
 import { AUDIO_CPP, ensureRuntime, ensureSpeechCpp, releaseOf, runtimeTag, type RuntimeIdentity } from '../catalog/runtimes.ts'
 import { adapterCommand, adapterVersion, IRODORI_TTS_ADAPTER, MLX_AUDIO_ADAPTER, QWEN3_TTS_ADAPTER, syncAdapter, type Adapter } from '../engines/adapter.ts'
@@ -55,18 +55,20 @@ async function prepareTts(model: TtsModel, { seed, design, reference, durationSc
   if (design !== null && !(model.runtime === 'audio.cpp' && model.voiceDesign)) throw new Error(`${model.id} takes no voice described in words`)
   if (reference !== null && !model.voiceReference) throw new Error(`${model.id} takes no reference voice`)
   if (durationScale !== null && !(model.runtime === 'audio.cpp' && model.durationScale)) throw new Error(`${model.id} takes no factor for the length of its speech`)
+  checkSetupFor(model, setup)
   if (model.runtime === 'speech.cpp') {
     if (model.voiceReference && reference === null) throw new Error(`${model.id} has no voice of its own; give it one with --reference`)
     const [modelGguf, ...others] = await modelFiles(model)
     if (!modelGguf || others.length > 0) throw new Error(`${model.id} is one GGUF file in speech.cpp`)
-    const { executable, runtime } = await ensureSpeechCpp()
+    const { executable, runtime } = await ensureSpeechCpp(setup.speechCpp)
+    const { device, options } = deviceOf(setup)
     const voiceFile = reference === null ? null : await irodoriVoiceFile({ executable, version: runtimeTag(runtime) }, modelGguf, reference)
     const { files: [gguf], remove } = await filesFor(model, setup)
     const engine = new WorkerTts(
-      { name: model.id, executable, args: speechWorkerArgs(gguf!, gpuDevice(), voiceFile) },
+      { name: model.id, executable, args: speechWorkerArgs(gguf!, device, voiceFile) },
       { voice: voiceFile === null ? null : REFERENCE_VOICE, seed, options: stepsOption(model.steps) }
     )
-    return { engine, runtime, loadOptions: voiceFile === null ? {} : { voice: 'voice file made on the CPU' }, remove }
+    return { engine, runtime, loadOptions: { ...(voiceFile === null ? {} : { voice: 'voice file made on the CPU' }), ...options }, remove }
   }
   const { files, remove } = await filesFor(model, setup)
   if (model.runtime === 'adapter') {
@@ -114,7 +116,7 @@ interface Spoken {
  * audio with the recognizer, which runs only after the synthesis model has stopped so that the two do not
  * share the GPU while the synthesis is timed. Returns the path of the result file.
  */
-export async function runTts(model: TtsModel, locale: string, sentences: readonly Prompt[], choice: VoiceChoice, setup: RunSetup = WARM_SETUP): Promise<string> {
+export async function runTts(model: TtsModel, locale: string, sentences: readonly Prompt[], choice: VoiceChoice, setup: RunSetup = DEFAULT_SETUP): Promise<string> {
   const { seed, design, reference, durationScale } = choice
   if (!modelCovers(model, locale)) throw new Error(`${model.id} does not list ${locale} among its languages`)
   const first = sentences[0]
@@ -160,7 +162,7 @@ export async function runTts(model: TtsModel, locale: string, sentences: readonl
   }
 
   process.stderr.write(`  transcribing with ${recognizer.id}\n`)
-  const { engine: asr } = await prepareAsr(recognizer, await modelFiles(recognizer))
+  const { engine: asr } = await prepareAsr(recognizer, await modelFiles(recognizer), DEFAULT_SETUP)
   const records: SentenceRecord[] = []
   try {
     await asr.start()
@@ -201,7 +203,8 @@ export async function runTts(model: TtsModel, locale: string, sentences: readonl
     loadSeconds,
     coldLoad: setup.coldLoad,
     warmupSeconds,
-    ...watched
+    ...watched,
+    plan: setup.plan
   }
   const file = runFile(stem)
   fs.writeFileSync(file, resultText({ run, sentences: records }))

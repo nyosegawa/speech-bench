@@ -13,7 +13,8 @@ const common = {
   warmupSeconds: 1,
   memory: null,
   gpuPower: null,
-  load: null
+  load: null,
+  plan: null
 }
 
 /** A whole run line of a recognition run, with the fields a test cares about given. */

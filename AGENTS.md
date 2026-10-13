@@ -41,7 +41,7 @@ behavior.
   with references or sentences to speak, and owns the form of the recording manifests (`recording-manifest/`).
 - `src/measure/` runs a model over a set and writes the result (`run-asr.ts`, `run-tts.ts`), owns the form of
   result files (`result-file/`), where a run is kept (`runs.ts`), the campaigns (`campaigns.ts`, their form in
-  `campaign-file/`), the scoring of recognized texts (`scoring.ts`, with the kanji forms of `kanji-forms.ts`, and
+  `campaign-file/`), the plans of measurements and their runner (`plans.ts`, their form in `plan-file/`), the scoring of recognized texts (`scoring.ts`, with the kanji forms of `kanji-forms.ts`, and
   against accepted spellings `accepted.ts`) and of synthesized speech as heard (`heard.ts`), what is read of the machine
   while a runtime runs (`watch.ts`): the memory its processes take, sampled with the tools of each system (`memory/`),
   and an NVIDIA GPU's power (`gpu-power.ts`), and the report (`report.ts`).

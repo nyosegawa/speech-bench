@@ -140,6 +140,14 @@ describe('streamed speech in the report', () => {
   })
 })
 
+describe('how a run was made', () => {
+  it('writes a cold load time as cold, and reads every run before format 18 as loaded as the system found its files', () => {
+    expect(asr(summarize(fixture('v18-asr-cold.jsonl'), noSpellings)).run.coldLoad).toBe(true)
+    expect(formatReport([asr(summarize(fixture('v18-asr-cold.jsonl'), noSpellings))])).toContain(' cold |')
+    expect(tts(summarize(fixture('v17-tts.jsonl'), noSpellings)).run.coldLoad).toBe(false)
+  })
+})
+
 describe('percentiles', () => {
   it('gives each percentile as a time that was measured, by the nearest rank', () => {
     const times = Array.from({ length: 100 }, (_, index) => (100 - index) / 100)

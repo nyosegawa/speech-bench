@@ -407,6 +407,46 @@ smallest share of broken takes and then the most alike takes marked, the referen
 a button that chooses one.
 
 
+## Measurement plans
+
+A measurement of several runtimes, builds and models is written as a plan, a JSON file, which `plan` runs whole
+(docs/adr/0030):
+
+```sh
+node src/cli.ts plan speech-cpp-0-8-5-mac.json --dry-run   # the runs in the order they will be made, and those made
+node src/cli.ts plan speech-cpp-0-8-5-mac.json             # make the runs not made yet, then report the campaign
+```
+
+```json
+{
+  "format": 1,
+  "campaign": "speech-cpp-0-8-5-mac",
+  "rounds": 3,
+  "entries": [
+    { "task": "asr", "models": ["qwen3-asr-0.6b-speech.cpp", "qwen3-asr-0.6b", "qwen3-asr-0.6b-official"],
+      "builds": ["v0.8.4", "ci:18276543210"], "locale": "ja-JP", "set": "common-voice", "count": 500 },
+    { "task": "asr", "models": ["parakeet-tdt-0.6b-v3-speech.cpp"], "builds": ["v0.8.4", "ci:18276543210"],
+      "devices": [null, "CPU"], "coldLoad": true, "locale": "en-US", "set": "fleurs", "count": 100 },
+    { "task": "tts", "models": ["irodori-tts-v4.1-small-mf", "irodori-tts-v4.1-small-mf-official"],
+      "builds": ["v0.8.4", "ci:18276543210"], "locale": "ja-JP", "seeds": [1, 2, 3],
+      "reference": "voice-bright-young-woman", "only": ["reply-weather", "number-date"] }
+  ]
+}
+```
+
+Each entry runs every model it names in every build, device and seed it lists. `builds` names builds of speech.cpp
+as `SPEECH_BENCH_SPEECH_CPP` does (a pinned release's tag, a local build directory or `ci:<run id>`; `null` for the
+release the bench pins) and applies to the speech.cpp entries alone: a model of another runtime runs once, in its
+pinned release. `devices` names ggml devices, such as `CPU`, for speech.cpp, llama.cpp and NeMo-Speech.cpp (`null`
+for the GPU), and a run records a device it was given among its options. `coldLoad` measures every run's load time
+cold, and `modelFile` (`{"file": ..., "sha256": ...}`) runs an entry's one model from a file on the machine, as
+`--model-file` does. A recognition entry trims each utterance to its voice, as `asr` does by default.
+
+Each round runs every combination once, in an order shuffled for that round, so that builds and runtimes alternate
+and none always runs first or after the same one. Every run records its combination and round and joins the plan's
+campaign; `plan` checks every combination before it starts, stops at a run that fails, and run again it makes only
+what the campaign's runs have not made yet, in the same order.
+
 ## Pinned inputs
 
 Every download is pinned by URL and sha256; a Hugging Face file by repository, revision, size and sha256.
@@ -418,7 +458,7 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 | Qwen3-ASR 1.7B and 0.6B in llama.cpp | ggml-org Q8_0, each with its audio projector |
 | parakeet-tdt-0.6b-v3, parakeet-tdt_ctc-0.6b-ja, ReazonSpeech NeMo v2 in CrispASR | cstr Q8_0 |
 | FLEURS | google/fleurs at revision 70bb2e84: ja-JP, en-US, fr-FR, de-DE, hi-IN, id-ID, it-IT, ko-KR, pt-BR and es-419 (it has no Spanish of Spain) |
-| speech.cpp | v0.8.2, its one executable `speech`, whose worker runs the synthesis and recognition models and whose `speech voice` makes voice files |
+| speech.cpp | v0.8.2, its one executable `speech`, whose worker runs the synthesis and recognition models and whose `speech voice` makes voice files; v0.8.4 too, which a plan or `SPEECH_BENCH_SPEECH_CPP=v0.8.4` names |
 | Qwen3-ASR 1.7B and 0.6B in speech.cpp | sakasegawa/Qwen3-ASR-1.7B-GGUF and sakasegawa/Qwen3-ASR-0.6B-GGUF, one Q8_0 file each with the audio encoder inside, the layout speech.cpp v0.7.0 reads |
 | parakeet-tdt-0.6b-v3, parakeet-tdt_ctc-0.6b-ja, ReazonSpeech NeMo v2 in speech.cpp | sakasegawa/parakeet-tdt-0.6b-v3-GGUF, sakasegawa/parakeet-tdt_ctc-0.6b-ja-GGUF and sakasegawa/reazonspeech-nemo-v2-GGUF, one F16 file each, the layout speech.cpp v0.7.0 reads |
 | Qwen3-TTS 0.6B and 1.7B CustomVoice | sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF and sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF, one Q8_0 file each with the F16 codec inside, the layout speech.cpp v0.7.0 reads |

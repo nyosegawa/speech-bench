@@ -1,0 +1,34 @@
+{
+  "format": 1,
+  "campaign": "speech-cpp-0-8-5-mac",
+  "rounds": 3,
+  "entries": [
+    {
+      "task": "asr",
+      "models": ["qwen3-asr-0.6b-speech.cpp", "qwen3-asr-0.6b", "qwen3-asr-0.6b-official"],
+      "builds": ["v0.8.4", "ci:18276543210"],
+      "locale": "ja-JP",
+      "set": "common-voice",
+      "count": 500
+    },
+    {
+      "task": "asr",
+      "models": ["parakeet-tdt-0.6b-v3-speech.cpp"],
+      "builds": ["v0.8.4", "ci:18276543210"],
+      "devices": [null, "CPU"],
+      "coldLoad": true,
+      "locale": "en-US",
+      "set": "fleurs",
+      "count": 100
+    },
+    {
+      "task": "tts",
+      "models": ["irodori-tts-v4.1-small-mf", "irodori-tts-v4.1-small-mf-official"],
+      "builds": ["v0.8.4", "ci:18276543210"],
+      "locale": "ja-JP",
+      "seeds": [1, 2, 3],
+      "reference": "voice-bright-young-woman",
+      "only": ["reply-weather", "number-date"]
+    }
+  ]
+}
