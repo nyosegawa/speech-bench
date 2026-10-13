@@ -115,6 +115,10 @@ export class WorkerProcess {
     return this.command.name
   }
 
+  get pid(): number | null {
+    return this.child?.pid ?? null
+  }
+
   /** Starts the worker and resolves with the model information of its `ready`. */
   start(): Promise<Record<string, unknown>> {
     fs.mkdirSync(logsDir(), { recursive: true })

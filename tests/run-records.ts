@@ -4,12 +4,17 @@ const common = {
   type: 'run' as const,
   format: RESULT_FORMAT,
   startedAt: '2026-10-01T00:00:00.000Z',
-  machine: { platform: 'darwin-arm64' as const, hostname: 'mac', os: 'macOS 26.2', cpu: 'Apple M5', memoryGb: 32, gpus: ['Apple M5'] },
+  machine: { platform: 'darwin-arm64' as const, hostname: 'mac', os: 'macOS 26.2', cpu: 'Apple M5', memoryGb: 32, gpus: [{ name: 'Apple M5', driver: null }], power: { source: 'ac' as const, lowPowerMode: false } },
   set: { name: 'set', locale: 'ja-JP', size: 1 },
   model: { id: 'model', label: 'Model', license: 'MIT', files: [] },
   runtime: { id: 'llama.cpp', version: 'b1', build: null, options: {} },
   loadSeconds: 1,
-  warmupSeconds: 1
+  coldLoad: false,
+  warmupSeconds: 1,
+  memory: null,
+  gpuPower: null,
+  load: null,
+  plan: null
 }
 
 /** A whole run line of a recognition run, with the fields a test cares about given. */
@@ -30,5 +35,6 @@ export const ttsRun = (fields: Partial<TtsRunRecord> = {}): TtsRunRecord => ({
   reference: null,
   durationScale: null,
   recognizer: { id: 'qwen3-asr-1.7b', label: 'Qwen3-ASR 1.7B' },
+  secondRecognizer: null,
   ...fields
 })

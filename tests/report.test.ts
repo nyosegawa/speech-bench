@@ -1,7 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { describeRuntime, formatReport, summarize as summarizeFile, type AsrSummary, type Summary, type TtsSummary } from '../src/measure/report.ts'
+import { describeRuntime, formatReport, percentiles, summarize as summarizeFile, type AsrSummary, type Summary, type TtsSummary } from '../src/measure/report.ts'
+import { countHeardErrors } from '../src/measure/heard.ts'
 import { parseResultFile } from '../src/measure/result-file/file.ts'
 import { sentenceKey, type Spellings } from '../src/spellings/files.ts'
 import { parseAnnotated } from '../src/spellings/notation.ts'
@@ -28,7 +29,7 @@ describe('summarize a speech recognition run', () => {
     // Per-utterance rates would average (1/1 + 0/9) / 2 = 50%; the corpus rate is 1/10.
     const summary = asr(summarize([JSON.stringify(asrRun), utterance('あ', 'い', 0.2, 2), utterance('かきくけこさしすせ', 'かきくけこさしすせ', 0.4, 4)], noSpellings))
     expect(summary.errorRate).toBeCloseTo(0.1)
-    expect(summary.realTimeFactor).toBeCloseTo(0.1)
+    expect(summary.inverseRealTimeFactor).toBeCloseTo(10)
   })
 
   it('counts the utterances dropped by the VAD apart, leaving them out of the error rate and the timings', () => {
@@ -38,8 +39,8 @@ describe('summarize a speech recognition run', () => {
     expect(summary.dropped).toBe(1)
     expect(summary.errorRate).toBeCloseTo(1 / 5)
     expect(summary.empty).toBe(0)
-    expect(summary.medianSeconds).toBeCloseTo(0.4)
-    expect(summary.realTimeFactor).toBeCloseTo(0.1)
+    expect(summary.latencySeconds).toEqual({ p50: 0.4, p90: 0.4, p99: 0.4 })
+    expect(summary.inverseRealTimeFactor).toBeCloseTo(10)
   })
 
   it('counts transcriptions that came back empty', () => {
@@ -77,6 +78,107 @@ describe('summarize a speech recognition run', () => {
     expect(run.run.audio).toEqual({ edges: 'voice', detector: 'silero-vad-v4', marginSeconds: 0.2 })
     expect(run.dropped).toBe(1)
     expect(formatReport([run])).toContain('trimmed to the voice silero-vad-v4 finds, with 0.2 s around it')
+  })
+})
+
+describe('the memory a runtime took', () => {
+  const columns = (report: string, row: number): Record<string, string> => {
+    const lines = report.split('\n').filter((line) => line.startsWith('|'))
+    const cells = (line: string): string[] => line.split('|').slice(1, -1).map((cell) => cell.trim())
+    const headers = cells(lines[0]!)
+    return Object.fromEntries(cells(lines[row + 2]!).map((cell, index) => [headers[index]!, cell]))
+  }
+
+  it('gives the peak resident memory and the GPU memory in GiB, the GPU\'s named for what a Mac or Windows measures', () => {
+    const mac = columns(formatReport([asr(summarize(fixture('v15-asr.jsonl'), noSpellings))]), 0)
+    expect(mac['Peak memory GiB']).toBe('2.01')
+    expect(mac['GPU memory (Metal) GiB']).toBe('0.04')
+    const windows = columns(formatReport([tts(summarize(fixture('v15-tts.jsonl'), noSpellings))]), 0)
+    expect(windows['Peak memory GiB']).toBe('1.20')
+    expect(windows['VRAM GiB']).toBe('2.20')
+  })
+
+  it('says a run made before memory was measured was not, rather than give a zero', () => {
+    const old = columns(formatReport([asr(summarize(fixture('v14-asr-ci-build.jsonl'), noSpellings))]), 0)
+    expect(old['Peak memory GiB']).toBe('not measured')
+    expect(Object.entries(old).find(([header]) => header.includes('VRAM'))?.[1]).toBe('not measured')
+  })
+
+  it('says a machine without GPU memory of its own has none', () => {
+    const line = JSON.stringify(asrRunOf({ memory: { intervalMs: 100, samples: 10, peakResidentBytes: 1024 ** 3, gpu: null } }))
+    expect(Object.entries(columns(formatReport([asr(summarize([line, utterance('あ', 'あ', 0.1, 1)], noSpellings))]), 0)).find(([header]) => header.includes('VRAM'))?.[1]).toBe('none')
+  })
+})
+
+describe('the environment of a run', () => {
+  it('reads a GPU named alone, before format 16, as one whose driver was not recorded', () => {
+    expect(asr(summarize(fixture('v15-asr.jsonl'), noSpellings)).run.machine.gpus).toEqual([{ name: 'Apple M5', driver: null }])
+  })
+
+  it('gives the peak and mean power of an NVIDIA GPU, and says none where a run recorded the machine without one', () => {
+    const report = formatReport([tts(summarize(fixture('v16-tts.jsonl'), noSpellings)), asr(summarize(fixture('v16-asr.jsonl'), noSpellings))])
+    expect(report).toContain('| 212 / 96 |')
+    expect(report).toMatch(/\| none \|$/m)
+  })
+
+  it('gives the first request after loading apart from the rest', () => {
+    const lines = [JSON.stringify(asrRunOf({ warmupSeconds: 2.5 })), utterance('あ', 'あ', 0.1, 1)]
+    expect(formatReport([asr(summarize(lines, noSpellings))])).toContain('| 2.500 |')
+  })
+})
+
+describe('streamed speech in the report', () => {
+  it('gives the time between pieces and the least audio a player held, over the sentences that came in pieces', () => {
+    const summary = tts(summarize(fixture('v17-tts.jsonl'), noSpellings))
+    expect(summary.streaming).not.toBe('whole')
+    expect(formatReport([summary])).toContain('| 0.080 / 0.080 / 0.080 |')
+  })
+
+  it('says a run whose sentences each came whole has none, and one before the pieces were recorded did not record them', () => {
+    const whole = JSON.stringify({ type: 'sentence', id: 'a', kind: 'reply', text: 'はい', audio: 'a.wav', audioSeconds: 1, firstAudioSeconds: 2, totalSeconds: 2, transcript: 'はい', chunks: [{ seconds: 2, audioSeconds: 1 }] })
+    expect(tts(summarize([JSON.stringify(ttsRunOf()), whole], noSpellings)).streaming).toBe('whole')
+    expect(tts(summarize(fixture('v16-tts.jsonl'), noSpellings)).streaming).toBeNull()
+  })
+})
+
+describe('how a run was made', () => {
+  it('writes a cold load time as cold, and reads every run before format 18 as loaded as the system found its files', () => {
+    expect(asr(summarize(fixture('v18-asr-cold.jsonl'), noSpellings)).run.coldLoad).toBe(true)
+    expect(formatReport([asr(summarize(fixture('v18-asr-cold.jsonl'), noSpellings))])).toContain(' cold |')
+    expect(tts(summarize(fixture('v17-tts.jsonl'), noSpellings)).run.coldLoad).toBe(false)
+  })
+})
+
+describe('a second recognizer of synthesized speech', () => {
+  it('counts what it misheard apart from the first, in a column named for it', () => {
+    const summary = tts(summarize(fixture('v20-tts.jsonl'), noSpellings))
+    // The second recognizer heard nothing of はい。, which the first heard right, and the rest as the first did.
+    const file = parseResultFile(fixture('v20-tts.jsonl').join('\n'), 'v20')
+    if (!('sentences' in file)) throw new Error('expected a synthesis result')
+    const first = file.sentences.map((sentence) => sentence.transcript)
+    const counts = (heard: (index: number) => string): number => {
+      const all = file.sentences.map((sentence, index) => countHeardErrors(sentence.text, heard(index), 'ja-JP'))
+      return all.reduce((sum, count) => sum + count.errors, 0) / all.reduce((sum, count) => sum + count.referenceLength, 0)
+    }
+    expect(summary.errorRate).toBeCloseTo(counts((index) => first[index]!))
+    expect(summary.secondErrorRate).toBeCloseTo(counts((index) => (index === 0 ? '' : first[index]!)))
+    expect(summary.secondErrorRate!).toBeGreaterThan(summary.errorRate)
+    expect(formatReport([summary])).toContain('| Heard CER, ReazonSpeech NeMo v2, speech.cpp F16 |')
+  })
+
+  it('has none for a run made before it was recorded', () => {
+    expect(tts(summarize(fixture('v17-tts.jsonl'), noSpellings)).secondErrorRate).toBeNull()
+  })
+})
+
+describe('percentiles', () => {
+  it('gives each percentile as a time that was measured, by the nearest rank', () => {
+    const times = Array.from({ length: 100 }, (_, index) => (100 - index) / 100)
+    expect(percentiles(times)).toEqual({ p50: 0.5, p90: 0.9, p99: 0.99 })
+  })
+
+  it('gives the slowest of fewer than a hundred times as the 99th percentile', () => {
+    expect(percentiles([0.3, 0.1, 0.2])).toEqual({ p50: 0.2, p90: 0.3, p99: 0.3 })
   })
 })
 
@@ -119,11 +221,17 @@ describe('summarize a speech synthesis run', () => {
   const sentence = (text: string, transcript: string, firstAudioSeconds: number, totalSeconds: number, audioSeconds: number) =>
     JSON.stringify({ type: 'sentence', id: text, kind: 'reply', text, audio: `${text}.wav`, audioSeconds, firstAudioSeconds, totalSeconds, transcript })
 
+  it('gives the heard error rate of each kind of sentence apart, over that kind\'s characters', () => {
+    const summary = tts(summarize([JSON.stringify(ttsRun), sentence('はい', 'はい', 0.05, 0.3, 0.5), sentence('こんにちは', 'こんばんは', 0.07, 0.5, 1.5)].map((line, index) => (index === 1 ? line.replace('"reply"', '"aizuchi"') : line)), noSpellings))
+    expect(summary.errorRateByKind).toEqual([{ kind: 'aizuchi', sentences: 1, errorRate: 0 }, { kind: 'reply', sentences: 1, errorRate: 2 / 5 }])
+    expect(formatReport([summary])).toMatch(/\| aizuchi \(1\) \| reply \(1\) \|\n.*\n.*\| 0\.00% \| 40\.00% \|/)
+  })
+
   it('adds up what was misheard, the time to the first audio and the pace of the speech', () => {
     const summary = tts(summarize([JSON.stringify(ttsRun), sentence('はい', 'はい', 0.05, 0.3, 0.5), sentence('こんにちは', 'こんばんは', 0.07, 0.5, 1.5)], noSpellings))
     expect(summary.errorRate).toBeCloseTo(2 / 7)
-    expect(summary.medianFirstAudioSeconds).toBeCloseTo(0.05)
-    expect(summary.realTimeFactor).toBeCloseTo(0.8 / 2)
+    expect(summary.firstAudioSeconds.p50).toBeCloseTo(0.05)
+    expect(summary.inverseRealTimeFactor).toBeCloseTo(2 / 0.8)
     expect(summary.secondsPerCharacter).toBeCloseTo(2 / 7)
   })
 })

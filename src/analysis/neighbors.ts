@@ -1,3 +1,4 @@
+import { gpuNames } from '../core/platform.ts'
 import { analyzeRun } from './run-analysis.ts'
 import type { SpeakerEmbedder } from '../engines/speaker-embedding.ts'
 import { readResultFile } from '../measure/result-file/file.ts'
@@ -12,7 +13,7 @@ import { cosine } from './speaker.ts'
 export function voiceGroup(run: TtsRunRecord): { key: string; name: string; detail: string } {
   const voice = [run.design?.id ?? run.voice, run.reference ? `reference ${run.reference.name}` : null, run.durationScale === null ? null : `length ×${run.durationScale}`].filter(Boolean).join(' + ') || 'no voice'
   const options = Object.entries(run.runtime.options).map(([name, value]) => `${name}=${value}`).join(', ')
-  const gpu = run.machine.gpus.join(' + ')
+  const gpu = gpuNames(run.machine)
   return {
     key: [run.set.locale, run.model.id, voice, options, gpu].join('\u0000'),
     name: `${run.model.label}, ${voice}`,

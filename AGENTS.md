@@ -5,7 +5,12 @@
 speech-bench measures local speech models (speech recognition and speech synthesis) under one set of
 conditions, across the runtimes they run in and the machines they run on (macOS arm64 with Metal, Windows x64
 with Vulkan), so that speech.cpp takes up a model on numbers and a port can be checked against the model it
-came from. It also makes voices for models without built-in ones. It serves no one application: an
+came from. It measures what a user sees, speed, latency, memory and accuracy, in two roles: speech.cpp's builds
+against each other and against the other runtimes, and a model speech.cpp is considering, in its official
+implementation and the runtimes that already run it, before speech.cpp takes it up. What passes or fails (speech.cpp's
+stage checks, its C API check, smoke scripts and bit-for-bit comparisons) and what is measured from inside the library
+(the time of each stage, the delay of live transcription) stay in speech.cpp. It also makes voices for models without
+built-in ones. It serves no one application: an
 application's own conditions, such as its VAD, stay out of it. It is a TypeScript command-line tool on Node
 22.18 or later, tested with Vitest. README.md is the documentation
 for users; `docs/adr/` keeps the decisions. Read the relevant implementation and tests before changing
@@ -16,8 +21,8 @@ behavior.
 - `src/cli.ts` is the entry; it and `src/cli/` parse the commands and nothing else, one file for each group
   of commands (measuring, voices, the web app).
 - `src/core/` holds what every part reads: WAVE files and resampling (`wav.ts`), the data folder
-  (`paths.ts`), the system and machine (`platform.ts`, decided once, so the rest never checks the system
-  itself), BCP 47 tags (`language.ts`) and the reading of stored records through their upgrades and their
+  (`paths.ts`), the system, the machine and how busy it is (`platform.ts`, decided once, so the rest never checks the
+  system itself), BCP 47 tags (`language.ts`) and the reading of stored records through their upgrades and their
   schemas (`stored.ts`).
 - `src/catalog/` lists the models with their pinned files, their runtimes and the languages of their model
   cards (`models.ts`), pins the releases of the runtimes (`runtimes.ts`) and finds the build of speech.cpp that runs
@@ -36,9 +41,10 @@ behavior.
   with references or sentences to speak, and owns the form of the recording manifests (`recording-manifest/`).
 - `src/measure/` runs a model over a set and writes the result (`run-asr.ts`, `run-tts.ts`), owns the form of
   result files (`result-file/`), where a run is kept (`runs.ts`), the campaigns (`campaigns.ts`, their form in
-  `campaign-file/`), the scoring of recognized texts (`scoring.ts`, with the kanji forms of `kanji-forms.ts`, and
-  against accepted spellings `accepted.ts`) and of synthesized speech as heard (`heard.ts`), and the report
-  (`report.ts`).
+  `campaign-file/`), the plans of measurements and their runner (`plans.ts`, their form in `plan-file/`), the scoring of recognized texts (`scoring.ts`, with the kanji forms of `kanji-forms.ts`, and
+  against accepted spellings `accepted.ts`) and of synthesized speech as heard (`heard.ts`), what is read of the machine
+  while a runtime runs (`watch.ts`): the memory its processes take, sampled with the tools of each system (`memory/`),
+  and an NVIDIA GPU's power (`gpu-power.ts`), and the report (`report.ts`).
 - `src/spellings/` handles the annotations of reference sentences in `spellings/`: the notation of readings
   and accepted spellings (`notation.ts`), the files (`files.ts`), the sentences of each source (`sources.ts`),
   the agent's draft (`draft.ts`), the work directories it annotates in (`work.ts`) and the rows published on

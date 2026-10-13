@@ -65,6 +65,15 @@ describe('WorkerTts', () => {
     })
   })
 
+  it('records when each chunk arrived and how much speech it held, the first at the first audio', async () => {
+    await withWorker(fakeWorker(), async (worker) => {
+      const synthesis = await worker.synthesize('はい。', 'ja-JP', null)
+      expect(synthesis.chunks.map((chunk) => chunk.audioSeconds)).toEqual([1, 1, 1, 1].map(() => 1 / 24_000))
+      expect(synthesis.chunks[0]!.seconds).toBeCloseTo(synthesis.firstAudioSeconds, 6)
+      expect(synthesis.chunks.every((chunk, index) => index === 0 || chunk.seconds >= synthesis.chunks[index - 1]!.seconds)).toBe(true)
+    })
+  })
+
   it('sends the first request the run\'s seed and each later one the next, with the options of the run', async () => {
     await withWorker(fakeWorker({ seed: 3, options: { steps: 16 } }), async (worker) => {
       expect(values(await worker.synthesize('はい。', 'ja-JP', null)).slice(2)).toEqual([3, 16])

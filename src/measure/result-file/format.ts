@@ -40,6 +40,32 @@ const publishedFile = z.strictObject({
 /** A file on the machine that was not published, run in place of an entry's pinned file. */
 const localFile = z.strictObject({ source: z.literal('local'), file: z.string(), bytes: z.int(), sha256: z.string() })
 
+/**
+ * The memory the runtime's processes took, sampled from starting the runtime to stopping it: the process it started
+ * and every process under it, such as uv and the Python it runs. Each figure is the peak over the samples of the sum
+ * over the processes.
+ */
+const memoryRecord = z.strictObject({
+  /** The time asked between the starts of two samples; a sample that takes longer delays the next. */
+  intervalMs: z.int(),
+  samples: z.int(),
+  /** The peak of the resident memory: RSS on macOS, the working set on Windows. */
+  peakResidentBytes: z.int(),
+  /**
+   * The peak of the GPU memory, or null on a machine without GPU memory of its own: `metal` is the memory macOS tags as
+   * graphics, which Metal's driver allocated and the GPU or the CPU has written, and `dedicated` the dedicated GPU
+   * memory Windows counts for each process.
+   */
+  gpu: z.strictObject({ measure: z.enum(['metal', 'dedicated']), peakBytes: z.int() }).nullable()
+})
+export type MemoryRecord = z.infer<typeof memoryRecord>
+
+/** The peak and mean power in watts over the readings of nvidia-smi, every 100 ms. */
+const gpuPowerRecord = z.strictObject({ peakWatts: z.number(), meanWatts: z.number(), samples: z.int() })
+export type GpuPowerRecord = z.infer<typeof gpuPowerRecord>
+
+const machineLoad = z.strictObject({ cpuBusy: z.number(), loadAverage: z.number().nullable() })
+
 /** The files a run used, so that a result names exactly what it measured. */
 const modelRecord = z.strictObject({
   id: z.string(),
@@ -59,7 +85,10 @@ const runCommon = {
     os: z.string(),
     cpu: z.string(),
     memoryGb: z.number(),
-    gpus: z.array(z.string())
+    /** Each GPU with its driver's version, null on a Mac, whose driver comes with the system `os` names with its build. */
+    gpus: z.array(z.strictObject({ name: z.string(), driver: z.string().nullable() })),
+    /** Where a Mac drew its power from and whether Low Power Mode slowed it; null on Windows. */
+    power: z.strictObject({ source: z.enum(['ac', 'battery']), lowPowerMode: z.boolean() }).nullable()
   }),
   set: z.strictObject({ name: z.string(), locale: z.string(), size: z.int() }),
   model: modelRecord,
@@ -77,8 +106,31 @@ const runCommon = {
   }),
   /** From starting the process to its being ready: loading the model and, on the first run, compiling GPU kernels. */
   loadSeconds: z.number(),
+  /**
+   * Whether the model was loaded from fresh copies of its files that no file cache held, so that the load time is a
+   * cold one; false for files read as the system found them, which every run before format 18 did.
+   */
+  coldLoad: z.boolean().default(false),
   /** The first item, repeated untimed because it pays for the GPU's first use. */
-  warmupSeconds: z.number()
+  warmupSeconds: z.number(),
+  /** Null for a run made before memory was measured, or one cut short before its runtime stopped. */
+  memory: memoryRecord.nullable().default(null),
+  /**
+   * The power of the machine's NVIDIA GPUs together while the runtime ran, whatever ran on them; null on a machine
+   * without one, for a run made before it was measured, and for one cut short.
+   */
+  gpuPower: gpuPowerRecord.nullable().default(null),
+  /**
+   * How busy the machine was over the second before the runtime started and the second after it stopped: the share of
+   * the CPUs' time spent working, and the load average of the last minute on macOS. Null for a run made before it was
+   * recorded, and for one cut short.
+   */
+  load: z.strictObject({ before: machineLoad, after: machineLoad }).nullable().default(null),
+  /**
+   * The combination of a measurement plan the run was made for, as the plan's runner writes it, and its round; null for
+   * a run made by hand.
+   */
+  plan: z.strictObject({ combination: z.string(), round: z.int() }).nullable().default(null)
 }
 
 /** The first line of a speech recognition result file. */
@@ -100,7 +152,12 @@ const ttsRunRecord = z.strictObject({
   /** What the length the model predicted for each sentence was multiplied by, or null when it was left as predicted. */
   durationScale: z.number().nullable(),
   /** The speech recognition model the synthesized audio is transcribed with, to count what it misread. */
-  recognizer: z.strictObject({ id: z.string(), label: z.string() })
+  recognizer: z.strictObject({ id: z.string(), label: z.string() }),
+  /**
+   * A recognizer of another family that transcribes the audio too, with the runtime it ran in, so that a model is not
+   * judged by one family's ears alone; null for a locale it does not transcribe and for a run before format 20.
+   */
+  secondRecognizer: z.strictObject({ id: z.string(), label: z.string(), runtime: z.string() }).nullable().default(null)
 })
 export type TtsRunRecord = z.infer<typeof ttsRunRecord>
 
@@ -144,8 +201,15 @@ export const sentenceRecord = z.strictObject({
   audioSeconds: z.number(),
   firstAudioSeconds: z.number(),
   totalSeconds: z.number(),
+  /**
+   * The audio in the pieces it arrived in: when each arrived, in seconds from sending the text, and the seconds of
+   * speech it held. Null for a sentence spoken before they were recorded.
+   */
+  chunks: z.array(z.strictObject({ seconds: z.number(), audioSeconds: z.number() })).nullable().default(null),
   /** What the recognizer heard. */
-  transcript: z.string()
+  transcript: z.string(),
+  /** What the second recognizer heard, null where the run has none. */
+  secondTranscript: z.string().nullable().default(null)
 })
 export type SentenceRecord = z.infer<typeof sentenceRecord>
 

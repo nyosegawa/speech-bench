@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { recordingManifestText, parseRecordingManifest } from '../src/datasets/recording-manifest/file.ts'
 import { referenceManifestText, parseReferenceManifest } from '../src/make/reference-manifest/file.ts'
 import { campaignText, parseCampaign } from '../src/measure/campaign-file/file.ts'
+import { parsePlan, planText } from '../src/measure/plan-file/file.ts'
 import { parseResultFile, resultText } from '../src/measure/result-file/file.ts'
 
 /** Reads a sample in the current form, writes it and reads what was written. */
@@ -16,6 +17,7 @@ const roundTrip = <T>(parse: (text: string, place: string) => T, write: (value: 
 const kinds: Record<string, (text: string, place: string) => { read: unknown; again: unknown }> = {
   'result-file': roundTrip(parseResultFile, resultText),
   'campaign-file': roundTrip(parseCampaign, campaignText),
+  'plan-file': roundTrip(parsePlan, planText),
   'reference-manifest': roundTrip(parseReferenceManifest, referenceManifestText),
   'recording-manifest': roundTrip(parseRecordingManifest, recordingManifestText)
 }

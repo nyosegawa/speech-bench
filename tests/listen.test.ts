@@ -7,7 +7,7 @@ import { ttsRun } from './run-records.ts'
 const runs = path.join(path.sep, 'data', 'runs')
 /** Links a file by its path, so that a test sees which file a take plays. */
 const byPath = (file: string): string => `file:${file}`
-const sentence: SentenceRecord = { type: 'sentence', id: 'aizuchi-hai', kind: 'aizuchi', text: 'はい。', audio: 'aizuchi-hai.wav', audioSeconds: 0.5, firstAudioSeconds: 0.05, totalSeconds: 0.2, transcript: 'はい。' }
+const sentence: SentenceRecord = { type: 'sentence', id: 'aizuchi-hai', kind: 'aizuchi', text: 'はい。', audio: 'aizuchi-hai.wav', audioSeconds: 0.5, firstAudioSeconds: 0.05, totalSeconds: 0.2, chunks: null, transcript: 'はい。', secondTranscript: null }
 
 interface RunOptions { set?: string; seed?: number; design?: string; reference?: string; durationScale?: number; gpu?: string; runtime?: TtsRunRecord['runtime']; transcript?: string; pitches?: number[]; likeness?: Array<number | null> }
 
@@ -18,7 +18,7 @@ function run(model: string, startedAt: string, options: RunOptions = {}): Listen
     reference: options.reference === undefined ? null : { name: options.reference, sha256: '0', seconds: 30 },
     durationScale: options.durationScale ?? null,
     model: { id: model, label: `${model} label`, license: 'MIT', files: [] },
-    machine: { platform: 'darwin-arm64', hostname: 'mac', os: 'macOS 26.2', cpu: 'Apple M5', memoryGb: 32, gpus: [options.gpu ?? 'Apple M5'] },
+    machine: { platform: 'darwin-arm64', hostname: 'mac', os: 'macOS 26.2', cpu: 'Apple M5', memoryGb: 32, gpus: [{ name: options.gpu ?? 'Apple M5', driver: null }], power: null },
     runtime: options.runtime ?? { id: 'audio.cpp', version: 'v1', build: null, options: {} }
   })
   const pitches = options.pitches ?? [220]

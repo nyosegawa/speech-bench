@@ -25,6 +25,10 @@ export class CrispAsr implements AsrEngine {
     return this.server?.log ?? null
   }
 
+  get pid(): number | null {
+    return this.server?.child.pid ?? null
+  }
+
   async start(): Promise<void> {
     // CrispASR's detection from the GGUF loads the ReazonSpeech file as parakeet (v0.8.38), so the backend
     // is always named. Without a language CrispASR also detects it before every transcription, by running

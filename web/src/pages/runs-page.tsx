@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs.tsx'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip.tsx'
 import { useApi, type CampaignRow, type RunRow } from '@/lib/api.ts'
-import { isTts, machineOf, percent, preparationOf, seconds, voiceOf, when, type AsrRow, type TtsRow } from '@/lib/format.ts'
+import { gpuNamesOf, isTts, machineOf, percent, preparationOf, seconds, voiceOf, when, type AsrRow, type TtsRow } from '@/lib/format.ts'
 
 interface Column<R> {
   key: string
@@ -41,7 +41,7 @@ function ModelCell({ row }: { row: RunRow }) {
 function MachineCell({ row }: { row: RunRow }) {
   return (
     <div className="min-w-36">
-      <div>{row.run.machine.gpus.join(' + ')}</div>
+      <div>{gpuNamesOf(row)}</div>
       <div className="text-xs text-muted-foreground">{row.run.machine.hostname}</div>
     </div>
   )
@@ -56,17 +56,75 @@ const common = {
 
 const number = (text: string): ReactNode => <span className="tabular-nums whitespace-nowrap">{text}</span>
 
+function LatencyCell({ latency }: { latency: AsrRow['latencySeconds'] }) {
+  return <div className="tabular-nums whitespace-nowrap">{seconds(latency.p50)}<div className="text-xs text-muted-foreground">p90 {seconds(latency.p90)} · p99 {seconds(latency.p99)}</div></div>
+}
+
+const gib = (bytes: number): string => `${(bytes / 1024 ** 3).toFixed(2)} GiB`
+const notMeasured = <span className="text-muted-foreground">—</span>
+
+/** The load time and the memory the runtime took, which every run has, beside each other. */
+const loadAndMemory: Array<Column<RunRow>> = [
+  { key: 'load', label: 'Load', numeric: true, hint: 'Seconds from starting the runtime to its being ready, and below, the first request after it, which pays for the GPU\'s first use.', value: (row) => row.run.loadSeconds, cell: (row) => <div className="tabular-nums whitespace-nowrap">{seconds(row.run.loadSeconds, 1)}{row.run.coldLoad && ' cold'}<div className="text-xs text-muted-foreground">first {seconds(row.run.warmupSeconds)}</div></div> },
+  {
+    key: 'memory',
+    label: 'Peak memory',
+    numeric: true,
+    hint: 'The peak resident memory of the runtime\'s processes, summed over them: RSS on macOS, the working set on Windows.',
+    value: (row) => row.run.memory?.peakResidentBytes ?? Number.POSITIVE_INFINITY,
+    cell: (row) => (row.run.memory === null ? notMeasured : number(gib(row.run.memory.peakResidentBytes)))
+  },
+  {
+    key: 'gpu',
+    label: 'VRAM',
+    numeric: true,
+    hint: 'The peak GPU memory of the runtime\'s processes: the dedicated memory of a discrete GPU on Windows, and on a Mac the memory Metal\'s driver allocated, which a runtime\'s own buffers given to Metal leave out.',
+    value: (row) => row.run.memory?.gpu?.peakBytes ?? Number.POSITIVE_INFINITY,
+    cell: (row) => (row.run.memory?.gpu
+      ? <div className="tabular-nums whitespace-nowrap">{gib(row.run.memory.gpu.peakBytes)}<div className="text-xs text-muted-foreground">{row.gpuMemory}</div></div>
+      : row.run.memory === null ? notMeasured : <span className="text-muted-foreground">none</span>)
+  },
+  {
+    key: 'power',
+    label: 'GPU power',
+    numeric: true,
+    hint: 'The power of the machine\'s NVIDIA GPUs while the runtime ran, whatever else ran on them: the peak, and the mean below.',
+    value: (row) => row.run.gpuPower?.peakWatts ?? Number.POSITIVE_INFINITY,
+    cell: (row) => (row.run.gpuPower
+      ? <div className="tabular-nums whitespace-nowrap">{row.run.gpuPower.peakWatts.toFixed(0)} W<div className="text-xs text-muted-foreground">mean {row.run.gpuPower.meanWatts.toFixed(0)} W</div></div>
+      : notMeasured)
+  }
+]
+
 const TTS_COLUMNS: Array<Column<TtsRow>> = [
   common.started,
   common.model,
   { key: 'voice', label: 'Voice', value: voiceOf, cell: (row) => <span className="block min-w-40">{voiceOf(row) || <span className="text-muted-foreground">model's own</span>}</span> },
   common.set,
   common.machine,
-  { key: 'cer', label: 'Heard CER', numeric: true, hint: 'What the recognizer misheard in the speech, each sentence counting at most all of its characters.', value: (row) => row.errorRate, cell: (row) => number(percent(row.errorRate)) },
+  {
+    key: 'cer',
+    label: 'Heard CER',
+    numeric: true,
+    hint: 'What the recognizer misheard in the speech, each sentence counting at most all of its characters, and below, what a second recognizer of another family misheard.',
+    value: (row) => row.errorRate,
+    cell: (row) => <div className="tabular-nums whitespace-nowrap">{percent(row.errorRate)}{row.secondErrorRate !== null && row.run.secondRecognizer && <div className="text-xs text-muted-foreground" title={row.run.secondRecognizer.label}>{percent(row.secondErrorRate)} second</div>}</div>
+  },
   { key: 'said', label: 'Heard as said', numeric: true, firstDescending: true, hint: 'Sentences the recognizer heard as they were written, apart from how it spells them.', value: (row) => row.heardAsSaid / row.sentences, cell: (row) => number(`${row.heardAsSaid} / ${row.sentences}`) },
-  { key: 'first', label: 'First audio', numeric: true, hint: 'Seconds from asking for a sentence to its first audio: median, and the 90th percentile below.', value: (row) => row.medianFirstAudioSeconds, cell: (row) => <div className="tabular-nums whitespace-nowrap">{seconds(row.medianFirstAudioSeconds)}<div className="text-xs text-muted-foreground">p90 {seconds(row.p90FirstAudioSeconds)}</div></div> },
-  { key: 'rtf', label: 'RTF', numeric: true, hint: 'Synthesis time over the duration of the speech.', value: (row) => row.realTimeFactor, cell: (row) => number(row.realTimeFactor.toFixed(2)) },
-  { key: 'pace', label: 's / char', numeric: true, hint: 'Seconds of speech per character of text, which shows speech that runs on or rushes.', value: (row) => row.secondsPerCharacter, cell: (row) => number(row.secondsPerCharacter.toFixed(3)) }
+  { key: 'first', label: 'First audio', numeric: true, hint: 'Seconds from asking for a sentence to its first audio: p50, and p90 and p99 below.', value: (row) => row.firstAudioSeconds.p50, cell: (row) => <LatencyCell latency={row.firstAudioSeconds} /> },
+  { key: 'rtfx', label: 'RTFx', numeric: true, firstDescending: true, hint: 'The duration of the speech over the synthesis time; larger is faster.', value: (row) => row.inverseRealTimeFactor, cell: (row) => number(row.inverseRealTimeFactor.toFixed(2)) },
+  {
+    key: 'stream',
+    label: 'In hand',
+    numeric: true,
+    hint: 'The least audio a player held that started with the first piece of a sentence, as each later piece arrived; below zero the playback stopped. Below, the time between two pieces at p90.',
+    value: (row) => (typeof row.streaming === 'object' && row.streaming !== null ? row.streaming.leastAudioInHandSeconds : Number.POSITIVE_INFINITY),
+    cell: (row) => (typeof row.streaming === 'object' && row.streaming !== null
+      ? <div className="tabular-nums whitespace-nowrap">{seconds(row.streaming.leastAudioInHandSeconds)}<div className="text-xs text-muted-foreground">gap p90 {seconds(row.streaming.interChunkSeconds.p90, 3)}</div></div>
+      : row.streaming === 'whole' ? <span className="text-muted-foreground">whole</span> : notMeasured)
+  },
+  { key: 'pace', label: 's / char', numeric: true, hint: 'Seconds of speech per character of text, which shows speech that runs on or rushes.', value: (row) => row.secondsPerCharacter, cell: (row) => number(row.secondsPerCharacter.toFixed(3)) },
+  ...loadAndMemory
 ]
 
 const ASR_COLUMNS: Array<Column<AsrRow>> = [
@@ -88,8 +146,9 @@ const ASR_COLUMNS: Array<Column<AsrRow>> = [
   },
   { key: 'dropped', label: 'Dropped', numeric: true, hint: 'Utterances in which the VAD found no voice; the other figures leave them out.', value: (row) => row.dropped, cell: (row) => number(`${row.dropped} / ${row.utterances}`) },
   { key: 'empty', label: 'Empty', numeric: true, hint: 'Utterances the model heard nothing in.', value: (row) => row.empty, cell: (row) => number(String(row.empty)) },
-  { key: 'time', label: 'Time', numeric: true, hint: 'Seconds to transcribe an utterance: median, and the 90th percentile below.', value: (row) => row.medianSeconds, cell: (row) => <div className="tabular-nums whitespace-nowrap">{seconds(row.medianSeconds)}<div className="text-xs text-muted-foreground">p90 {seconds(row.p90Seconds)}</div></div> },
-  { key: 'rtf', label: 'RTF', numeric: true, hint: 'Transcription time over the duration of the audio.', value: (row) => row.realTimeFactor, cell: (row) => number(row.realTimeFactor.toFixed(3)) }
+  { key: 'time', label: 'Time', numeric: true, hint: 'Seconds to transcribe an utterance: p50, and p90 and p99 below.', value: (row) => row.latencySeconds.p50, cell: (row) => <LatencyCell latency={row.latencySeconds} /> },
+  { key: 'rtfx', label: 'RTFx', numeric: true, firstDescending: true, hint: 'The duration of the audio over the transcription time; larger is faster.', value: (row) => row.inverseRealTimeFactor, cell: (row) => number(row.inverseRealTimeFactor.toFixed(1)) },
+  ...loadAndMemory
 ]
 
 const ALL = 'all'

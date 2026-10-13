@@ -99,6 +99,7 @@ folder `SPEECH_BENCH_DATA` names.
   references/  reference voices made from synthesized takes, <name>.wav and <name>.json
   voice-files/ Irodori-TTS voice files made from the references for speech.cpp, by reference, codec and release or build
   adapters/    the Python environments of the adapters
+  cold/        copies of model files for a cold load, while the run lasts
   logs/        server output
   runs/        a folder per run: run.jsonl, the speech of each sentence and analysis.json
   campaigns/   the runs of each experiment, <name>.json
@@ -162,8 +163,11 @@ which shows how a model takes long silences.
   `明日《あした》` and other spellings `［九《く》時《じ》／9時］` (docs/adr/0013). A run gets the rate once every
   utterance it heard is annotated; until then the report says how many are.
 - **Time**: from sending the whole utterance to receiving its text, which is what a speaker waits for once
-  an application's VAD has closed the utterance. The first utterance is transcribed once more, untimed, because it pays
-  for the GPU's first use.
+  an application's VAD has closed the utterance, reported at the 50th, 90th and 99th percentiles (p50, p90, p99),
+  each a time that was measured (the nearest rank). The first utterance is transcribed once more, untimed, because it
+  pays for the GPU's first use.
+- **RTFx**: the duration of the audio heard over the time taken to transcribe it, summed over the set, as NeMo and
+  Hugging Face's Open ASR Leaderboard report it; larger is faster.
 - **Empty results**: utterances that came back without text.
 
 Qwen3-ASR runs in llama.cpp's llama-server from ggml-org's files, the NeMo models in CrispASR, and all five in
@@ -235,17 +239,29 @@ hf upload sakasegawa/common-voice-ja-accepted-spellings ~/speech-bench-data/hugg
 
 ### Speech synthesis
 
-- **First audio**: from sending a sentence to receiving its first audio. speech.cpp's Qwen3-TTS streams audio
+- **First audio**: from sending a sentence to receiving its first audio, at p50, p90 and p99. speech.cpp's Qwen3-TTS streams audio
   frame by frame while it generates, and its Irodori-TTS makes a sentence at once and streams it as the codec
   decodes it; audio.cpp's Irodori-TTS answers with the whole sentence, so its first audio arrives with the
   last.
-- **Real-time factor**: the synthesis time over the length of the speech.
+- **RTFx**: the length of the speech over the time taken to synthesize it, summed over the set; larger is faster.
+- **Inter-chunk latency**: for a runtime that streams, the time between two pieces of a sentence's audio, at p50, p90
+  and p99 over the run.
+- **Least audio in hand**: for a runtime that streams, the least audio a player held that started playing as the
+  first piece arrived, at the moment each later piece arrived, over the run (docs/adr/0028). Below zero the playback
+  would have stopped to wait. A runtime that answers with the whole sentence is written `whole`. Each sentence keeps
+  when each of its pieces arrived and how much speech it held, so these are counted again from the record.
 - **Heard error rate**: the speech is transcribed by Qwen3-ASR 1.7B, after the synthesis model has
   stopped, and compared with the sentence after NFKC and without punctuation, symbols and spaces, Japanese
   numbers read as Arabic digits and a long vowel mark as the vowel it lengthens (docs/adr/0002, 0006). A
   sentence counts at most all of its characters as errors, so that one take that runs on cannot decide the
   rate of a voice. It counts
   misreadings, dropped or repeated words, and speech that runs on past the sentence.
+- **Heard error rate, second recognizer**: the same rate from ReazonSpeech NeMo v2, a FastConformer of another
+  family than Qwen3-ASR, with its beam search in the release of speech.cpp the bench pins, whatever build the run
+  measures, so that Qwen3-TTS is not judged only by a recognizer of its own family (docs/adr/0031). It transcribes
+  Japanese alone; a run of another language has none.
+- **Heard error rate by kind**: the same rate for each kind of sentence the prompts name (aizuchi, replies,
+  numbers and dates, mixed English, questions, long sentences), in a table of its own under each synthesis table.
 - **Heard as said**: the sentences the recognizer heard as they were written, apart from how it spells them
   (in Japanese katakana or hiragana, small or full-size vowels, あー or ああ), but not shorter, longer or with a
   word more. A take that passes is one an application could keep, as when it makes short replies ahead of
@@ -333,6 +349,36 @@ node src/cli.ts reference --name bright-young-woman-30s --seconds 30 ~/speech-be
 node src/cli.ts tts --locale ja-JP --models irodori-tts-v4-small-q8_0-16steps --reference bright-young-woman-30s --seeds 1
 ```
 
+### Load, memory, power and the machine
+
+Every recognition and synthesis run also records what its runtime cost besides its speed, from starting the runtime
+to stopping it, which the report and the web app's runs page show after the speed:
+
+- **Load time**: from starting the runtime to its being ready.
+- **Cold load time**: with `--cold-load`, the load time from copies of the model files that no file cache holds,
+  made before the runtime starts and removed after it stops, without administrator rights: APFS clones (`cp -c`) on a
+  Mac, `robocopy /J` on Windows (docs/adr/0029). The report writes such a load time `cold`.
+- **First request**: the first utterance or sentence after loading, run once more untimed, apart from the rest, since
+  it pays for the GPU's first use (Vulkan and Metal prepare their shaders then).
+- **Peak memory**: the resident memory of the process the bench starts and every process under it (uv and the Python
+  it runs, for an adapter), looked at every 100 ms, the largest sum over those processes in one look
+  (docs/adr/0026): RSS on macOS, the working set on Windows. On a Mac it holds the weights ggml gives Metal from its
+  own memory and a model file llama.cpp maps into memory.
+- **VRAM**: on Windows the dedicated GPU memory Windows counts for each of those processes, read from its performance
+  counters (no administrator rights needed); a machine on which no process holds dedicated GPU memory records none. A
+  Mac's GPU shares its memory with the CPU, and its figure is **GPU memory (Metal)**: the memory macOS tags as
+  graphics, which Metal's driver allocated for the runtime and the GPU or the CPU has written. A buffer allocated but
+  never written takes no memory and is not counted.
+- **GPU power**: on Windows with an NVIDIA GPU, its power every 100 ms from `nvidia-smi` (in `System32`, installed
+  with the driver), the peak and the mean. It is the whole GPU's, whatever else runs on it.
+
+Each run also records the machine it ran on (docs/adr/0027): the system and its version (with its build on a Mac),
+the CPU, the memory, each GPU with its driver's version on Windows, a Mac's power source and Low Power Mode, and how
+busy the machine was over the second before the runtime started and the second after it stopped (the share of the
+CPUs' time spent working, and on a Mac the load average), so that a figure that does not agree with the others can be
+traced to the machine. A run cut short, and every run made before these were recorded, records none of them, which
+the report writes as `not measured`.
+
 ### Making a voice
 
 A voice for a model without built-in voices is made from its recipe in `prompts/voices-<locale>.json`: an id, a
@@ -365,6 +411,46 @@ smallest share of broken takes and then the most alike takes marked, the referen
 a button that chooses one.
 
 
+## Measurement plans
+
+A measurement of several runtimes, builds and models is written as a plan, a JSON file, which `plan` runs whole
+(docs/adr/0030):
+
+```sh
+node src/cli.ts plan speech-cpp-0-8-5-mac.json --dry-run   # the runs in the order they will be made, and those made
+node src/cli.ts plan speech-cpp-0-8-5-mac.json             # make the runs not made yet, then report the campaign
+```
+
+```json
+{
+  "format": 1,
+  "campaign": "speech-cpp-0-8-5-mac",
+  "rounds": 3,
+  "entries": [
+    { "task": "asr", "models": ["qwen3-asr-0.6b-speech.cpp", "qwen3-asr-0.6b", "qwen3-asr-0.6b-official"],
+      "builds": ["v0.8.4", "ci:18276543210"], "locale": "ja-JP", "set": "common-voice", "count": 500 },
+    { "task": "asr", "models": ["parakeet-tdt-0.6b-v3-speech.cpp"], "builds": ["v0.8.4", "ci:18276543210"],
+      "devices": [null, "CPU"], "coldLoad": true, "locale": "en-US", "set": "fleurs", "count": 100 },
+    { "task": "tts", "models": ["irodori-tts-v4.1-small-mf", "irodori-tts-v4.1-small-mf-official"],
+      "builds": ["v0.8.4", "ci:18276543210"], "locale": "ja-JP", "seeds": [1, 2, 3],
+      "reference": "voice-bright-young-woman", "only": ["reply-weather", "number-date"] }
+  ]
+}
+```
+
+Each entry runs every model it names in every build, device and seed it lists. `builds` names builds of speech.cpp
+as `SPEECH_BENCH_SPEECH_CPP` does (a pinned release's tag, a local build directory or `ci:<run id>`; `null` for the
+release the bench pins) and applies to the speech.cpp entries alone: a model of another runtime runs once, in its
+pinned release. `devices` names ggml devices, such as `CPU`, for speech.cpp, llama.cpp and NeMo-Speech.cpp (`null`
+for the GPU), and a run records a device it was given among its options. `coldLoad` measures every run's load time
+cold, and `modelFile` (`{"file": ..., "sha256": ...}`) runs an entry's one model from a file on the machine, as
+`--model-file` does. A recognition entry trims each utterance to its voice, as `asr` does by default.
+
+Each round runs every combination once, in an order shuffled for that round, so that builds and runtimes alternate
+and none always runs first or after the same one. Every run records its combination and round and joins the plan's
+campaign; `plan` checks every combination before it starts, stops at a run that fails, and run again it makes only
+what the campaign's runs have not made yet, in the same order.
+
 ## Pinned inputs
 
 Every download is pinned by URL and sha256; a Hugging Face file by repository, revision, size and sha256.
@@ -376,7 +462,7 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 | Qwen3-ASR 1.7B and 0.6B in llama.cpp | ggml-org Q8_0, each with its audio projector |
 | parakeet-tdt-0.6b-v3, parakeet-tdt_ctc-0.6b-ja, ReazonSpeech NeMo v2 in CrispASR | cstr Q8_0 |
 | FLEURS | google/fleurs at revision 70bb2e84: ja-JP, en-US, fr-FR, de-DE, hi-IN, id-ID, it-IT, ko-KR, pt-BR and es-419 (it has no Spanish of Spain) |
-| speech.cpp | v0.8.2, its one executable `speech`, whose worker runs the synthesis and recognition models and whose `speech voice` makes voice files |
+| speech.cpp | v0.8.2, its one executable `speech`, whose worker runs the synthesis and recognition models and whose `speech voice` makes voice files; v0.8.4 too, which a plan or `SPEECH_BENCH_SPEECH_CPP=v0.8.4` names |
 | Qwen3-ASR 1.7B and 0.6B in speech.cpp | sakasegawa/Qwen3-ASR-1.7B-GGUF and sakasegawa/Qwen3-ASR-0.6B-GGUF, one Q8_0 file each with the audio encoder inside, the layout speech.cpp v0.7.0 reads |
 | parakeet-tdt-0.6b-v3, parakeet-tdt_ctc-0.6b-ja, ReazonSpeech NeMo v2 in speech.cpp | sakasegawa/parakeet-tdt-0.6b-v3-GGUF, sakasegawa/parakeet-tdt_ctc-0.6b-ja-GGUF and sakasegawa/reazonspeech-nemo-v2-GGUF, one F16 file each, the layout speech.cpp v0.7.0 reads |
 | Qwen3-TTS 0.6B and 1.7B CustomVoice | sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF and sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF, one Q8_0 file each with the F16 codec inside, the layout speech.cpp v0.7.0 reads |

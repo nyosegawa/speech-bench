@@ -10,7 +10,7 @@ import { SpeakerEmbedder } from '../engines/speaker-embedding.ts'
 import { recipeLocales, recipeOf } from '../make/recipes.ts'
 import { referenceFile, referenceNames } from '../make/references.ts'
 import { listCampaigns } from '../measure/campaigns.ts'
-import { describeRuntime, summarize } from '../measure/report.ts'
+import { describeRuntime, GPU_MEMORY_NAMES, summarize } from '../measure/report.ts'
 import { readResultFile } from '../measure/result-file/file.ts'
 import { spellingSources, spellingsReader } from '../spellings/files.ts'
 import { spellingsData } from '../pages/spellings.ts'
@@ -89,7 +89,8 @@ function runRows(): RunRow[] {
   const spellingsOf = spellingsReader()
   return allRunFiles().map((file) => {
     const summary = summarize(readResultFile(file), spellingsOf)
-    return { ...summary, id: runIdOf(file), campaigns: campaignsOf.get(runIdOf(file)) ?? [], runtime: describeRuntime(summary.run.runtime) }
+    const gpu = summary.run.memory?.gpu ?? null
+    return { ...summary, id: runIdOf(file), campaigns: campaignsOf.get(runIdOf(file)) ?? [], runtime: describeRuntime(summary.run.runtime), gpuMemory: gpu === null ? null : GPU_MEMORY_NAMES[gpu.measure] }
   })
 }
 

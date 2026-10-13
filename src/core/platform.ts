@@ -25,14 +25,29 @@ export const torchDevice = (): 'mps' | 'cuda' => (platformKey() === 'darwin-arm6
  */
 export const gpuDevice = (): string => process.env.SPEECH_BENCH_DEVICE?.trim() || (gpuBackend() === 'metal' ? 'MTL0' : 'Vulkan0')
 
+/** A GPU of the machine and the version of its driver, null on a Mac, where the driver is part of macOS. */
+export interface Gpu {
+  name: string
+  driver: string | null
+}
+
+/** Where a Mac draws its power from, and whether Low Power Mode slows it. */
+export interface Power {
+  source: 'ac' | 'battery'
+  lowPowerMode: boolean
+}
+
 /** What a result was measured on, stored with every run so that runs from several machines can be compared. */
 export interface MachineInfo {
   platform: PlatformKey
   hostname: string
+  /** The system and its version, with the build on a Mac, whose Metal driver comes with it. */
   os: string
   cpu: string
   memoryGb: number
-  gpus: string[]
+  gpus: Gpu[]
+  /** A Mac's power, which can slow it; null on Windows, which the bench runs on desktops. */
+  power: Power | null
 }
 
 /**
@@ -44,16 +59,64 @@ export function windowsName(release: string): string {
   return `Windows ${build >= 22_000 ? '11' : '10'} (build ${build})`
 }
 
+/** The GPUs as PowerShell writes the name and driver version of each video controller, a tab between them. */
+export function parseVideoControllers(text: string): Gpu[] {
+  return text.split(/\r?\n/).filter((line) => line.trim() !== '').map((line) => {
+    const [name, driver] = line.split('\t').map((field) => field.trim())
+    if (!name || !driver) throw new Error(`PowerShell gave a video controller without a name and a driver version: ${line}`)
+    return { name, driver }
+  })
+}
+
+/** A Mac's power from `pmset -g batt`, which names the source, and `pmset -g`, which lists `lowpowermode`. */
+export function parsePower(battery: string, settings: string): Power {
+  const source = /Now drawing from '(AC Power|Battery Power)'/.exec(battery)?.[1]
+  const lowPowerMode = /^\s*lowpowermode\s+([01])\s*$/m.exec(settings)?.[1]
+  if (source === undefined || lowPowerMode === undefined) throw new Error(`pmset gave no power source or Low Power Mode: ${battery.split('\n')[0]}`)
+  return { source: source === 'AC Power' ? 'ac' : 'battery', lowPowerMode: lowPowerMode === '1' }
+}
+
 const read = (command: string, args: string[]): string =>
   execFileSync(command, args, { encoding: 'utf8', windowsHide: true }).trim()
 
 export function machineInfo(): MachineInfo {
   const platform = platformKey()
-  const cpu = platform === 'darwin-arm64' ? read('sysctl', ['-n', 'machdep.cpu.brand_string']) : os.cpus()[0]?.model.trim() ?? 'unknown'
-  const system = platform === 'darwin-arm64' ? `macOS ${read('sw_vers', ['-productVersion'])}` : windowsName(os.release())
-  // On a Mac the GPU is part of the chip that names the CPU.
-  const gpus = platform === 'darwin-arm64'
-    ? [cpu]
-    : read('powershell', ['-NoProfile', '-Command', '(Get-CimInstance Win32_VideoController).Name']).split(/\r?\n/).map((name) => name.trim()).filter(Boolean)
-  return { platform, hostname: os.hostname(), os: system, cpu, memoryGb: Math.round(os.totalmem() / 1024 ** 3), gpus }
+  const memoryGb = Math.round(os.totalmem() / 1024 ** 3)
+  if (platform === 'darwin-arm64') {
+    const cpu = read('sysctl', ['-n', 'machdep.cpu.brand_string'])
+    const system = `macOS ${read('sw_vers', ['-productVersion'])} (${read('sw_vers', ['-buildVersion'])})`
+    // On a Mac the GPU is part of the chip that names the CPU.
+    return { platform, hostname: os.hostname(), os: system, cpu, memoryGb, gpus: [{ name: cpu, driver: null }], power: parsePower(read('pmset', ['-g', 'batt']), read('pmset', ['-g'])) }
+  }
+  const gpus = parseVideoControllers(read('powershell', ['-NoProfile', '-Command', 'Get-CimInstance Win32_VideoController | ForEach-Object { $_.Name + "`t" + $_.DriverVersion }']))
+  return { platform, hostname: os.hostname(), os: windowsName(os.release()), cpu: os.cpus()[0]?.model.trim() ?? 'unknown', memoryGb, gpus, power: null }
+}
+
+/** The names of the machine's GPUs, as the report and the pages write them. */
+export const gpuNames = (machine: Pick<MachineInfo, 'gpus'>): string => machine.gpus.map((gpu) => gpu.name).join(' + ')
+
+/** How busy the machine was: the share of the CPUs' time spent working over a second, and macOS's load average. */
+export interface MachineLoad {
+  cpuBusy: number
+  /** The load average of the last minute; null on Windows, which keeps none. */
+  loadAverage: number | null
+}
+
+/** The share of the CPUs' time spent working between two readings of `os.cpus()`. */
+export function busyShare(before: readonly os.CpuInfo[], after: readonly os.CpuInfo[]): number {
+  const total = (cpus: readonly os.CpuInfo[]): { idle: number; all: number } => cpus.reduce((sum, { times }) => ({
+    idle: sum.idle + times.idle,
+    all: sum.all + times.user + times.nice + times.sys + times.idle + times.irq
+  }), { idle: 0, all: 0 })
+  const [start, end] = [total(before), total(after)]
+  const all = end.all - start.all
+  if (all <= 0) throw new Error('the CPUs counted no time between two readings; read them further apart')
+  return 1 - (end.idle - start.idle) / all
+}
+
+/** Measures how busy the machine is over one second, before a runtime starts and after it stops. */
+export async function machineLoad(): Promise<MachineLoad> {
+  const before = os.cpus()
+  await new Promise((resolve) => setTimeout(resolve, 1000))
+  return { cpuBusy: busyShare(before, os.cpus()), loadAverage: platformKey() === 'darwin-arm64' ? os.loadavg()[0]! : null }
 }

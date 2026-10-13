@@ -28,4 +28,6 @@ export function preparationOf(row: AsrRow): string {
   return 'cut by an energy VAD'
 }
 
-export const machineOf = (row: RunRow): string => `${row.run.machine.hostname} · ${row.run.machine.gpus.join(' + ')}`
+export const gpuNamesOf = (row: RunRow): string => row.run.machine.gpus.map((gpu) => gpu.name).join(' + ')
+
+export const machineOf = (row: RunRow): string => `${row.run.machine.hostname} · ${gpuNamesOf(row)}`

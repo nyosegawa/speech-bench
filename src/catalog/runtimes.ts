@@ -81,7 +81,7 @@ export const CRISPASR: RuntimeSpec = {
   }
 }
 
-const SPEECH_CPP_RELEASE = 'https://github.com/nyosegawa/speech.cpp/releases/download/v0.8.2'
+const speechCppRelease = (version: string): string => `https://github.com/nyosegawa/speech.cpp/releases/download/v${version}`
 
 /**
  * speech.cpp's one executable, `speech`, with the library linked in: `speech worker` runs Qwen3-TTS, Irodori-TTS,
@@ -93,12 +93,12 @@ export const SPEECH_CPP: RuntimeSpec = {
   version: 'v0.8.2',
   assets: {
     'darwin-arm64': {
-      url: `${SPEECH_CPP_RELEASE}/speech-0.8.2-macos-arm64-metal.zip`,
+      url: `${speechCppRelease('0.8.2')}/speech-0.8.2-macos-arm64-metal.zip`,
       sha256: '9357a7a043910a177e847bb59b422b0b87b3faedcdd8d95ada5be8992726d499',
       executable: 'speech'
     },
     'win32-x64': {
-      url: `${SPEECH_CPP_RELEASE}/speech-0.8.2-windows-x64-vulkan.zip`,
+      url: `${speechCppRelease('0.8.2')}/speech-0.8.2-windows-x64-vulkan.zip`,
       sha256: '2e94fae3629404013a5d5b391f363f8499429055a3c778891bb5dbe7daf077c0',
       executable: 'speech.exe'
     }
@@ -106,12 +106,42 @@ export const SPEECH_CPP: RuntimeSpec = {
 }
 
 /**
- * speech.cpp's executable and what a run records of it: the pinned release, or the build that SPEECH_BENCH_SPEECH_CPP
- * names, a local build directory or a run of speech.cpp's CI, checked again for each run.
+ * The releases of speech.cpp a run can name besides the one it runs by default, so that a release candidate is measured
+ * beside the release before it. The hashes are those GitHub gives for the release's archives.
  */
-export async function ensureSpeechCpp(): Promise<{ executable: string; runtime: RuntimeIdentity }> {
-  const named = process.env[SPEECH_CPP_BUILD_VARIABLE]?.trim()
+export const SPEECH_CPP_RELEASES: readonly RuntimeSpec[] = [
+  SPEECH_CPP,
+  {
+    id: 'speech.cpp',
+    version: 'v0.8.4',
+    assets: {
+      'darwin-arm64': {
+        url: `${speechCppRelease('0.8.4')}/speech-0.8.4-macos-arm64-metal.zip`,
+        sha256: '8e2cca3630f7d82b55236d5246f7de5045bf7f11ac14a36e965e5628cfbcbe6a',
+        executable: 'speech'
+      },
+      'win32-x64': {
+        url: `${speechCppRelease('0.8.4')}/speech-0.8.4-windows-x64-vulkan.zip`,
+        sha256: 'c35e75e64b170d69c2249fc32a82ae6e1a16170f2064eeb60cf815d3a5d65001',
+        executable: 'speech.exe'
+      }
+    }
+  }
+]
+
+/**
+ * speech.cpp's executable and what a run records of it, from the build `named`, or the one SPEECH_BENCH_SPEECH_CPP
+ * names when it is null: a pinned release by its tag, such as `v0.8.4`, a local build directory or a run of
+ * speech.cpp's CI as `ci:<run id>`, checked again for each run; the pinned release when neither names one.
+ */
+export async function ensureSpeechCpp(named: string | null = null): Promise<{ executable: string; runtime: RuntimeIdentity }> {
+  named ??= process.env[SPEECH_CPP_BUILD_VARIABLE]?.trim() || null
   if (!named) return { executable: await ensureRuntime(SPEECH_CPP), runtime: releaseOf(SPEECH_CPP) }
+  if (/^v\d+\.\d+\.\d+$/.test(named)) {
+    const release = SPEECH_CPP_RELEASES.find((spec) => spec.version === named)
+    if (!release) throw new Error(`speech.cpp ${named} is not pinned; the bench runs ${SPEECH_CPP_RELEASES.map((spec) => spec.version).join(', ')}`)
+    return { executable: await ensureRuntime(release), runtime: releaseOf(release) }
+  }
   const ciRun = ciRunOf(named)
   const build = ciRun === null ? readSpeechCppBuild(named, platformKey()) : await ensureSpeechCppCiBuild(ciRun, platformKey())
   return { executable: build.executable, runtime: { id: SPEECH_CPP.id, version: build.version, build: { commit: build.commit, ciRun } } }

@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { modelCovers, VAD_MODEL, type AsrModel } from '../catalog/models.ts'
 import type { UtteranceSet } from '../datasets/item.ts'
+import { coldCopies } from '../catalog/cold-copy.ts'
 import { ensureModelFile, type ModelFile } from '../catalog/model-file.ts'
 import { convertedSha256 } from '../catalog/convert.ts'
 import { CrispAsr } from '../engines/crispasr.ts'
@@ -14,6 +15,8 @@ import { VoiceDetector } from '../engines/voice-activity.ts'
 import { gpuDevice, machineInfo, torchDevice } from '../core/platform.ts'
 import { adapterCommand, adapterVersion, QWEN3_ASR_ADAPTER, syncAdapter } from '../engines/adapter.ts'
 import { RESULT_FORMAT, type AsrRunRecord, type ModelRecord, type NewPreparation, type UtteranceRecord } from './result-file/format.ts'
+import { RuntimeWatch } from './watch.ts'
+import { resultText } from './result-file/file.ts'
 import { runFile } from './runs.ts'
 import { CRISPASR, ensureRuntime, ensureSpeechCpp, LLAMA_CPP, NEMO_SPEECH_CPP, releaseOf, type RuntimeIdentity } from '../catalog/runtimes.ts'
 import { durationSeconds, peakNormalize, readWav, trimAround, withTrailingSilence, type Pcm } from '../core/wav.ts'
@@ -33,15 +36,58 @@ export function prepareAudio(pcm: Pcm, preparation: NewPreparation, detector: Pi
   return span && peakNormalize(trimAround(pcm, span.start, span.end, preparation.marginSeconds))
 }
 
-/**
- * The engine that runs the model, with its runtime and the options it is loaded with, after fetching or converting
- * whatever is missing.
- */
-export async function prepareAsr(model: AsrModel): Promise<{ engine: AsrEngine; runtime: RuntimeIdentity; loadOptions: Readonly<Record<string, string>> }> {
+/** The local paths of a model's files, in the order the catalog lists them, after fetching or converting whatever is missing. */
+export async function modelFiles(model: { files: readonly ModelFile[] }): Promise<string[]> {
   const files: string[] = []
   for (const file of model.files) files.push(await ensureModelFile(file))
+  return files
+}
+
+/** How a run is made beyond its model and its set. */
+export interface RunSetup {
+  /** Whether the runtime loads the model from copies no file cache holds, for a cold load time. */
+  coldLoad: boolean
+  /**
+   * The build of speech.cpp a speech.cpp entry runs, as `ensureSpeechCpp` takes it: a pinned release's tag, a local
+   * build directory or `ci:<run id>`; null for the one SPEECH_BENCH_SPEECH_CPP names or the pinned release.
+   */
+  speechCpp: string | null
+  /**
+   * The device in ggml's names that a runtime built on ggml is told to use, such as CPU, which the run records among
+   * its options; null for the GPU (SPEECH_BENCH_DEVICE), which a run does not record.
+   */
+  device: string | null
+  /** The combination of a measurement plan the run is made for and its round, or null for a run made by hand. */
+  plan: { combination: string; round: number } | null
+}
+
+export const DEFAULT_SETUP: RunSetup = { coldLoad: false, speechCpp: null, device: null, plan: null }
+
+/** The device a runtime built on ggml is told to use, and the options a run records of it. */
+export const deviceOf = (setup: RunSetup): { device: string; options: Record<string, string> } =>
+  setup.device === null ? { device: gpuDevice(), options: {} } : { device: setup.device, options: { device: setup.device } }
+
+/** Refuses what a runtime that does not run on ggml or is not speech.cpp cannot be given. */
+export function checkSetupFor(model: { id: string; runtime: string }, setup: RunSetup): void {
+  if (setup.speechCpp !== null && model.runtime !== 'speech.cpp') throw new Error(`${model.id} runs in ${model.runtime}, not in a build of speech.cpp`)
+  if (setup.device !== null && !['speech.cpp', 'llama-server', 'nemo-speech.cpp'].includes(model.runtime)) throw new Error(`${model.id} runs in ${model.runtime}, which the bench gives no device`)
+}
+
+/**
+ * The model's files as the run reads them, copies that no file cache holds for a cold load, and how to remove those
+ * copies once the runtime has stopped.
+ */
+export async function filesFor(model: { files: readonly ModelFile[] }, setup: RunSetup): Promise<{ files: string[]; remove: () => void }> {
+  const files = await modelFiles(model)
+  return setup.coldLoad ? coldCopies(files) : { files, remove: () => undefined }
+}
+
+/** The engine that runs the model from `files`, the local paths of its files, with its runtime and the options it is loaded with. */
+export async function prepareAsr(model: AsrModel, files: readonly string[], setup: RunSetup): Promise<{ engine: AsrEngine; runtime: RuntimeIdentity; loadOptions: Readonly<Record<string, string>> }> {
+  checkSetupFor(model, setup)
+  const { device, options } = deviceOf(setup)
   if (model.runtime === 'llama-server') {
-    return { engine: new LlamaServerAsr(await ensureRuntime(LLAMA_CPP), model, files, gpuDevice()), runtime: releaseOf(LLAMA_CPP), loadOptions: {} }
+    return { engine: new LlamaServerAsr(await ensureRuntime(LLAMA_CPP), model, files, device), runtime: releaseOf(LLAMA_CPP), loadOptions: options }
   }
   if (model.runtime === 'adapter') {
     const device = torchDevice()
@@ -53,12 +99,12 @@ export async function prepareAsr(model: AsrModel): Promise<{ engine: AsrEngine; 
   const [gguf] = files
   if (!gguf || files.length !== 1) throw new Error(`${model.id} is one GGUF file in ${model.runtime}`)
   if (model.runtime === 'speech.cpp') {
-    const { executable, runtime } = await ensureSpeechCpp()
-    return { engine: new WorkerAsr({ name: model.id, executable, args: speechWorkerArgs(gguf, gpuDevice(), null) }, model), runtime, loadOptions: {} }
+    const { executable, runtime } = await ensureSpeechCpp(setup.speechCpp)
+    return { engine: new WorkerAsr({ name: model.id, executable, args: speechWorkerArgs(gguf, device, null) }, model), runtime, loadOptions: options }
   }
   if (model.runtime === 'nemo-speech.cpp') {
-    const engine = new NemoSpeechAsr(await ensureRuntime(NEMO_SPEECH_CPP), model, gguf, nemoSpeechDevice(gpuDevice()))
-    return { engine, runtime: releaseOf(NEMO_SPEECH_CPP), loadOptions: NEMO_SPEECH_LOAD_OPTIONS }
+    const engine = new NemoSpeechAsr(await ensureRuntime(NEMO_SPEECH_CPP), model, gguf, nemoSpeechDevice(device))
+    return { engine, runtime: releaseOf(NEMO_SPEECH_CPP), loadOptions: { ...NEMO_SPEECH_LOAD_OPTIONS, ...options } }
   }
   return { engine: new CrispAsr(await ensureRuntime(CRISPASR), model, gguf), runtime: releaseOf(CRISPASR), loadOptions: {} }
 }
@@ -85,15 +131,28 @@ const stamp = (date: Date): string => date.toISOString().replace(/[:.]/g, '-')
 
 /**
  * Transcribes every utterance of the set with the model and writes one JSON line per utterance, so that
- * a run cut short still leaves what it measured. Returns the path of the result file.
+ * a run cut short still leaves what it measured; what was watched while the runtime ran, its memory among it, is
+ * written into the run line once the runtime has stopped. Returns the path of the result file.
  */
-export async function runAsr(model: AsrModel, set: UtteranceSet, audio: NewPreparation): Promise<string> {
+export async function runAsr(model: AsrModel, set: UtteranceSet, audio: NewPreparation, setup: RunSetup = DEFAULT_SETUP): Promise<string> {
   if (!modelCovers(model, set.locale)) throw new Error(`${model.id} does not list ${set.locale} among its languages`)
   if (set.utterances.length === 0) throw new Error(`${set.name} has no utterances`)
-  const { engine, runtime, loadOptions } = await prepareAsr(model)
+  checkSetupFor(model, setup)
+  const read = await filesFor(model, setup)
+  try {
+    return await transcribeSet(model, set, audio, setup, read.files)
+  } finally {
+    read.remove()
+  }
+}
+
+/** Runs the model from `files` over the set and writes the result file, whose path it returns. */
+async function transcribeSet(model: AsrModel, set: UtteranceSet, audio: NewPreparation, setup: RunSetup, files: readonly string[]): Promise<string> {
+  const { engine, runtime, loadOptions } = await prepareAsr(model, files, setup)
   const detector = audio.edges === 'voice' ? await VoiceDetector.open(VAD_MODEL) : null
   const startedAt = new Date()
   const machine = machineInfo()
+  const watch = await RuntimeWatch.start(machine, () => engine.pid)
   const loadStarted = performance.now()
   try {
     await engine.start()
@@ -119,9 +178,15 @@ export async function runAsr(model: AsrModel, set: UtteranceSet, audio: NewPrepa
       runtime: { ...runtime, options: loadOptions },
       audio,
       loadSeconds,
-      warmupSeconds
+      coldLoad: setup.coldLoad,
+      warmupSeconds,
+      memory: null,
+      gpuPower: null,
+      load: null,
+      plan: setup.plan
     }
     fs.writeFileSync(file, `${JSON.stringify(run)}\n`)
+    const utterances: UtteranceRecord[] = []
     for (const [index, utterance] of set.utterances.entries()) {
       const pcm = load(utterance.audio)
       let record: UtteranceRecord
@@ -133,13 +198,18 @@ export async function runAsr(model: AsrModel, set: UtteranceSet, audio: NewPrepa
         record = { type: 'utterance', id: utterance.id, reference: utterance.reference, droppedBy: 'no-voice' }
         process.stderr.write(`  ${model.id} ${index + 1}/${set.utterances.length} no voice found\n`)
       }
+      utterances.push(record)
       fs.appendFileSync(file, `${JSON.stringify(record)}\n`)
     }
+    const watched = await watch.stop()
+    await engine.stop()
+    fs.writeFileSync(file, resultText({ run: { ...run, ...watched, load: await watch.after() }, utterances }))
     return file
   } catch (error) {
     const log = engine.log ? ` (server log: ${engine.log})` : ''
     throw new Error(`${model.id} failed${log}: ${error instanceof Error ? error.message : String(error)}`, { cause: error })
   } finally {
+    await watch.close()
     await engine.stop()
   }
 }

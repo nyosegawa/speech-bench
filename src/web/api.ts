@@ -15,10 +15,10 @@ import type { VoicesPageData } from '../pages/voices.ts'
  */
 
 /**
- * GET /api/runs: every run with what it adds up to, the campaigns it joined, and its runtime in words as the report
- * writes it.
+ * GET /api/runs: every run with what it adds up to, the campaigns it joined, its runtime in words as the report
+ * writes it, and what its GPU memory is called, or null when none was measured.
  */
-export type RunRow = (AsrSummary | TtsSummary) & { id: string; campaigns: string[]; runtime: string }
+export type RunRow = (AsrSummary | TtsSummary) & { id: string; campaigns: string[]; runtime: string; gpuMemory: string | null }
 
 /** GET /api/campaigns */
 export type CampaignRow = Omit<Campaign, 'format'>

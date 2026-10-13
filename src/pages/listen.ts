@@ -1,3 +1,4 @@
+import { gpuNames } from '../core/platform.ts'
 import { analyzeRun } from '../analysis/run-analysis.ts'
 import type { SpeakerEmbedder } from '../engines/speaker-embedding.ts'
 import { semitoneSpread } from '../analysis/pitch.ts'
@@ -91,7 +92,7 @@ const describe: Array<(entry: ListenedRun) => string | null> = [
   (entry) => (entry.run.reference ? `reference ${entry.run.reference.name}` : null),
   (entry) => (entry.run.durationScale === null ? null : `length ×${entry.run.durationScale}`),
   (entry) => (entry.run.seed === null ? null : `seed ${entry.run.seed}`),
-  (entry) => entry.run.machine.gpus.join(' + '),
+  (entry) => gpuNames(entry.run.machine),
   (entry) => Object.entries(entry.run.runtime.options).map(([name, value]) => `${name}=${value}`).join(', ') || null
 ]
 

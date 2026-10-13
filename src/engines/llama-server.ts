@@ -34,6 +34,10 @@ export class LlamaServerAsr implements AsrEngine {
     return this.server?.log ?? null
   }
 
+  get pid(): number | null {
+    return this.server?.child.pid ?? null
+  }
+
   async start(): Promise<void> {
     const [gguf, mmproj] = this.files
     if (!gguf || !mmproj) throw new Error(`${this.model.id} needs a model file and an audio projector`)

@@ -2,7 +2,7 @@ import { parseArgs } from 'node:util'
 import { describeError } from './core/errors.ts'
 import { dataDir } from './core/paths.ts'
 import { formatReport, readSummaries } from './measure/report.ts'
-import { analyze, asr, listModels, runFilesOf, tts } from './cli/measure.ts'
+import { analyze, asr, listModels, plan, runFilesOf, tts } from './cli/measure.ts'
 import { web } from './cli/web.ts'
 import { reference, voice } from './cli/voices.ts'
 import { spellings } from './cli/spellings.ts'
@@ -10,10 +10,11 @@ import { spellings } from './cli/spellings.ts'
 const USAGE = `usage:
   node src/cli.ts models
   node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b,parakeet-tdt_ctc-0.6b-ja [--set fleurs|common-voice [--count 100] | --set recordings --speaker name]
-      [--edges voice [--margin 0.2] | --edges as-recorded [--trailing-silence 0]] [--campaign name] [--model-file file.gguf --model-sha256 hex]
+      [--edges voice [--margin 0.2] | --edges as-recorded [--trailing-silence 0]] [--cold-load] [--campaign name] [--model-file file.gguf --model-sha256 hex]
   node src/cli.ts tts --locale ja-JP --models qwen3-tts-0.6b,irodori-tts-v4-small-q8_0 [--voice ono_anna] [--seeds 1,2,3]
       [--designs young-woman-caption,young-man-caption] [--reference name] [--duration-scale 0.5] [--sentences sentences.json] [--only aizuchi-hai,reply-weather]
-      [--campaign name] [--model-file file.gguf --model-sha256 hex]
+      [--cold-load] [--campaign name] [--model-file file.gguf --model-sha256 hex]
+  node src/cli.ts plan plan.json [--dry-run]
   node src/cli.ts report [--campaign name | run.jsonl ...]
   node src/cli.ts analyze [--campaign name | run.jsonl ...]
   node src/cli.ts web [--port 5280]
@@ -34,6 +35,7 @@ async function main(): Promise<void> {
   if (command === 'models') listModels()
   else if (command === 'asr') await asr(rest)
   else if (command === 'tts') await tts(rest)
+  else if (command === 'plan') await plan(rest)
   else if (command === 'web') await web(rest)
   else if (command === 'analyze') await analyze(rest)
   else if (command === 'reference') await reference(rest)
