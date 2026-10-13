@@ -60,8 +60,13 @@ export async function waitUntilHealthy(server: RunningServer, url: string, heade
   throw new Error(`the server did not become ready in ${READY_TIMEOUT_MS / 1000} s; see ${server.log}`)
 }
 
+/**
+ * Stops a server, or does nothing for one that has ended. A process ended by a signal, as SIGTERM ends a server, keeps
+ * an exitCode of null and gives its signalCode instead, and waiting for its exit again would wait for an event that has
+ * passed; with nothing else pending, Node then ends the bench before the run joins its campaign.
+ */
 export function stopServer(server: RunningServer): Promise<void> {
-  if (server.child.exitCode !== null) return Promise.resolve()
+  if (server.child.exitCode !== null || server.child.signalCode !== null) return Promise.resolve()
   return new Promise((resolve) => {
     server.child.once('exit', () => resolve())
     server.child.kill('SIGTERM')
