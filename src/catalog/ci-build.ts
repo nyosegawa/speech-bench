@@ -109,6 +109,33 @@ const ghCli: Gh = (args, output) => {
   }
 }
 
+/** The waits before each new try of a gh call GitHub answered with a server error, in ms. */
+const SERVER_ERROR_WAITS_MS = [2_000, 5_000, 10_000, 20_000, 40_000]
+
+/** Blocks the thread for `ms`, as the synchronous gh calls around it do. */
+const sleepSync = (ms: number): void => {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+}
+
+/**
+ * `gh`, tried again after each of `waits` while GitHub answers it with a server error (HTTP 5xx). GitHub's API answered
+ * a third of the calls for a run's jobs with HTTP 502 for minutes on end (2026-10-14), and every run of a plan that
+ * names a CI build asks for them, so a plan stopped at the first. Any other failure is thrown at once.
+ */
+export function retryingServerErrors(gh: Gh, waits: readonly number[] = SERVER_ERROR_WAITS_MS, sleep: (ms: number) => void = sleepSync): Gh {
+  return (args, output) => {
+    for (const wait of waits) {
+      try {
+        return gh(args, output)
+      } catch (error) {
+        if (!/\bHTTP 5\d\d\b/.test(error instanceof Error ? error.message : String(error))) throw error
+        sleep(wait)
+      }
+    }
+    return gh(args, output)
+  }
+}
+
 const executableName = (platform: PlatformKey): string => (platform === 'win32-x64' ? 'speech.exe' : 'speech')
 
 /**
@@ -149,7 +176,7 @@ async function downloadCiBuild(run: number, commit: string, platform: PlatformKe
  * kept by the run's id. The run is asked of GitHub for each use, so that the commit a result records is always the
  * one GitHub gives for the run.
  */
-export async function ensureSpeechCppCiBuild(run: number, platform: PlatformKey, gh: Gh = ghCli): Promise<SpeechCppBuild> {
+export async function ensureSpeechCppCiBuild(run: number, platform: PlatformKey, gh: Gh = retryingServerErrors(ghCli)): Promise<SpeechCppBuild> {
   const place = `run ${run} of ${SPEECH_CPP_REPOSITORY}`
   const view = check(runView, parseJsonObject(gh(['run', 'view', String(run), '-R', SPEECH_CPP_REPOSITORY, '--json', 'event,headSha,workflowName,jobs']), place), place)
   const commit = ciBuildCommit(run, view, platform)

@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { ciArchiveArtifact, ciArchiveVersion, ciBuildCommit, ciRunOf, ensureSpeechCppCiBuild, type CiArtifactList, type CiRunView, type Gh } from '../src/catalog/ci-build.ts'
+import { ciArchiveArtifact, ciArchiveVersion, ciBuildCommit, ciRunOf, ensureSpeechCppCiBuild, retryingServerErrors, type CiArtifactList, type CiRunView, type Gh } from '../src/catalog/ci-build.ts'
 
 const COMMIT = 'f5ab84c1710d919ad68293b6ff8897444d832939'
 const RUN = 37705728430
@@ -141,5 +141,40 @@ describe('ensureSpeechCppCiBuild', () => {
     const zip = artifactZip('speech.cpp 0.7.1, C API 3.1')
     await expect(ensureSpeechCppCiBuild(RUN, 'darwin-arm64', fakeGh(zip, sha256(zip)))).rejects.toThrow(/reports 0\.7\.1/)
     expect(fs.existsSync(path.join(data, 'runtimes', `speech.cpp-ci-${RUN}`))).toBe(false)
+  })
+})
+
+describe('retryingServerErrors', () => {
+  const failing = (messages: string[]): { gh: Gh; calls: () => number } => {
+    let calls = 0
+    return {
+      gh: () => {
+        const message = messages[calls++]
+        if (message !== undefined) throw new Error(message)
+        return 'answered'
+      },
+      calls: () => calls
+    }
+  }
+  const BAD_GATEWAY = 'gh run view 38400176090 failed: HTTP 502: Server Error (https://api.github.com/repos/nyosegawa/speech.cpp/actions/runs/38400176090/jobs?per_page=100)'
+
+  it('tries again after a server error, waiting each time', () => {
+    const waited: number[] = []
+    const { gh, calls } = failing([BAD_GATEWAY, BAD_GATEWAY])
+    expect(retryingServerErrors(gh, [1, 2, 3], (ms) => waited.push(ms))(['run', 'view'])).toBe('answered')
+    expect(calls()).toBe(3)
+    expect(waited).toEqual([1, 2])
+  })
+
+  it('gives up after the last wait with the server error', () => {
+    const { gh, calls } = failing([BAD_GATEWAY, BAD_GATEWAY, BAD_GATEWAY])
+    expect(() => retryingServerErrors(gh, [1, 2], () => undefined)(['run', 'view'])).toThrow(/HTTP 502/)
+    expect(calls()).toBe(3)
+  })
+
+  it('throws any other failure at once', () => {
+    const { gh, calls } = failing(['gh run view 1 failed: HTTP 404: Not Found'])
+    expect(() => retryingServerErrors(gh, [1, 2], () => undefined)(['run', 'view'])).toThrow(/HTTP 404/)
+    expect(calls()).toBe(1)
   })
 })
