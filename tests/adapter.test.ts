@@ -18,17 +18,24 @@ describe('pinnedVersion', () => {
   })
 })
 
-/** The wheels of a package that a uv.lock pins, by the URL each is downloaded from. */
+/**
+ * The wheels of a package that a uv.lock pins, by the URL each is downloaded from. The lock is read by its lines, which
+ * a Windows checkout may end with CRLF.
+ */
 function lockedWheels(lock: string, name: string): string[] {
-  return lock.split('[[package]]').filter((block) => block.includes(`\nname = "${name}"\n`)).flatMap((block) => [...block.matchAll(/url = "([^"]+\.whl)"/g)].map((match) => match[1]!))
+  return lock.split('[[package]]').filter((block) => new RegExp(`^name = "${name}"\\r?$`, 'm').test(block)).flatMap((block) => [...block.matchAll(/url = "([^"]+\.whl)"/g)].map((match) => match[1]!))
 }
 
 describe('the adapters\' environments', () => {
   const adapters = path.join(import.meta.dirname, '..', 'adapters')
-  const torchAdapters = fs.readdirSync(adapters).filter((id) => lockedWheels(fs.readFileSync(path.join(adapters, id, 'uv.lock'), 'utf8'), 'torch').length > 0)
+  const read = (id: string, file: string): string => fs.readFileSync(path.join(adapters, id, file), 'utf8')
 
-  it.each(torchAdapters)('%s installs PyTorch\'s CUDA build on Windows, where PyPI\'s runs on the CPU alone, and PyPI\'s on a Mac', (id) => {
-    const wheels = lockedWheels(fs.readFileSync(path.join(adapters, id, 'uv.lock'), 'utf8'), 'torch')
+  it.each(fs.readdirSync(adapters))('%s installs PyTorch\'s CUDA build on Windows, where PyPI\'s runs on the CPU alone, and PyPI\'s on a Mac, if it runs PyTorch', (id) => {
+    const wheels = lockedWheels(read(id, 'uv.lock'), 'torch')
+    if (!/^\s*"torch==/m.test(read(id, 'pyproject.toml'))) {
+      expect(wheels).toEqual([])
+      return
+    }
     const windows = wheels.filter((url) => url.endsWith('win_amd64.whl'))
     expect(windows.length).toBeGreaterThan(0)
     for (const url of windows) expect(url).toMatch(/^https:\/\/download(-r2)?\.pytorch\.org\/whl\/cu\d+\/torch-[^/]+%2Bcu\d+-/)
