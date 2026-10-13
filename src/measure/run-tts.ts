@@ -70,37 +70,47 @@ async function prepareTts(model: TtsModel, { seed, design, reference, durationSc
     )
     return { engine, runtime, loadOptions: { ...(voiceFile === null ? {} : { voice: 'voice file made on the CPU' }), ...options }, remove }
   }
+  // The runtime is fetched and the adapter installed before the copies are made, so that neither leaves copies behind.
+  const audioCpp = model.runtime === 'audio.cpp' ? await ensureRuntime(AUDIO_CPP) : null
+  if (model.runtime === 'adapter') syncAdapter(SYNTHESIS_ADAPTERS[model.adapter])
   const { files, remove } = await filesFor(model, setup)
   if (model.runtime === 'adapter') {
     if (model.voiceReference && reference === null) throw new Error(`${model.id} has no voice of its own; give it one with --reference`)
     const fileOf = (name: string): string => files[model.files.findIndex((file) => file.file === name)]!
     const voice = reference === null ? [] : ['--add-voice', `${REFERENCE_VOICE}=${reference.file}`]
-    const { adapter, args, loadOptions } = adapterRun(model.adapter, fileOf, voice)
-    syncAdapter(adapter)
+    const adapter = SYNTHESIS_ADAPTERS[model.adapter]
+    const { args, loadOptions } = adapterRun(model.adapter, fileOf, voice)
     const engine = new WorkerTts(adapterCommand(adapter, model.id, args), { voice: reference === null ? null : REFERENCE_VOICE, seed, options: stepsOption(model.steps) })
     return { engine, runtime: releaseOf({ id: adapter.id, version: adapterVersion(adapter) }), loadOptions, remove }
   }
   const [gguf] = files
   if (!gguf) throw new Error(`${model.id} has no GGUF`)
   const runOptions = { ...(seed === null ? {} : { seed }), ...(design === null ? {} : { instruction: design.instruction }), ...(durationScale === null ? {} : { duration_scale: durationScale }) }
-  return { engine: new AudioCppTts(await ensureRuntime(AUDIO_CPP), model, gguf, gpuBackend(), runOptions, reference?.file ?? null), runtime: releaseOf(AUDIO_CPP), loadOptions: model.loadOptions[gpuBackend()] ?? {}, remove }
+  return { engine: new AudioCppTts(audioCpp!, model, gguf, gpuBackend(), runOptions, reference?.file ?? null), runtime: releaseOf(AUDIO_CPP), loadOptions: model.loadOptions[gpuBackend()] ?? {}, remove }
+}
+
+/** The adapter of each synthesis model the catalog runs in one. */
+const SYNTHESIS_ADAPTERS: Record<Extract<TtsModel, { runtime: 'adapter' }>['adapter'], Adapter> = {
+  'irodori-tts': IRODORI_TTS_ADAPTER,
+  'mlx-audio': MLX_AUDIO_ADAPTER,
+  'qwen3-tts': QWEN3_TTS_ADAPTER
 }
 
 /**
- * The adapter that runs a synthesis model, its arguments and the options it is loaded with. The official
+ * The arguments of the adapter that runs a synthesis model and the options it is loaded with. The official
  * implementations run in PyTorch on the GPU of the machine, each in the precision it is released in; mlx-audio runs
  * only on Apple silicon.
  */
-function adapterRun(id: Extract<TtsModel, { runtime: 'adapter' }>['adapter'], fileOf: (name: string) => string, voice: readonly string[]): { adapter: Adapter; args: string[]; loadOptions: Record<string, string> } {
+function adapterRun(id: Extract<TtsModel, { runtime: 'adapter' }>['adapter'], fileOf: (name: string) => string, voice: readonly string[]): { args: string[]; loadOptions: Record<string, string> } {
   if (id === 'mlx-audio') {
     if (platformKey() !== 'darwin-arm64') throw new Error('mlx-audio runs on Apple silicon alone')
-    return { adapter: MLX_AUDIO_ADAPTER, args: ['--model', path.dirname(fileOf('config.json')), ...voice], loadOptions: { device: 'metal', precision: 'fp16' } }
+    return { args: ['--model', path.dirname(fileOf('config.json')), ...voice], loadOptions: { device: 'metal', precision: 'fp16' } }
   }
   const device = torchDevice()
   if (id === 'irodori-tts') {
-    return { adapter: IRODORI_TTS_ADAPTER, args: ['--checkpoint', fileOf('model.safetensors'), '--codec', fileOf('weights.pth'), '--device', device, ...voice], loadOptions: { device, precision: 'fp32' } }
+    return { args: ['--checkpoint', fileOf('model.safetensors'), '--codec', fileOf('weights.pth'), '--device', device, ...voice], loadOptions: { device, precision: 'fp32' } }
   }
-  return { adapter: QWEN3_TTS_ADAPTER, args: ['--model', path.dirname(fileOf('config.json')), '--device', device], loadOptions: { device, precision: 'bf16' } }
+  return { args: ['--model', path.dirname(fileOf('config.json')), '--device', device], loadOptions: { device, precision: 'bf16' } }
 }
 
 const stamp = (date: Date): string => date.toISOString().replace(/[:.]/g, '-')
@@ -136,8 +146,9 @@ export async function runTts(model: TtsModel, locale: string, sentences: readonl
   let loadSeconds = 0
   let warmupSeconds = 0
   let watched: Watched = { memory: null, gpuPower: null, load: null }
-  const watch = await RuntimeWatch.start(machine, () => engine.pid)
+  let watch: RuntimeWatch | null = null
   try {
+    watch = await RuntimeWatch.start(machine, () => engine.pid)
     const loadStarted = performance.now()
     await engine.start()
     loadSeconds = (performance.now() - loadStarted) / 1000
@@ -156,7 +167,7 @@ export async function runTts(model: TtsModel, locale: string, sentences: readonl
     const log = engine.log ? ` (log: ${engine.log})` : ''
     throw new Error(`${model.id} failed${log}: ${error instanceof Error ? error.message : String(error)}`, { cause: error })
   } finally {
-    await watch.close()
+    await watch?.close()
     await engine.stop()
     remove()
   }

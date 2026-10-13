@@ -139,7 +139,16 @@ export async function runAsr(model: AsrModel, set: UtteranceSet, audio: NewPrepa
   if (set.utterances.length === 0) throw new Error(`${set.name} has no utterances`)
   checkSetupFor(model, setup)
   const read = await filesFor(model, setup)
-  const { engine, runtime, loadOptions } = await prepareAsr(model, read.files, setup)
+  try {
+    return await transcribeSet(model, set, audio, setup, read.files)
+  } finally {
+    read.remove()
+  }
+}
+
+/** Runs the model from `files` over the set and writes the result file, whose path it returns. */
+async function transcribeSet(model: AsrModel, set: UtteranceSet, audio: NewPreparation, setup: RunSetup, files: readonly string[]): Promise<string> {
+  const { engine, runtime, loadOptions } = await prepareAsr(model, files, setup)
   const detector = audio.edges === 'voice' ? await VoiceDetector.open(VAD_MODEL) : null
   const startedAt = new Date()
   const machine = machineInfo()
@@ -202,6 +211,5 @@ export async function runAsr(model: AsrModel, set: UtteranceSet, audio: NewPrepa
   } finally {
     await watch.close()
     await engine.stop()
-    read.remove()
   }
 }
