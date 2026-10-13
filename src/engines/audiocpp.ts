@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { TtsModel } from '../catalog/models.ts'
 import { logsDir } from '../core/paths.ts'
-import { readWav } from '../core/wav.ts'
+import { durationSeconds, readWav } from '../core/wav.ts'
 import { startServer, stopServer, waitUntilHealthy, type RunningServer } from './server.ts'
 import type { Synthesis, TtsEngine } from './tts-engine.ts'
 
@@ -76,7 +76,8 @@ export class AudioCppTts implements TtsEngine {
     const body = Buffer.from(await response.arrayBuffer())
     const totalSeconds = (performance.now() - started) / 1000
     if (!response.ok) throw new Error(`audio.cpp answered ${response.status}: ${body.toString('utf8').slice(0, 300)}`)
-    return { pcm: readWav(body), firstAudioSeconds: totalSeconds, totalSeconds }
+    const pcm = readWav(body)
+    return { pcm, firstAudioSeconds: totalSeconds, totalSeconds, chunks: [{ seconds: totalSeconds, audioSeconds: durationSeconds(pcm) }] }
   }
 
   async stop(): Promise<void> {

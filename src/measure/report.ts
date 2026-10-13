@@ -3,8 +3,9 @@ import { scoredByCharacter } from '../core/language.ts'
 import { sentenceKey, spellingsReader, type Spellings } from '../spellings/files.ts'
 import { countAcceptedErrors } from './accepted.ts'
 import { readResultFile } from './result-file/file.ts'
-import { isDropped, type AsrRunRecord, type AudioPreparation, type HeardUtterance, type MemoryRecord, type ResultFile, type RunRecord, type TtsRunRecord } from './result-file/format.ts'
+import { isDropped, type AsrRunRecord, type AudioPreparation, type HeardUtterance, type MemoryRecord, type ResultFile, type RunRecord, type SentenceRecord, type TtsRunRecord } from './result-file/format.ts'
 import { countHeardErrors, heardAsSaid } from './heard.ts'
+import { chunkGaps, leastAudioInHand } from './streaming.ts'
 import { countErrors, type ErrorCount } from './scoring.ts'
 
 /** What one speech recognition result file adds up to. */
@@ -40,6 +41,19 @@ export interface TtsSummary {
   inverseRealTimeFactor: number
   /** Seconds of speech per character of text, which shows speech that runs on or rushes. */
   secondsPerCharacter: number
+  /**
+   * How the audio of the sentences that came in more than one piece arrived; `whole` when every sentence came in one,
+   * and null when the run did not record the pieces.
+   */
+  streaming: Streaming | 'whole' | null
+}
+
+/** How streamed audio arrived over a set of sentences. */
+export interface Streaming {
+  /** The time between two pieces of a sentence's audio. */
+  interChunkSeconds: Percentiles
+  /** The least audio a player held over the set as a later piece arrived; below zero the playback stopped. */
+  leastAudioInHandSeconds: number
 }
 
 export type Summary = AsrSummary | TtsSummary
@@ -82,6 +96,14 @@ function accepted(heard: readonly HeardUtterance[], locale: string, spellingsOf:
   return { annotated: counts.length, acceptedErrorRate: counts.length === heard.length && heard.length > 0 ? corpusErrorRate(counts) : null }
 }
 
+/** How the audio of the sentences that recorded their pieces and came in more than one arrived. */
+function streamingOf(sentences: readonly SentenceRecord[]): TtsSummary['streaming'] {
+  if (sentences.some(({ chunks }) => chunks === null)) return null
+  const streamed = sentences.flatMap(({ chunks }) => (chunks!.length > 1 ? [chunks!] : []))
+  if (streamed.length === 0) return 'whole'
+  return { interChunkSeconds: percentiles(streamed.flatMap(chunkGaps)), leastAudioInHandSeconds: Math.min(...streamed.map((chunks) => leastAudioInHand(chunks)!)) }
+}
+
 /** What a result file adds up to, its errors counted from its texts with the annotations `spellingsOf` reads. */
 export function summarize(file: ResultFile, spellingsOf: (locale: string) => Spellings): Summary {
   if ('utterances' in file) {
@@ -106,7 +128,8 @@ export function summarize(file: ResultFile, spellingsOf: (locale: string) => Spe
     heardAsSaid: sentences.filter((record) => heardAsSaid(record.text, record.transcript, run.set.locale)).length,
     firstAudioSeconds: percentiles(sentences.map((record) => record.firstAudioSeconds)),
     inverseRealTimeFactor: sum(sentences, (record) => record.audioSeconds) / sum(sentences, (record) => record.totalSeconds),
-    secondsPerCharacter: sum(sentences, (record) => record.audioSeconds) / sum(sentences, (record) => [...record.text].length)
+    secondsPerCharacter: sum(sentences, (record) => record.audioSeconds) / sum(sentences, (record) => [...record.text].length),
+    streaming: streamingOf(sentences)
   }
 }
 
@@ -206,6 +229,9 @@ const percentileColumns = <R>(what: string, of: (row: R) => Percentiles): Array<
 const voiceDescription = ({ run }: TtsSummary): string =>
   [run.design?.id, run.reference ? `reference ${run.reference.name}` : null, run.durationScale === null ? null : `length ×${run.durationScale}`].filter(Boolean).join(' + ') || 'none'
 
+/** Why a run has no figures of streaming: its sentences came whole, or it did not record their pieces. */
+const streamingAbsent = (streaming: 'whole' | null): string => streaming ?? 'not recorded'
+
 function ttsTable(rows: readonly TtsSummary[]): string[] {
   const metric = scoredByCharacter(rows[0]!.run.set.locale) ? 'CER' : 'WER'
   return table<TtsSummary>(rows, [
@@ -221,6 +247,8 @@ function ttsTable(rows: readonly TtsSummary[]): string[] {
     ...percentileColumns<TtsSummary>(' first audio', (row) => row.firstAudioSeconds),
     ['RTFx', (row) => row.inverseRealTimeFactor.toFixed(2)],
     ['s per character', (row) => row.secondsPerCharacter.toFixed(3)],
+    ['Inter-chunk s, p50 / p90 / p99', ({ streaming }) => (typeof streaming === 'object' && streaming !== null ? (['p50', 'p90', 'p99'] as const).map((rank) => streaming.interChunkSeconds[rank].toFixed(3)).join(' / ') : streamingAbsent(streaming))],
+    ['Least audio in hand s', ({ streaming }) => (typeof streaming === 'object' && streaming !== null ? streaming.leastAudioInHandSeconds.toFixed(3) : streamingAbsent(streaming))],
     ...runtimeColumns(rows).map(([header, cell]): [string, (row: TtsSummary) => string] => [header, (row) => cell(row.run)])
   ])
 }

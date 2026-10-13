@@ -243,6 +243,12 @@ hf upload sakasegawa/common-voice-ja-accepted-spellings ~/speech-bench-data/hugg
   decodes it; audio.cpp's Irodori-TTS answers with the whole sentence, so its first audio arrives with the
   last.
 - **RTFx**: the length of the speech over the time taken to synthesize it, summed over the set; larger is faster.
+- **Inter-chunk latency**: for a runtime that streams, the time between two pieces of a sentence's audio, at p50, p90
+  and p99 over the run.
+- **Least audio in hand**: for a runtime that streams, the least audio a player held that started playing as the
+  first piece arrived, at the moment each later piece arrived, over the run (docs/adr/0028). Below zero the playback
+  would have stopped to wait. A runtime that answers with the whole sentence is written `whole`. Each sentence keeps
+  when each of its pieces arrived and how much speech it held, so these are counted again from the record.
 - **Heard error rate**: the speech is transcribed by Qwen3-ASR 1.7B, after the synthesis model has
   stopped, and compared with the sentence after NFKC and without punctuation, symbols and spaces, Japanese
   numbers read as Arabic digits and a long vowel mark as the vowel it lengthens (docs/adr/0002, 0006). A

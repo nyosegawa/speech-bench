@@ -126,6 +126,20 @@ describe('the environment of a run', () => {
   })
 })
 
+describe('streamed speech in the report', () => {
+  it('gives the time between pieces and the least audio a player held, over the sentences that came in pieces', () => {
+    const summary = tts(summarize(fixture('v17-tts.jsonl'), noSpellings))
+    expect(summary.streaming).not.toBe('whole')
+    expect(formatReport([summary])).toContain('| 0.080 / 0.080 / 0.080 |')
+  })
+
+  it('says a run whose sentences each came whole has none, and one before the pieces were recorded did not record them', () => {
+    const whole = JSON.stringify({ type: 'sentence', id: 'a', kind: 'reply', text: 'はい', audio: 'a.wav', audioSeconds: 1, firstAudioSeconds: 2, totalSeconds: 2, transcript: 'はい', chunks: [{ seconds: 2, audioSeconds: 1 }] })
+    expect(tts(summarize([JSON.stringify(ttsRunOf()), whole], noSpellings)).streaming).toBe('whole')
+    expect(tts(summarize(fixture('v16-tts.jsonl'), noSpellings)).streaming).toBeNull()
+  })
+})
+
 describe('percentiles', () => {
   it('gives each percentile as a time that was measured, by the nearest rank', () => {
     const times = Array.from({ length: 100 }, (_, index) => (100 - index) / 100)

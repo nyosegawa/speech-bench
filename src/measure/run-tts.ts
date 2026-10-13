@@ -163,6 +163,7 @@ export async function runTts(model: TtsModel, locale: string, sentences: readonl
         audioSeconds: durationSeconds(synthesis.pcm),
         firstAudioSeconds: synthesis.firstAudioSeconds,
         totalSeconds: synthesis.totalSeconds,
+        chunks: synthesis.chunks,
         transcript: heard.text
       })
     }

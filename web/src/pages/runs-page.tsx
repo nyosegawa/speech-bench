@@ -106,6 +106,16 @@ const TTS_COLUMNS: Array<Column<TtsRow>> = [
   { key: 'said', label: 'Heard as said', numeric: true, firstDescending: true, hint: 'Sentences the recognizer heard as they were written, apart from how it spells them.', value: (row) => row.heardAsSaid / row.sentences, cell: (row) => number(`${row.heardAsSaid} / ${row.sentences}`) },
   { key: 'first', label: 'First audio', numeric: true, hint: 'Seconds from asking for a sentence to its first audio: p50, and p90 and p99 below.', value: (row) => row.firstAudioSeconds.p50, cell: (row) => <LatencyCell latency={row.firstAudioSeconds} /> },
   { key: 'rtfx', label: 'RTFx', numeric: true, firstDescending: true, hint: 'The duration of the speech over the synthesis time; larger is faster.', value: (row) => row.inverseRealTimeFactor, cell: (row) => number(row.inverseRealTimeFactor.toFixed(2)) },
+  {
+    key: 'stream',
+    label: 'In hand',
+    numeric: true,
+    hint: 'The least audio a player held that started with the first piece of a sentence, as each later piece arrived; below zero the playback stopped. Below, the time between two pieces at p90.',
+    value: (row) => (typeof row.streaming === 'object' && row.streaming !== null ? row.streaming.leastAudioInHandSeconds : Number.POSITIVE_INFINITY),
+    cell: (row) => (typeof row.streaming === 'object' && row.streaming !== null
+      ? <div className="tabular-nums whitespace-nowrap">{seconds(row.streaming.leastAudioInHandSeconds)}<div className="text-xs text-muted-foreground">gap p90 {seconds(row.streaming.interChunkSeconds.p90, 3)}</div></div>
+      : row.streaming === 'whole' ? <span className="text-muted-foreground">whole</span> : notMeasured)
+  },
   { key: 'pace', label: 's / char', numeric: true, hint: 'Seconds of speech per character of text, which shows speech that runs on or rushes.', value: (row) => row.secondsPerCharacter, cell: (row) => number(row.secondsPerCharacter.toFixed(3)) },
   ...loadAndMemory
 ]

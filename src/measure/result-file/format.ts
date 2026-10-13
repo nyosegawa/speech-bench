@@ -186,6 +186,11 @@ export const sentenceRecord = z.strictObject({
   audioSeconds: z.number(),
   firstAudioSeconds: z.number(),
   totalSeconds: z.number(),
+  /**
+   * The audio in the pieces it arrived in: when each arrived, in seconds from sending the text, and the seconds of
+   * speech it held. Null for a sentence spoken before they were recorded.
+   */
+  chunks: z.array(z.strictObject({ seconds: z.number(), audioSeconds: z.number() })).nullable().default(null),
   /** What the recognizer heard. */
   transcript: z.string()
 })

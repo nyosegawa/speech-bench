@@ -20,7 +20,7 @@ function run(reference: string, seed: number, embeddings: number[][], options: {
     runtime: { id: 'audio.cpp', version: 'v1', build: null, options: {} }
   })
   const sentences: SentenceRecord[] = embeddings.map((_, index) => ({
-    type: 'sentence', id: `s${index}`, kind: 'reply', text: 'はい、わかりました。', audio: `s${index}.wav`, audioSeconds: 2, firstAudioSeconds: 0.5, totalSeconds: 1,
+    type: 'sentence', id: `s${index}`, kind: 'reply', text: 'はい、わかりました。', audio: `s${index}.wav`, audioSeconds: 2, firstAudioSeconds: 0.5, totalSeconds: 1, chunks: null,
     transcript: index === options.misheard ? 'いいえ、ちがいます。' : 'はい、わかりました。'
   }))
   return {
