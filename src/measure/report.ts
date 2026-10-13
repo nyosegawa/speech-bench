@@ -33,6 +33,11 @@ export interface TtsSummary {
   sentences: number
   /** What the recognizer misheard in the synthesized speech, over the whole set, each sentence counting at most all of its characters. */
   errorRate: number
+  /**
+   * The heard error rate of each kind of sentence the prompts name (short answers, numbers, mixed English and the
+   * like), in the order the kinds first come.
+   */
+  errorRateByKind: Array<{ kind: string; sentences: number; errorRate: number }>
   /** The sentences the recognizer heard as they were written, apart from how it spells them. */
   heardAsSaid: number
   /** The time to the first audio of a sentence at the 50th, 90th and 99th percentiles. */
@@ -121,10 +126,16 @@ export function summarize(file: ResultFile, spellingsOf: (locale: string) => Spe
     }
   }
   const { run, sentences } = file
+  const counts = sentences.map((record) => countHeardErrors(record.text, record.transcript, run.set.locale))
   return {
     run,
     sentences: sentences.length,
-    errorRate: corpusErrorRate(sentences.map((record) => countHeardErrors(record.text, record.transcript, run.set.locale))),
+    errorRate: corpusErrorRate(counts),
+    errorRateByKind: [...new Set(sentences.map((record) => record.kind))].map((kind) => ({
+      kind,
+      sentences: sentences.filter((record) => record.kind === kind).length,
+      errorRate: corpusErrorRate(counts.filter((_, index) => sentences[index]!.kind === kind))
+    })),
     heardAsSaid: sentences.filter((record) => heardAsSaid(record.text, record.transcript, run.set.locale)).length,
     firstAudioSeconds: percentiles(sentences.map((record) => record.firstAudioSeconds)),
     inverseRealTimeFactor: sum(sentences, (record) => record.audioSeconds) / sum(sentences, (record) => record.totalSeconds),
@@ -253,6 +264,23 @@ function ttsTable(rows: readonly TtsSummary[]): string[] {
   ])
 }
 
+/** The heard error rate of each kind of sentence, a column a kind with how many sentences it has in the first run. */
+function kindTable(rows: readonly TtsSummary[]): string[] {
+  const kinds = [...new Set(rows.flatMap((row) => row.errorRateByKind.map(({ kind }) => kind)))]
+  return table<TtsSummary>(rows, [
+    ['Model', (row) => row.run.model.label],
+    ['Seed', (row) => row.run.seed ?? 'random'],
+    ['Runtime', runtimeOf],
+    ...kinds.map((kind): [string, (row: TtsSummary) => string] => {
+      const sentences = rows[0]!.errorRateByKind.find((entry) => entry.kind === kind)?.sentences
+      return [`${kind}${sentences === undefined ? '' : ` (${sentences})`}`, (row) => {
+        const entry = row.errorRateByKind.find((candidate) => candidate.kind === kind)
+        return entry === undefined ? '—' : percent(entry.errorRate)
+      }]
+    })
+  ])
+}
+
 /** A Markdown table per set and way of measuring, one row per model and machine, in the order the runs were made. */
 export function formatReport(summaries: readonly Summary[]): string {
   const groups = new Map<string, Summary[]>()
@@ -264,7 +292,7 @@ export function formatReport(summaries: readonly Summary[]): string {
     groups.set(key, [...(groups.get(key) ?? []), summary])
   }
   return [...groups.entries()].map(([title, rows]) => {
-    const table = rows[0]!.run.task === 'asr' ? asrTable(rows as AsrSummary[]) : ttsTable(rows as TtsSummary[])
+    const table = rows[0]!.run.task === 'asr' ? asrTable(rows as AsrSummary[]) : [...ttsTable(rows as TtsSummary[]), '', `Heard ${scoredByCharacter(rows[0]!.run.set.locale) ? 'CER' : 'WER'} by kind of sentence:`, '', ...kindTable(rows as TtsSummary[])]
     return [`## ${title}`, '', ...table].join('\n')
   }).join('\n\n')
 }

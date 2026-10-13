@@ -255,6 +255,8 @@ hf upload sakasegawa/common-voice-ja-accepted-spellings ~/speech-bench-data/hugg
   sentence counts at most all of its characters as errors, so that one take that runs on cannot decide the
   rate of a voice. It counts
   misreadings, dropped or repeated words, and speech that runs on past the sentence.
+- **Heard error rate by kind**: the same rate for each kind of sentence the prompts name (aizuchi, replies,
+  numbers and dates, mixed English, questions, long sentences), in a table of its own under each synthesis table.
 - **Heard as said**: the sentences the recognizer heard as they were written, apart from how it spells them
   (in Japanese katakana or hiragana, small or full-size vowels, あー or ああ), but not shorter, longer or with a
   word more. A take that passes is one an application could keep, as when it makes short replies ahead of

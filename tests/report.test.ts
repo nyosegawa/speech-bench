@@ -190,6 +190,12 @@ describe('summarize a speech synthesis run', () => {
   const sentence = (text: string, transcript: string, firstAudioSeconds: number, totalSeconds: number, audioSeconds: number) =>
     JSON.stringify({ type: 'sentence', id: text, kind: 'reply', text, audio: `${text}.wav`, audioSeconds, firstAudioSeconds, totalSeconds, transcript })
 
+  it('gives the heard error rate of each kind of sentence apart, over that kind\'s characters', () => {
+    const summary = tts(summarize([JSON.stringify(ttsRun), sentence('はい', 'はい', 0.05, 0.3, 0.5), sentence('こんにちは', 'こんばんは', 0.07, 0.5, 1.5)].map((line, index) => (index === 1 ? line.replace('"reply"', '"aizuchi"') : line)), noSpellings))
+    expect(summary.errorRateByKind).toEqual([{ kind: 'aizuchi', sentences: 1, errorRate: 0 }, { kind: 'reply', sentences: 1, errorRate: 2 / 5 }])
+    expect(formatReport([summary])).toMatch(/\| aizuchi \(1\) \| reply \(1\) \|\n.*\n.*\| 0\.00% \| 40\.00% \|/)
+  })
+
   it('adds up what was misheard, the time to the first audio and the pace of the speech', () => {
     const summary = tts(summarize([JSON.stringify(ttsRun), sentence('はい', 'はい', 0.05, 0.3, 0.5), sentence('こんにちは', 'こんばんは', 0.07, 0.5, 1.5)], noSpellings))
     expect(summary.errorRate).toBeCloseTo(2 / 7)
