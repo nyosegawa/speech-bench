@@ -3,7 +3,7 @@ import type { Prompt } from '../datasets/prompts.ts'
 import type { RecordingEntry } from '../datasets/recording-manifest/format.ts'
 import type { Choice, Recipe } from '../make/recipes.ts'
 import type { Campaign } from '../measure/campaign-file/format.ts'
-import type { AsrSummary, TtsSummary } from '../measure/report.ts'
+import type { AsrSummary, TtsSummary, UnifiedMemory } from '../measure/report.ts'
 import type { PageData } from '../pages/listen.ts'
 import type { SpellingsData } from '../pages/spellings.ts'
 import type { TranscriptsData } from '../pages/transcripts.ts'
@@ -16,9 +16,16 @@ import type { VoicesPageData } from '../pages/voices.ts'
 
 /**
  * GET /api/runs: every run with what it adds up to, the campaigns it joined, its runtime in words as the report
- * writes it, and what its GPU memory is called, or null when none was measured.
+ * writes it, what its GPU memory is called, or null when none was measured, and on a Mac the resident and the Metal
+ * memory together, as the report gives it.
  */
-export type RunRow = (AsrSummary | TtsSummary) & { id: string; campaigns: string[]; runtime: string; gpuMemory: string | null }
+export type RunRow = (AsrSummary | TtsSummary) & {
+  id: string
+  campaigns: string[]
+  runtime: string
+  gpuMemory: string | null
+  unifiedMemory: UnifiedMemory | null
+}
 
 /** GET /api/campaigns */
 export type CampaignRow = Omit<Campaign, 'format'>

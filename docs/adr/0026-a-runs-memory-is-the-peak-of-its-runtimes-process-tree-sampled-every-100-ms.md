@@ -5,7 +5,8 @@ stopped: the process the engine starts and every process under it, such as uv an
 bench looks at the machine every 100 ms, a look that takes longer delaying the next, and keeps for each figure the
 largest sum over the tree's processes in one look, so that two processes that peak at different times are not added
 at their peaks. A run records two figures (result format 15): the peak resident memory and the peak GPU memory, with
-what the GPU memory measures. Old runs and a run cut short record none, rather than zeros.
+what the GPU memory measures, and on a Mac a third (format 21), the peak of the two summed in one look. Old runs and a
+run cut short record none, rather than zeros.
 
 **macOS.** The resident memory is the RSS `ps` gives. The GPU memory, named GPU memory (Metal), is the part of each
 process's physical footprint that `footprint` (shipped with macOS, no administrator rights needed) puts in categories
@@ -21,6 +22,12 @@ of them. A Mac's GPU shares the memory with the CPU, so the two figures are part
   `currentAllocatedSize`, and the compute buffer sizes ggml reports, count what was allocated, so they can grow by
   hundreds of MB while no figure here moves; `/usr/bin/time -l`'s peak footprint behaves the same way, which is why it
   did not grow with speech.cpp's larger compute buffers.
+
+A runtime's weights thus fall in one figure or the other by how it allocates them: ggml's runtimes hold them in
+resident memory, PyTorch's MPS and MLX in GPU memory (Metal). Neither figure alone compares runtimes on a Mac, so a run
+also records the peak of their sum in one look, which the report gives as Memory (RSS + Metal) and is the figure to
+compare. A run made before format 21 has only the two peaks; the report gives their sum, written `≤`, as an upper
+bound.
 
 **Windows.** The resident memory is each process's working set and the GPU memory, named VRAM, its dedicated GPU
 memory, both read from Windows' performance counters (`Process` and `GPU Process Memory`) by one PowerShell process
@@ -38,6 +45,8 @@ driver) stops the run before it starts.
 - **GPU memory in use on the whole GPU**, from nvidia-smi on Windows or the IORegistry's `In use system memory` of
   the Mac's GPU. It counts every other program's memory, and other work shares the machines. nvidia-smi gives no
   memory per process under WDDM, only `[N/A]`.
+- **The sum of the two peaks as a Mac run's memory.** They may come from different looks: a runtime that reads its
+  weights into its own memory and then hands them to Metal would count them twice.
 - **Each process's own peak** (`phys_footprint_peak`, which the kernel keeps). Added up over uv and Python, the peaks
   of different moments would be a sum no moment had.
 - **typeperf or Get-Counter on Windows.** They sample once a second at the fastest.
@@ -61,3 +70,9 @@ every 100 ms with speech.cpp's worker and about every 210 ms with Qwen3-TTS's ad
 read in 60 to 80 ms. Three sentences of Qwen3-TTS 0.6B in its adapter, twice each way and alternated, took 79 and
 113 s without sampling and 91 and 82 s with it, on a machine whose CPUs other work kept 90% busy: the sampling is
 within that noise.
+
+2026-10-13, Apple M5, 200 utterances of Common Voice 8 ja-JP, resident and Metal memory: Qwen3-ASR 0.6B in
+speech.cpp 0.8.4 Q8_0 0.94 and 0.04 GiB, in the official implementation through MPS in BF16 3.23 and 3.42 GiB;
+Qwen3-ASR 1.7B 2.18 and 0.04 GiB against 5.57 and 6.63 GiB. By resident memory alone the official implementation
+holds 3.4 and 2.6 times as much as speech.cpp, while the sums of the two peaks are 6.64 against 0.98 GiB and 12.20
+against 2.23 GiB.

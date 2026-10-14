@@ -85,6 +85,16 @@ const loadAndMemory: Array<Column<RunRow>> = [
       : row.run.memory === null ? notMeasured : <span className="text-muted-foreground">none</span>)
   },
   {
+    key: 'unified',
+    label: 'RSS + Metal',
+    numeric: true,
+    hint: 'On a Mac, the peak of the resident and the Metal memory summed in one look: what the runtime held of the memory the CPU and the GPU share, since ggml\'s buffers count as resident and those Metal allocates for PyTorch or MLX as Metal. ≤ marks a run made before it was recorded, given as the sum of the two peaks, which may come from different looks.',
+    value: (row) => row.unifiedMemory?.bytes ?? Number.POSITIVE_INFINITY,
+    cell: (row) => (row.unifiedMemory
+      ? number(`${row.unifiedMemory.upperBound ? '≤ ' : ''}${gib(row.unifiedMemory.bytes)}`)
+      : notMeasured)
+  },
+  {
     key: 'power',
     label: 'GPU power',
     numeric: true,

@@ -37,12 +37,15 @@ export function processTree(processes: readonly ProcessRow[], root: number): Set
 
 /**
  * The peaks of a process tree's memory over the snapshots it is given, each the largest sum over the processes of one
- * snapshot, so that two processes that peak at different times are not added at their peaks.
+ * snapshot, so that two processes that peak at different times are not added at their peaks. On a Mac it also keeps the
+ * peak of the resident and the Metal memory summed in one snapshot, since a runtime's weights count in one or the other
+ * by how it allocates them, and the two may peak at different times.
  */
 export class PeakMemory {
   private samples = 0
   private peakResident = 0
   private peakGpu = 0
+  private peakTotal = 0
   private machineGpu = false
   private readonly intervalMs: number
   private readonly gpu: GpuMeasure
@@ -65,6 +68,7 @@ export class PeakMemory {
     for (const pid of tree) gpu += snapshot.gpuBytes.get(pid) ?? 0
     this.peakResident = Math.max(this.peakResident, resident)
     this.peakGpu = Math.max(this.peakGpu, gpu)
+    this.peakTotal = Math.max(this.peakTotal, resident + gpu)
   }
 
   /**
@@ -73,7 +77,9 @@ export class PeakMemory {
    */
   record(): MemoryRecord {
     if (this.samples === 0) throw new Error('the memory of the runtime\'s processes was never sampled; the runtime may have exited at once')
-    const gpu = this.gpu === 'metal' || this.machineGpu ? { measure: this.gpu, peakBytes: this.peakGpu } : null
+    const gpu: MemoryRecord['gpu'] = this.gpu === 'metal'
+      ? { measure: 'metal', peakBytes: this.peakGpu, peakTotalBytes: this.peakTotal }
+      : this.machineGpu ? { measure: 'dedicated', peakBytes: this.peakGpu } : null
     return { intervalMs: this.intervalMs, samples: this.samples, peakResidentBytes: this.peakResident, gpu }
   }
 }

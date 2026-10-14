@@ -32,7 +32,16 @@ describe('the peak memory of a process tree', () => {
     // uv holds 20 MiB throughout; Python loads 1000 MiB and then frees half of it.
     peak.add(snapshot([row(10, 1, 20), row(11, 10, 1000)], [[11, 300]]), 10)
     peak.add(snapshot([row(10, 1, 60), row(11, 10, 500)], [[11, 900]]), 10)
-    expect(peak.record()).toEqual({ intervalMs: 100, samples: 2, peakResidentBytes: 1020 * MIB, gpu: { measure: 'metal', peakBytes: 900 * MIB } })
+    expect(peak.record()).toEqual({ intervalMs: 100, samples: 2, peakResidentBytes: 1020 * MIB, gpu: { measure: 'metal', peakBytes: 900 * MIB, peakTotalBytes: 1460 * MIB } })
+  })
+
+  it('takes a Mac\'s resident and Metal memory together as their largest sum in one sample, not as the sum of their peaks', () => {
+    const peak = new PeakMemory(100, 'metal')
+    // Python reads 3000 MiB of weights into its own memory, hands them to Metal and frees its copy.
+    peak.add(snapshot([row(10, 1, 3000)], [[10, 100]]), 10)
+    peak.add(snapshot([row(10, 1, 400)], [[10, 3000]]), 10)
+    peak.add(snapshot([row(10, 1, 300)], [[10, 2900]]), 10)
+    expect(peak.record().gpu).toEqual({ measure: 'metal', peakBytes: 3000 * MIB, peakTotalBytes: 3400 * MIB })
   })
 
   it('leaves out the samples before the runtime started and after it exited, and every process outside it', () => {

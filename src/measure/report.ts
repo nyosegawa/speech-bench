@@ -198,20 +198,54 @@ function gpuMemoryHeader(rows: readonly Summary[]): string {
   return `${names.join(' or ')} GiB`
 }
 
+/** The resident and the Metal memory of a Mac run together, and whether the figure is only an upper bound. */
+export interface UnifiedMemory {
+  bytes: number
+  upperBound: boolean
+}
+
+/**
+ * What a runtime held of a Mac's memory, which its CPU and GPU share: the resident and the Metal memory together, since
+ * ggml's buffers count as resident and those Metal allocates for PyTorch or MLX as Metal memory. A run before the peak
+ * of their sum was recorded gives the sum of the two peaks, an upper bound, as they may come from different samples.
+ * Null where memory was not measured, and on Windows, where the resident memory and VRAM are different memories.
+ */
+export function unifiedMemoryOf(memory: MemoryRecord | null): UnifiedMemory | null {
+  if (memory?.gpu?.measure !== 'metal') return null
+  const { peakBytes, peakTotalBytes } = memory.gpu
+  return peakTotalBytes === null ? { bytes: memory.peakResidentBytes + peakBytes, upperBound: true } : { bytes: peakTotalBytes, upperBound: false }
+}
+
+const UNIFIED_MEMORY_HEADER = 'Memory (RSS + Metal) GiB'
+
 /**
  * The columns of what the runtime cost besides its speed, which every run has: its load time, its first request after
  * loading, which pays for the GPU's first use, its memory and the GPU's power. A run made before one was measured
  * says so, and a machine that does not have it says none.
  */
 function runtimeColumns(rows: readonly Summary[]): Array<[string, (run: RunRecord) => string]> {
+  const unified: Array<[string, (run: RunRecord) => string]> = rows.some(({ run }) => run.memory?.gpu?.measure === 'metal')
+    ? [[UNIFIED_MEMORY_HEADER, ({ memory }) => {
+      const unifiedMemory = unifiedMemoryOf(memory)
+      if (unifiedMemory === null) return memory === null ? 'not measured' : '—'
+      return `${unifiedMemory.upperBound ? '≤ ' : ''}${gib(unifiedMemory.bytes)}`
+    }]]
+    : []
   return [
     ['Load s', (run) => `${run.loadSeconds.toFixed(1)}${run.coldLoad ? ' cold' : ''}`],
     ['First request s', (run) => run.warmupSeconds.toFixed(3)],
     ['Peak memory GiB', ({ memory }) => (memory === null ? 'not measured' : gib(memory.peakResidentBytes))],
     [gpuMemoryHeader(rows), ({ memory }) => (memory === null ? 'not measured' : memory.gpu === null ? 'none' : gib(memory.gpu.peakBytes))],
+    ...unified,
     ['GPU power W, peak / mean', ({ gpuPower, load }) => (gpuPower !== null ? `${gpuPower.peakWatts.toFixed(0)} / ${gpuPower.meanWatts.toFixed(0)}` : load === null ? 'not measured' : 'none')]
   ]
 }
+
+/** What a memory written `≤` is, below a table that has one. */
+const unifiedMemoryNote = (rows: readonly Summary[]): string[] =>
+  rows.some(({ run }) => unifiedMemoryOf(run.memory)?.upperBound)
+    ? ['', `${UNIFIED_MEMORY_HEADER} written ≤ is the sum of the two peaks, which may come from different samples, for a run made before the peak of their sum was recorded.`]
+    : []
 
 /** A Markdown table of `rows`, each column a header and how to write a row's cell. */
 function table<R>(rows: readonly R[], columns: ReadonlyArray<[string, (row: R) => string | number]>): string[] {
@@ -307,7 +341,9 @@ export function formatReport(summaries: readonly Summary[]): string {
     groups.set(key, [...(groups.get(key) ?? []), summary])
   }
   return [...groups.entries()].map(([title, rows]) => {
-    const table = rows[0]!.run.task === 'asr' ? asrTable(rows as AsrSummary[]) : [...ttsTable(rows as TtsSummary[]), '', `Heard ${scoredByCharacter(rows[0]!.run.set.locale) ? 'CER' : 'WER'} by kind of sentence:`, '', ...kindTable(rows as TtsSummary[])]
+    const table = rows[0]!.run.task === 'asr'
+      ? [...asrTable(rows as AsrSummary[]), ...unifiedMemoryNote(rows)]
+      : [...ttsTable(rows as TtsSummary[]), ...unifiedMemoryNote(rows), '', `Heard ${scoredByCharacter(rows[0]!.run.set.locale) ? 'CER' : 'WER'} by kind of sentence:`, '', ...kindTable(rows as TtsSummary[])]
     return [`## ${title}`, '', ...table].join('\n')
   }).join('\n\n')
 }
