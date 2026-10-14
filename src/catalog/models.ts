@@ -296,7 +296,9 @@ export interface TtsVoice {
  */
 export type TtsRuntime =
   | { runtime: 'speech.cpp'; steps: number | null; voiceReference: boolean }
-  | { runtime: 'adapter'; adapter: 'irodori-tts' | 'mlx-audio' | 'qwen3-tts'; steps: number | null; voiceReference: boolean }
+  | { runtime: 'adapter'; adapter: 'mlx-audio' | 'qwen3-tts'; steps: number | null; voiceReference: boolean }
+  /** Irodori-TTS's official runtime computes the model in FP32 or, on CUDA alone, in BF16; its codec stays in FP32. */
+  | { runtime: 'adapter'; adapter: 'irodori-tts'; precision: 'fp32' | 'bf16'; steps: number | null; voiceReference: boolean }
   | {
       runtime: 'audio.cpp'
       family: string
@@ -361,12 +363,38 @@ const officialIrodoriV41 = (id: string, label: string, files: PinnedFile[], step
   label,
   runtime: 'adapter',
   adapter: 'irodori-tts',
+  precision: 'fp32',
   steps,
   voiceReference: true,
   files,
   languages: ['ja'],
   voices: [],
   license: 'MIT'
+})
+
+/**
+ * Irodori-TTS v4 Large, 3.29B parameters, whose text and caption encoder is T5Gemma 2's and whose tokenizer is
+ * Gemma's, in the official runtime. At FP32 the checkpoint is 13.2 GB; BF16 halves it, and the runtime refuses BF16
+ * on any device but CUDA.
+ */
+const OFFICIAL_IRODORI_LARGE: PinnedFile[] = [
+  model('Aratako/Irodori-TTS-v4-Large', '2e0c55428ce97268a507f1feeb2478f8d9148e8b', 'model.safetensors', 13_152_893_348, '0f3de3cdcb8cb82ac2d0089f2c051ab99e12eb7270625d06e3d1d303bad9e63c'),
+  model('Aratako/Irodori-TTS-v4-Large', '2e0c55428ce97268a507f1feeb2478f8d9148e8b', 'tokenizer/tokenizer.json', 33_384_387, 'f5b325224482ec441ec5fbe2a5ac08c3758e0f9605f6e54368e31f736fcfb01d'),
+  model('Aratako/Irodori-TTS-v4-Large', '2e0c55428ce97268a507f1feeb2478f8d9148e8b', 'tokenizer/tokenizer_config.json', 802, '1007769ea58b3c60a23a2ec21d99625f3433a18913492b9a7ea525759e312713'),
+  OFFICIAL_IRODORI_RF.at(-1)!
+]
+const officialIrodoriLarge = (precision: 'fp32' | 'bf16'): TtsModel => ({
+  id: `irodori-tts-v4-large-official${precision === 'fp32' ? '' : '-bf16'}`,
+  label: `Irodori-TTS v4 Large, official ${precision.toUpperCase()}, 40 steps`,
+  runtime: 'adapter',
+  adapter: 'irodori-tts',
+  precision,
+  steps: null,
+  voiceReference: true,
+  files: OFFICIAL_IRODORI_LARGE,
+  languages: ['ja'],
+  voices: [],
+  license: 'Gemma'
 })
 
 /** An mlx-community conversion of Irodori-TTS v4.1 for mlx-audio, its codec and tokenizer in the same repository. */
@@ -516,6 +544,8 @@ export const TTS_MODELS: readonly TtsModel[] = [
   officialIrodoriV41('irodori-tts-v4.1-small-mf-official', 'Irodori-TTS v4.1 Small MF, official FP32', OFFICIAL_IRODORI_MF, null),
   officialIrodoriV41('irodori-tts-v4.1-small-16steps-official', 'Irodori-TTS v4.1 Small, official FP32, 16 steps', OFFICIAL_IRODORI_RF, 16),
   officialIrodoriV41('irodori-tts-v4.1-small-official', 'Irodori-TTS v4.1 Small, official FP32, 40 steps', OFFICIAL_IRODORI_RF, null),
+  officialIrodoriLarge('fp32'),
+  officialIrodoriLarge('bf16'),
   mlxIrodoriV41('irodori-tts-v4.1-small-mf-mlx', 'Irodori-TTS v4.1 Small MF, mlx-audio FP16', MLX_IRODORI_MF, null),
   mlxIrodoriV41('irodori-tts-v4.1-small-16steps-mlx', 'Irodori-TTS v4.1 Small, mlx-audio FP16, 16 steps', MLX_IRODORI_RF, 16),
   irodori(40),

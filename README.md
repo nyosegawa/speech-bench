@@ -287,7 +287,9 @@ as v0.7.0 does, makes its own from the reference.
 A model's official implementation runs in an adapter of the bench's own that speaks the same protocol
 (docs/adr/0012), on the GPU: through MPS on a Mac and through CUDA on Windows, where an adapter that finds no CUDA
 device stops the run rather than run on the CPU. `adapters/irodori-tts/` runs Irodori-TTS v4.1's official PyTorch
-runtime at FP32, from the revisions of the checkpoints speech.cpp's GGUFs were converted from. The adapter encodes the
+runtime at FP32, from the revisions of the checkpoints speech.cpp's GGUFs were converted from, and v4 Large's at FP32
+(`irodori-tts-v4-large-official`, a 13.2 GB checkpoint) or, on CUDA alone, at BF16
+(`irodori-tts-v4-large-official-bf16`). v4 Large is under the Gemma Terms of Use. The adapter encodes the
 reference voice's WAVE file once, as the runtime would, and gives every sentence the latent, as speech.cpp's
 worker is given a voice file. `adapters/qwen3-tts/` runs Qwen3-TTS CustomVoice 0.6B and 1.7B in their official
 implementation in BF16, with the checkpoint's sampling settings, as `qwen3-tts-0.6b-official` and
