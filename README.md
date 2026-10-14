@@ -279,7 +279,9 @@ descriptions of the voices in `prompts/voices-<locale>.json` (Irodori-TTS's `ins
 Runtimes run as a process, speech.cpp's worker among them, are reached through speech.cpp's worker protocol 3
 (docs/adr/0008): JSON lines, a request per line, the speech streamed back in base64 16-bit chunks. A worker of
 another protocol, or one that answers a request it was not sent or answers one twice, stops the run. Irodori-TTS
-v4.1 in speech.cpp has no voice of its own and needs `--reference`; the reference goes to the worker as a voice
+v4.1 and v4 Large in speech.cpp have no voice of their own and need `--reference`; v4 Large's files
+(`irodori-tts-v4-large`, `-16steps` and `-f16-16steps`) need speech.cpp 0.8.7 or a later build, which
+`SPEECH_BENCH_SPEECH_CPP` names until the pinned release reads them. The reference goes to the worker as a voice
 file, which `speech voice` makes once on the CPU and `voice-files/` keeps by the reference, the codec the model
 file names and the release of speech.cpp, so that a release that refuses the voice files of the ones before it,
 as v0.7.0 does, makes its own from the reference.

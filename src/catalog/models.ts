@@ -344,6 +344,20 @@ const irodoriV41 = (id: string, label: string, file: PinnedFile, steps: number |
 const IRODORI_V4_1_MF = model('sakasegawa/Irodori-TTS-v4.1-Small-MF-GGUF', '99e5d77f6d92a70d4b9bff52829ac118fa1bf7d3', 'Irodori-TTS-848M-MF-v4.1-F16.gguf', 1_885_438_016, 'd59b2fca0b0884f80d02562a58b2f6c344871a92e4cf3607971d78affcc11987')
 const IRODORI_V4_1_RF = model('sakasegawa/Irodori-TTS-v4.1-Small-GGUF', 'ec4559786501eda493300f420655caf431bdda27', 'Irodori-TTS-841M-v4.1-F16.gguf', 1_871_020_064, '70ab9f5e0de5269b232468af75cc1b97cdb216009abc6ed41329e7728567202a')
 
+/**
+ * Irodori-TTS v4 Large in speech.cpp, whose text encoder is T5Gemma 2's and whose files speech.cpp 0.8.7 and later
+ * read; an earlier release refuses them by their layout. 40 steps unless fewer are asked for, in a voice file as
+ * v4.1 Small. It is under the Gemma Terms of Use.
+ */
+const irodoriLarge = (id: string, label: string, file: PinnedFile, steps: number | null): TtsModel => ({
+  ...irodoriV41(id, label, file, steps),
+  license: 'Gemma'
+})
+const IRODORI_V4_LARGE = {
+  q8_0: model('sakasegawa/Irodori-TTS-v4-Large-GGUF', '79cae5947a97e941c62912749e1387c8b35ec16b', 'Irodori-TTS-3.4B-v4-Q8_0.gguf', 3_875_154_272, '836a2deda5115e4400d25674612ff30d704a358d0b16cf96a3eb510dc416bc4e'),
+  f16: model('sakasegawa/Irodori-TTS-v4-Large-GGUF', '79cae5947a97e941c62912749e1387c8b35ec16b', 'Irodori-TTS-3.4B-v4-F16.gguf', 6_957_138_240, 'a0d4751d88cb9befea38d893081f2b0e48206225da038d12784a25288ac86d50')
+}
+
 /** The tokenizer Irodori-TTS v4.1's checkpoints carry beside them, the same file in both repositories. */
 const officialIrodori = (repo: string, revision: string, size: number, sha256: string): PinnedFile[] => [
   model(repo, revision, 'model.safetensors', size, sha256),
@@ -544,6 +558,9 @@ export const TTS_MODELS: readonly TtsModel[] = [
   officialIrodoriV41('irodori-tts-v4.1-small-mf-official', 'Irodori-TTS v4.1 Small MF, official FP32', OFFICIAL_IRODORI_MF, null),
   officialIrodoriV41('irodori-tts-v4.1-small-16steps-official', 'Irodori-TTS v4.1 Small, official FP32, 16 steps', OFFICIAL_IRODORI_RF, 16),
   officialIrodoriV41('irodori-tts-v4.1-small-official', 'Irodori-TTS v4.1 Small, official FP32, 40 steps', OFFICIAL_IRODORI_RF, null),
+  irodoriLarge('irodori-tts-v4-large', 'Irodori-TTS v4 Large Q8_0, 40 steps', IRODORI_V4_LARGE.q8_0, null),
+  irodoriLarge('irodori-tts-v4-large-16steps', 'Irodori-TTS v4 Large Q8_0, 16 steps', IRODORI_V4_LARGE.q8_0, 16),
+  irodoriLarge('irodori-tts-v4-large-f16-16steps', 'Irodori-TTS v4 Large F16, 16 steps', IRODORI_V4_LARGE.f16, 16),
   officialIrodoriLarge('fp32'),
   officialIrodoriLarge('bf16'),
   mlxIrodoriV41('irodori-tts-v4.1-small-mf-mlx', 'Irodori-TTS v4.1 Small MF, mlx-audio FP16', MLX_IRODORI_MF, null),
