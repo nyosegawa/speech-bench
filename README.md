@@ -369,6 +369,12 @@ to stopping it, which the report and the web app's runs page show after the spee
   Mac's GPU shares its memory with the CPU, and its figure is **GPU memory (Metal)**: the memory macOS tags as
   graphics, which Metal's driver allocated for the runtime and the GPU or the CPU has written. A buffer allocated but
   never written takes no memory and is not counted.
+- **Memory (RSS + Metal)**: on a Mac, the peak of the two summed in one look, which is what the runtime held of the
+  memory the CPU and the GPU share, and the figure to compare runtimes by. Neither part alone compares them: ggml's
+  runtimes give Metal buffers of their own memory, which count in RSS, while PyTorch (MPS) and MLX have Metal allocate
+  theirs, which count as GPU memory (Metal). For a run made before it was recorded the report and the runs page give
+  the sum of the two peaks, written `≤`, since the two may have peaked at different times. Windows has no such figure:
+  the working set and VRAM are different memories.
 - **GPU power**: on Windows with an NVIDIA GPU, its power every 100 ms from `nvidia-smi` (in `System32`, installed
   with the driver), the peak and the mean. It is the whole GPU's, whatever else runs on it.
 

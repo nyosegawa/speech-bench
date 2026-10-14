@@ -11,6 +11,11 @@ export interface ProcessRow {
 export interface Snapshot {
   processes: readonly ProcessRow[]
   gpuBytes: ReadonlyMap<number, number>
+  /**
+   * The resident memory of each process read again after its GPU memory, on a Mac, where `ps` and `footprint` read one
+   * after the other; null where one read takes both at one moment. A process missing from it had exited.
+   */
+  residentAfterGpu: ReadonlyMap<number, number> | null
 }
 
 export type GpuMeasure = NonNullable<MemoryRecord['gpu']>['measure']
@@ -37,12 +42,15 @@ export function processTree(processes: readonly ProcessRow[], root: number): Set
 
 /**
  * The peaks of a process tree's memory over the snapshots it is given, each the largest sum over the processes of one
- * snapshot, so that two processes that peak at different times are not added at their peaks.
+ * snapshot, so that two processes that peak at different times are not added at their peaks. On a Mac it also keeps the
+ * peak of the resident and the Metal memory summed in one snapshot, since a runtime's weights count in one or the other
+ * by how it allocates them, and the two may peak at different times.
  */
 export class PeakMemory {
   private samples = 0
   private peakResident = 0
   private peakGpu = 0
+  private peakTotal = 0
   private machineGpu = false
   private readonly intervalMs: number
   private readonly gpu: GpuMeasure
@@ -63,8 +71,26 @@ export class PeakMemory {
     for (const process of snapshot.processes) if (tree.has(process.pid)) resident += process.residentBytes
     let gpu = 0
     for (const pid of tree) gpu += snapshot.gpuBytes.get(pid) ?? 0
+    // The resident peak is the first reading's alone, which `ps` takes of every process at one moment.
     this.peakResident = Math.max(this.peakResident, resident)
     this.peakGpu = Math.max(this.peakGpu, gpu)
+    this.peakTotal = Math.max(this.peakTotal, this.residentBesideGpu(snapshot, tree) + gpu)
+  }
+
+  /**
+   * The resident memory of the tree to add to its GPU memory. Where the two are read one after the other, memory that
+   * moves between a process's own memory and Metal's while footprint reads counts in the GPU memory and in one of the two
+   * readings of RSS around it, which one depending on the direction; the smaller of the two counts it at most once. A
+   * look may then miss memory that moved, which the next look counts, where a double count is a peak no moment had.
+   */
+  private residentBesideGpu(snapshot: Snapshot, tree: ReadonlySet<number>): number {
+    let resident = 0
+    for (const process of snapshot.processes) {
+      if (!tree.has(process.pid)) continue
+      const after = snapshot.residentAfterGpu === null ? process.residentBytes : snapshot.residentAfterGpu.get(process.pid) ?? 0
+      resident += Math.min(process.residentBytes, after)
+    }
+    return resident
   }
 
   /**
@@ -73,7 +99,9 @@ export class PeakMemory {
    */
   record(): MemoryRecord {
     if (this.samples === 0) throw new Error('the memory of the runtime\'s processes was never sampled; the runtime may have exited at once')
-    const gpu = this.gpu === 'metal' || this.machineGpu ? { measure: this.gpu, peakBytes: this.peakGpu } : null
+    const gpu: MemoryRecord['gpu'] = this.gpu === 'metal'
+      ? { measure: 'metal', peakBytes: this.peakGpu, peakTotalBytes: this.peakTotal }
+      : this.machineGpu ? { measure: 'dedicated', peakBytes: this.peakGpu } : null
     return { intervalMs: this.intervalMs, samples: this.samples, peakResidentBytes: this.peakResident, gpu }
   }
 }

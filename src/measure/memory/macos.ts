@@ -58,24 +58,33 @@ export class MacProbe implements Probe {
   private stopped = false
   private loop: Promise<void> | null = null
   private failure: Error | null = null
+  private readonly tool: typeof runTool
 
-  constructor(intervalMs: number) {
+  constructor(intervalMs: number, tool: typeof runTool = runTool) {
     this.intervalMs = intervalMs
+    this.tool = tool
   }
 
-  private async look(root: number | null): Promise<Snapshot> {
-    const listed = await runTool('ps', ['-A', '-o', 'pid=,ppid=,rss='])
+  private async processes(): Promise<ProcessRow[]> {
+    const listed = await this.tool('ps', ['-A', '-o', 'pid=,ppid=,rss='])
     if (listed.status !== 0) throw new Error(`ps failed with status ${listed.status}: ${listed.stderr.trim()}`)
-    const processes = parsePs(listed.stdout)
+    return parsePs(listed.stdout)
+  }
+
+  /**
+   * Reads `ps` on both sides of `footprint`, which takes 30 to 80 ms, so that the GPU memory of each process comes with
+   * the two readings of its RSS that bracket the moment footprint read it.
+   */
+  private async look(root: number | null): Promise<Snapshot> {
+    const processes = await this.processes()
     const tree = root === null ? new Set<number>() : processTree(processes, root)
-    if (tree.size === 0) return { processes, gpuBytes: new Map() }
+    if (tree.size === 0) return { processes, gpuBytes: new Map(), residentAfterGpu: new Map() }
     const file = path.join(this.folder, 'footprint.json')
-    const measured = await runTool('footprint', ['-f', 'bytes', '-j', file, ...[...tree].flatMap((pid) => ['-p', String(pid)])])
-    if (measured.status !== 0) {
-      if (NONE_FOUND.test(measured.stderr)) return { processes, gpuBytes: new Map() }
-      throw new Error(`footprint failed with status ${measured.status}: ${measured.stderr.trim()}`)
-    }
-    return { processes, gpuBytes: graphicsBytes(JSON.parse(fs.readFileSync(file, 'utf8'))) }
+    const measured = await this.tool('footprint', ['-f', 'bytes', '-j', file, ...[...tree].flatMap((pid) => ['-p', String(pid)])])
+    if (measured.status !== 0 && !NONE_FOUND.test(measured.stderr)) throw new Error(`footprint failed with status ${measured.status}: ${measured.stderr.trim()}`)
+    const gpuBytes = measured.status === 0 ? graphicsBytes(JSON.parse(fs.readFileSync(file, 'utf8'))) : new Map<number, number>()
+    const after = await this.processes()
+    return { processes, gpuBytes, residentAfterGpu: new Map(after.filter(({ pid }) => tree.has(pid)).map(({ pid, residentBytes }) => [pid, residentBytes])) }
   }
 
   async start(root: () => number | null, take: (snapshot: Snapshot, root: number | null) => void): Promise<void> {

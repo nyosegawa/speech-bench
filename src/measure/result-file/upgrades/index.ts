@@ -7,6 +7,7 @@ import { v16ToV17 } from './v16-to-v17.ts'
 import { v17ToV18 } from './v17-to-v18.ts'
 import { v18ToV19 } from './v18-to-v19.ts'
 import { v19ToV20 } from './v19-to-v20.ts'
+import { v20ToV21 } from './v20-to-v21.ts'
 
 /** A result file as raw JSON, one object a line, the run line first. */
 export type ResultLines = Array<Record<string, unknown>>
@@ -18,5 +19,5 @@ export type ResultLines = Array<Record<string, unknown>>
 export const resultUpgrades: Upgrades<ResultLines> = {
   name: 'result format',
   earliest: 12,
-  steps: [v12ToV13, v13ToV14, v14ToV15, v15ToV16, v16ToV17, v17ToV18, v18ToV19, v19ToV20]
+  steps: [v12ToV13, v13ToV14, v14ToV15, v15ToV16, v16ToV17, v17ToV18, v18ToV19, v19ToV20, v20ToV21]
 }

@@ -104,6 +104,29 @@ describe('the memory a runtime took', () => {
     expect(Object.entries(old).find(([header]) => header.includes('VRAM'))?.[1]).toBe('not measured')
   })
 
+  it('gives a Mac\'s resident and Metal memory together as the peak of their sum the run recorded', () => {
+    const mac = columns(formatReport([asr(summarize(fixture('v21-asr.jsonl'), noSpellings))]), 0)
+    expect(mac['Memory (RSS + Metal) GiB']).toBe('2.04')
+  })
+
+  it('gives the sum of the two peaks of a Mac run made before the peak of their sum was recorded, marked as an upper bound', () => {
+    const summary = asr(summarize(fixture('v19-asr-plan.jsonl'), noSpellings))
+    expect(summary.run.memory?.gpu).toEqual({ measure: 'metal', peakBytes: 44040192, peakTotalBytes: null })
+    const report = formatReport([summary])
+    expect(columns(report, 0)['Memory (RSS + Metal) GiB']).toBe('≤ 2.05')
+    expect(report).toContain('written ≤ is the sum of the two peaks')
+    expect(formatReport([asr(summarize(fixture('v21-asr.jsonl'), noSpellings))])).not.toContain('≤')
+  })
+
+  it('gives no resident and GPU memory together on Windows, where they are different memories', () => {
+    const windows = tts(summarize(fixture('v20-tts.jsonl'), noSpellings))
+    expect(Object.keys(columns(formatReport([windows]), 0)).some((header) => header.includes('RSS + Metal'))).toBe(false)
+    const mac = asr(summarize(fixture('v21-asr.jsonl'), noSpellings))
+    const asWindows = asrRunOf({ set: mac.run.set, audio: mac.run.audio, machine: windows.run.machine, memory: windows.run.memory })
+    const mixed = formatReport([mac, asr(summarize([JSON.stringify(asWindows), utterance('あ', 'あ', 0.1, 1)], noSpellings))])
+    expect(columns(mixed, 1)['Memory (RSS + Metal) GiB']).toBe('—')
+  })
+
   it('says a machine without GPU memory of its own has none', () => {
     const line = JSON.stringify(asrRunOf({ memory: { intervalMs: 100, samples: 10, peakResidentBytes: 1024 ** 3, gpu: null } }))
     expect(Object.entries(columns(formatReport([asr(summarize([line, utterance('あ', 'あ', 0.1, 1)], noSpellings))]), 0)).find(([header]) => header.includes('VRAM'))?.[1]).toBe('none')

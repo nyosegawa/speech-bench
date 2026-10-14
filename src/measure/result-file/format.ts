@@ -56,7 +56,20 @@ const memoryRecord = z.strictObject({
    * graphics, which Metal's driver allocated and the GPU or the CPU has written, and `dedicated` the dedicated GPU
    * memory Windows counts for each process.
    */
-  gpu: z.strictObject({ measure: z.enum(['metal', 'dedicated']), peakBytes: z.int() }).nullable()
+  gpu: z.discriminatedUnion('measure', [
+    z.strictObject({
+      measure: z.literal('metal'),
+      peakBytes: z.int(),
+      /**
+       * The peak of the resident memory and the Metal memory summed in each sample, which is what the runtime held of
+       * the memory a Mac's CPU and GPU share; null for a run before format 21. Neither figure alone compares runtimes:
+       * ggml gives Metal buffers of memory it allocated itself, which count as resident, while PyTorch's MPS and MLX
+       * have Metal allocate theirs, which count as Metal memory and not as resident.
+       */
+      peakTotalBytes: z.int().nullable().default(null)
+    }),
+    z.strictObject({ measure: z.literal('dedicated'), peakBytes: z.int() })
+  ]).nullable()
 })
 export type MemoryRecord = z.infer<typeof memoryRecord>
 

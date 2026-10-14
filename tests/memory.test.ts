@@ -2,13 +2,17 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { graphicsBytes, parsePs } from '../src/measure/memory/macos.ts'
+import { graphicsBytes, MacProbe, parsePs } from '../src/measure/memory/macos.ts'
 import { PeakMemory, processTree, type ProcessRow, type Snapshot } from '../src/measure/memory/snapshot.ts'
 import { parseCountersLine, WindowsProbe } from '../src/measure/memory/windows.ts'
 
 const MIB = 1024 * 1024
 const row = (pid: number, parent: number, mib: number): ProcessRow => ({ pid, parent, residentBytes: mib * MIB })
-const snapshot = (processes: ProcessRow[], gpu: Array<[number, number]> = []): Snapshot => ({ processes, gpuBytes: new Map(gpu.map(([pid, mib]) => [pid, mib * MIB])) })
+const snapshot = (processes: ProcessRow[], gpu: Array<[number, number]> = [], after: Array<[number, number]> | null = null): Snapshot => ({
+  processes,
+  gpuBytes: new Map(gpu.map(([pid, mib]) => [pid, mib * MIB])),
+  residentAfterGpu: after === null ? null : new Map(after.map(([pid, mib]) => [pid, mib * MIB]))
+})
 
 describe('the process tree', () => {
   const processes = [row(1, 0, 1), row(50, 1, 1), row(100, 50, 10), row(101, 100, 200), row(102, 101, 30), row(200, 50, 5)]
@@ -32,7 +36,16 @@ describe('the peak memory of a process tree', () => {
     // uv holds 20 MiB throughout; Python loads 1000 MiB and then frees half of it.
     peak.add(snapshot([row(10, 1, 20), row(11, 10, 1000)], [[11, 300]]), 10)
     peak.add(snapshot([row(10, 1, 60), row(11, 10, 500)], [[11, 900]]), 10)
-    expect(peak.record()).toEqual({ intervalMs: 100, samples: 2, peakResidentBytes: 1020 * MIB, gpu: { measure: 'metal', peakBytes: 900 * MIB } })
+    expect(peak.record()).toEqual({ intervalMs: 100, samples: 2, peakResidentBytes: 1020 * MIB, gpu: { measure: 'metal', peakBytes: 900 * MIB, peakTotalBytes: 1460 * MIB } })
+  })
+
+  it('takes a Mac\'s resident and Metal memory together as their largest sum in one sample, not as the sum of their peaks', () => {
+    const peak = new PeakMemory(100, 'metal')
+    // Python reads 3000 MiB of weights into its own memory, hands them to Metal and frees its copy.
+    peak.add(snapshot([row(10, 1, 3000)], [[10, 100]]), 10)
+    peak.add(snapshot([row(10, 1, 400)], [[10, 3000]]), 10)
+    peak.add(snapshot([row(10, 1, 300)], [[10, 2900]]), 10)
+    expect(peak.record().gpu).toEqual({ measure: 'metal', peakBytes: 3000 * MIB, peakTotalBytes: 3400 * MIB })
   })
 
   it('leaves out the samples before the runtime started and after it exited, and every process outside it', () => {
@@ -53,6 +66,14 @@ describe('the peak memory of a process tree', () => {
     const peak = new PeakMemory(100, 'dedicated')
     peak.add(snapshot([row(1, 0, 50), row(10, 1, 100)]), 10)
     expect(peak.record().gpu).toBeNull()
+  })
+
+  it('adds to the Metal memory read between two readings of RSS the smaller of them, so that memory moving between the two is counted once', () => {
+    const peak = new PeakMemory(100, 'metal')
+    // Python hands 2600 MiB of weights to Metal while footprint reads, and later takes 1000 MiB back from it.
+    peak.add(snapshot([row(10, 1, 3000), row(11, 10, 20)], [[10, 2700]], [[10, 400], [11, 20]]), 10)
+    peak.add(snapshot([row(10, 1, 400), row(11, 10, 20)], [[10, 2700]], [[10, 1400], [11, 20]]), 10)
+    expect(peak.record()).toEqual({ intervalMs: 100, samples: 2, peakResidentBytes: 3020 * MIB, gpu: { measure: 'metal', peakBytes: 2700 * MIB, peakTotalBytes: 3120 * MIB } })
   })
 
   it('refuses to record a runtime it never saw, rather than record zeros', () => {
@@ -111,5 +132,34 @@ describe('the Windows probe', () => {
     await probe.stop()
     expect(looks.length).toBeGreaterThan(0)
     expect(looks.every((look) => look.processes[0]?.residentBytes === 4096)).toBe(true)
+  })
+})
+
+describe('the Mac probe', () => {
+  it('does not count memory twice that moves from the runtime\'s own memory to Metal while footprint reads', async () => {
+    // Python holds 3000 MiB of weights in its own memory and 100 MiB in Metal; while footprint reads, it hands the
+    // weights to Metal and frees its copy, after which it holds 400 MiB of its own and 3000 MiB in Metal.
+    let resident = 3000
+    let graphics = 100
+    const tool = async (command: string, args: readonly string[]) => {
+      if (command === 'ps') return { status: 0, stdout: `    1     0  1024\n   10     1 ${resident * 1024}\n`, stderr: '' }
+      resident = 400
+      graphics = 3000
+      const file = args[args.indexOf('-j') + 1]!
+      fs.writeFileSync(file, JSON.stringify({ processes: [{ pid: 10, categories: { 'IOAccelerator (graphics)': { dirty: graphics * MIB, swapped: 0 } } }] }))
+      return { status: 0, stdout: '', stderr: '' }
+    }
+    const peak = new PeakMemory(1, 'metal')
+    const probe = new MacProbe(1, tool)
+    let looks = 0
+    const twoLooks = new Promise<void>((resolve) => {
+      void probe.start(() => 10, (look, root) => {
+        peak.add(look, root)
+        if (++looks === 2) resolve()
+      })
+    })
+    await twoLooks
+    await probe.stop()
+    expect(peak.record().gpu).toEqual({ measure: 'metal', peakBytes: 3000 * MIB, peakTotalBytes: 3400 * MIB })
   })
 })
