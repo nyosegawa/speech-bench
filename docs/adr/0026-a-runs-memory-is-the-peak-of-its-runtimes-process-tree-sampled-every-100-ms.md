@@ -26,8 +26,10 @@ of them. A Mac's GPU shares the memory with the CPU, so the two figures are part
 A runtime's weights thus fall in one figure or the other by how it allocates them: ggml's runtimes hold them in
 resident memory, PyTorch's MPS and MLX in GPU memory (Metal). Neither figure alone compares runtimes on a Mac, so a run
 also records the peak of their sum in one look, which the report gives as Memory (RSS + Metal) and is the figure to
-compare. A run made before format 21 has only the two peaks; the report gives their sum, written `≤`, as an upper
-bound.
+compare. `ps` and `footprint` read one after the other, so a look reads `ps` on both sides of `footprint` and adds to
+each process's Metal memory the smaller of its two RSS readings: memory that moves between the two while `footprint`
+reads is then counted once, never twice, and a move that one look misses is counted by the next. A run made before
+format 21 has only the two peaks; the report gives their sum, written `≤`, as an upper bound.
 
 **Windows.** The resident memory is each process's working set and the GPU memory, named VRAM, its dedicated GPU
 memory, both read from Windows' performance counters (`Process` and `GPU Process Memory`) by one PowerShell process
@@ -69,7 +71,8 @@ llama.cpp b11246 Q8_0 1.76 and 0.05, the official implementation through MPS in 
 every 100 ms with speech.cpp's worker and about every 210 ms with Qwen3-TTS's adapter, whose uv and Python `footprint`
 read in 60 to 80 ms. Three sentences of Qwen3-TTS 0.6B in its adapter, twice each way and alternated, took 79 and
 113 s without sampling and 91 and 82 s with it, on a machine whose CPUs other work kept 90% busy: the sampling is
-within that noise.
+within that noise. On 2026-10-14 a look at the bench's own process took 43 ms with one `ps` and 54 ms with two, of
+which `ps` itself took 10 ms.
 
 2026-10-13, Apple M5, 200 utterances of Common Voice 8 ja-JP, resident and Metal memory: Qwen3-ASR 0.6B in
 speech.cpp 0.8.4 Q8_0 0.94 and 0.04 GiB, in the official implementation through MPS in BF16 3.23 and 3.42 GiB;

@@ -61,7 +61,7 @@ export function parseCountersLine(line: string): Snapshot {
     if (pid === undefined || !Number.isInteger(bytes)) throw new Error(`the counters of Windows gave GPU memory that is not an instance of a process and its bytes: ${JSON.stringify(held)}`)
     gpuBytes.set(Number(pid), (gpuBytes.get(Number(pid)) ?? 0) + (bytes as number))
   }
-  return { processes: rows, gpuBytes }
+  return { processes: rows, gpuBytes, residentAfterGpu: null }
 }
 
 /** Reads the counters through one PowerShell process that keeps running while the runtime does. */

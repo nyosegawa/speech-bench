@@ -7,7 +7,8 @@ import { WindowsProbe } from './windows.ts'
 
 /**
  * The time between two looks at the runtime's memory. A look on macOS takes longer for an adapter, about 210 ms for uv
- * and Python on an Apple M5 (2026-10-13), and the next look waits for the one before it.
+ * and Python on an Apple M5 (2026-10-13), to which reading `ps` a second time adds about 10 ms (2026-10-14), and the
+ * next look waits for the one before it.
  */
 const INTERVAL_MS = 100
 
