@@ -102,7 +102,7 @@ async function prepareTts(model: TtsModel, { seed, design, reference, durationSc
     const fileOf = (name: string): string => files[model.files.findIndex((file) => file.file === name)]!
     const voice = reference === null ? [] : ['--add-voice', `${REFERENCE_VOICE}=${reference.file}`]
     const adapter = SYNTHESIS_ADAPTERS[model.adapter]
-    const { args, loadOptions } = adapterRun(model.adapter, fileOf, voice)
+    const { args, loadOptions } = adapterRun(model, fileOf, voice)
     const engine = new WorkerTts(adapterCommand(adapter, model.id, args), { voice: reference === null ? null : REFERENCE_VOICE, seed, options: stepsOption(model.steps) })
     return { engine, runtime: releaseOf({ id: adapter.id, version: adapterVersion(adapter) }), loadOptions, remove }
   }
@@ -121,17 +121,18 @@ const SYNTHESIS_ADAPTERS: Record<Extract<TtsModel, { runtime: 'adapter' }>['adap
 
 /**
  * The arguments of the adapter that runs a synthesis model and the options it is loaded with. The official
- * implementations run in PyTorch on the GPU of the machine, each in the precision it is released in; mlx-audio runs
- * only on Apple silicon.
+ * implementations run in PyTorch on the GPU of the machine, Irodori-TTS in the precision of the model's entry and the
+ * others in the precision they are released in; mlx-audio runs only on Apple silicon.
  */
-function adapterRun(id: Extract<TtsModel, { runtime: 'adapter' }>['adapter'], fileOf: (name: string) => string, voice: readonly string[]): { args: string[]; loadOptions: Record<string, string> } {
-  if (id === 'mlx-audio') {
+function adapterRun(model: Extract<TtsModel, { runtime: 'adapter' }>, fileOf: (name: string) => string, voice: readonly string[]): { args: string[]; loadOptions: Record<string, string> } {
+  if (model.adapter === 'mlx-audio') {
     if (platformKey() !== 'darwin-arm64') throw new Error('mlx-audio runs on Apple silicon alone')
     return { args: ['--model', path.dirname(fileOf('config.json')), ...voice], loadOptions: { device: 'metal', precision: 'fp16' } }
   }
   const device = torchDevice()
-  if (id === 'irodori-tts') {
-    return { args: ['--checkpoint', fileOf('model.safetensors'), '--codec', fileOf('weights.pth'), '--device', device, ...voice], loadOptions: { device, precision: 'fp32' } }
+  if (model.adapter === 'irodori-tts') {
+    const args = ['--checkpoint', fileOf('model.safetensors'), '--codec', fileOf('weights.pth'), '--device', device, '--precision', model.precision, ...voice]
+    return { args, loadOptions: { device, precision: model.precision } }
   }
   return { args: ['--model', path.dirname(fileOf('config.json')), '--device', device], loadOptions: { device, precision: 'bf16' } }
 }

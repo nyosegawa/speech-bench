@@ -1,12 +1,13 @@
 """Irodori-TTS's official PyTorch runtime behind speech.cpp's worker protocol 3, so that the bench measures the
 original the way it measures the port.
 
-usage: worker.py --checkpoint model.safetensors --codec weights.pth --device mps|cpu|cuda [--add-voice NAME=FILE]...
+usage: worker.py --checkpoint model.safetensors --codec weights.pth --device mps|cpu|cuda --precision fp32|bf16
+       [--add-voice NAME=FILE]...
 
-The tokenizer is read from the folder `tokenizer/` beside the checkpoint, as the runtime looks for it there. The
-runtime does not stream, so each sentence is sent as one chunk once it is spoken. SilentCipher's watermark is left
-out, as speech.cpp leaves it out: the runtime applies it whenever the package is installed, and Irodori-TTS lists
-the package as a dependency.
+The precision is the model's; the codec computes in FP32, the runtime's own default. The tokenizer is read from the
+folder `tokenizer/` beside the checkpoint, as the runtime looks for it there. The runtime does not stream, so each
+sentence is sent as one chunk once it is spoken. SilentCipher's watermark is left out, as speech.cpp leaves it out:
+the runtime applies it whenever the package is installed, and Irodori-TTS lists the package as a dependency.
 
 A request takes `voice`, `language` (`ja`, a region of it or `auto`), `seed` and `steps`, as speech.cpp's Irodori-TTS
 does. Each voice's WAVE file is encoded once, when it is added, the way the runtime encodes a `ref_wav`, and every
@@ -146,6 +147,7 @@ def main():
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--codec", required=True)
     parser.add_argument("--device", required=True)
+    parser.add_argument("--precision", required=True, choices=["fp32", "bf16"])
     parser.add_argument("--add-voice", action="append", default=[])
     args = parser.parse_args()
     latents = tempfile.TemporaryDirectory()
@@ -154,7 +156,13 @@ def main():
         version = json.loads(importlib.metadata.distribution("irodori-tts").read_text("direct_url.json"))["vcs_info"]["commit_id"]
         ir.SilentCipherWatermarker._load_backend = staticmethod(lambda **_: None)
         runtime = ir.InferenceRuntime.from_key(
-            ir.RuntimeKey(checkpoint=args.checkpoint, model_device=args.device, codec_repo=args.codec, codec_device=args.device)
+            ir.RuntimeKey(
+                checkpoint=args.checkpoint,
+                model_device=args.device,
+                model_precision=args.precision,
+                codec_repo=args.codec,
+                codec_device=args.device,
+            )
         )
         if runtime.watermarker.ready:
             raise RuntimeError("the watermark could not be left out, so the speech would differ from speech.cpp's")
