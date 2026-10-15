@@ -302,7 +302,10 @@ runtime at FP32, from the revisions of the checkpoints speech.cpp's GGUFs were c
 reference voice's WAVE file once, as the runtime would, and gives every sentence the latent, as speech.cpp's
 worker is given a voice file. `adapters/qwen3-tts/` runs Qwen3-TTS CustomVoice 0.6B and 1.7B in their official
 implementation in BF16, with the checkpoint's sampling settings, as `qwen3-tts-0.6b-official` and
-`qwen3-tts-1.7b-official`. uv installs the packages the adapter's lock file pins, on Windows PyTorch's CUDA build,
+`qwen3-tts-1.7b-official`. `adapters/drama3/` runs Fish Audio Drama 3 in fish-speech as `drama-3-official`, on Linux
+alone, with a GPU of SM89 or later and 80 GB (41.5 GB of weights): BF16 with the experts in FP8, the model card's
+sampling, and the reference voice cloned from its WAVE file and the texts of its takes; it is under the Fish Audio
+Community License. uv installs the packages the adapter's lock file pins, on Windows PyTorch's CUDA build,
 into `adapters/` of the data folder on the first run, before the timing starts; uv keeps what it downloads in its
 cache (`UV_CACHE_DIR`), about 2.9 GB for each CUDA build of PyTorch. Neither official implementation streams, so the
 first audio arrives with the last.
@@ -491,6 +494,7 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 | Irodori-TTS v4.1 Small, official | Aratako/Irodori-TTS-v4.1-Small-MF and Aratako/Irodori-TTS-v4.1-Small with Aratako/Semantic-DACVAE-Japanese-32dim, in Irodori-TTS at 89f9d8fb with the packages of `adapters/irodori-tts/uv.lock` |
 | Qwen3-TTS 0.6B and 1.7B CustomVoice, official | Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice at 85e237c1 and Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice at 0c0e3051, in qwen-tts at 022e286b with the packages of `adapters/qwen3-tts/uv.lock` |
 | Qwen3-ASR 0.6B and 1.7B, official | Qwen/Qwen3-ASR-0.6B at 5eb14417 and Qwen/Qwen3-ASR-1.7B at 7278e1e7, in transformers 5.18.0 with qwen-asr 0.0.6 and the packages of `adapters/qwen3-asr/uv.lock` |
+| Fish Audio Drama 3, official | fishaudio/drama-3 at e0a9218a, in fish-speech at 54156693 with the packages of `adapters/drama3/uv.lock` |
 | PyTorch for the official implementations | PyPI's on a Mac and on Linux, where it is a CUDA build; on Windows the CUDA 12.8 build from PyTorch's index, pinned in each adapter's lock file |
 | NeMo-Speech.cpp | v0.2.0, `nemo-speech serve` |
 | parakeet-tdt-0.6b-v3 and ReazonSpeech NeMo v2 in NeMo-Speech.cpp | nvidia/parakeet-tdt-0.6b-v3 and reazon-research/reazonspeech-nemo-v2, the `.nemo` checkpoints speech.cpp's files were converted from, converted to F16 by NeMo-Speech.cpp's `convert_model.py` at v0.2.0 (6a3ca369) with the packages of `converters/nemo-speech.cpp/uv.lock`, and pinned by the size and sha256 of the result |

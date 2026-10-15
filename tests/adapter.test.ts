@@ -30,15 +30,23 @@ describe('the adapters\' environments', () => {
   const adapters = path.join(import.meta.dirname, '..', 'adapters')
   const read = (id: string, file: string): string => fs.readFileSync(path.join(adapters, id, file), 'utf8')
 
-  it.each(fs.readdirSync(adapters))('%s installs PyTorch\'s CUDA build on Windows, where PyPI\'s runs on the CPU alone, and PyPI\'s on a Mac, if it runs PyTorch', (id) => {
-    const wheels = lockedWheels(read(id, 'uv.lock'), 'torch')
-    if (!/^\s*"torch==/m.test(read(id, 'pyproject.toml'))) {
+  it.each(fs.readdirSync(adapters))('%s installs a CUDA build of PyTorch on each system with an NVIDIA GPU it runs on, and PyPI\'s on a Mac, if it runs PyTorch', (id) => {
+    const project = read(id, 'pyproject.toml')
+    const lock = read(id, 'uv.lock')
+    const wheels = lockedWheels(lock, 'torch')
+    if (!/^\s*"torch==/m.test(project)) {
       expect(wheels).toEqual([])
       return
     }
+    const runsOn = (system: string): boolean => project.includes(`sys_platform == '${system}'`)
+    // PyPI's PyTorch for Windows runs on the CPU alone, so the CUDA build comes from PyTorch's own index.
     const windows = wheels.filter((url) => url.endsWith('win_amd64.whl'))
-    expect(windows.length).toBeGreaterThan(0)
+    expect(windows.length > 0).toBe(runsOn('win32'))
     for (const url of windows) expect(url).toMatch(/^https:\/\/download(-r2)?\.pytorch\.org\/whl\/cu\d+\/torch-[^/]+%2Bcu\d+-/)
-    expect(wheels.some((url) => url.startsWith('https://files.pythonhosted.org/') && url.endsWith('macosx_11_0_arm64.whl'))).toBe(true)
+    expect(wheels.some((url) => url.startsWith('https://files.pythonhosted.org/') && url.endsWith('macosx_11_0_arm64.whl'))).toBe(runsOn('darwin'))
+    // PyPI's PyTorch for Linux x64 is a CUDA build, which pulls in NVIDIA's CUDA runtime.
+    const linux = wheels.filter((url) => url.startsWith('https://files.pythonhosted.org/') && url.endsWith('manylinux_2_28_x86_64.whl'))
+    expect(linux.length > 0).toBe(runsOn('linux'))
+    if (runsOn('linux')) expect(lock).toMatch(/\{ name = "nvidia-cuda-runtime-cu12", marker = "[^"]*sys_platform == 'linux'[^"]*" \}/)
   })
 })
