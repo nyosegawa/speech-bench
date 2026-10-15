@@ -17,6 +17,8 @@ export interface ReferenceVoice {
   file: string
   sha256: string
   seconds: number
+  /** What the takes say, in their order, a space between two, for a model that clones a voice from its words too. */
+  transcript: string
 }
 
 const filesOf = (name: string): { wav: string; manifest: string } => {
@@ -85,7 +87,8 @@ export function referenceManifest(name: string): ReferenceManifest {
 export async function loadReference(name: string): Promise<ReferenceVoice> {
   const wav = referenceFile(name)
   const pcm = readWav(fs.readFileSync(wav))
-  return { name, file: wav, sha256: await sha256Of(wav), seconds: pcm.samples.length / pcm.sampleRate }
+  const transcript = referenceManifest(name).takes.map((take) => take.text).join(' ')
+  return { name, file: wav, sha256: await sha256Of(wav), seconds: pcm.samples.length / pcm.sampleRate, transcript }
 }
 
 /**

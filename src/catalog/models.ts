@@ -296,7 +296,7 @@ export interface TtsVoice {
  */
 export type TtsRuntime =
   | { runtime: 'speech.cpp'; steps: number | null; voiceReference: boolean }
-  | { runtime: 'adapter'; adapter: 'mlx-audio' | 'qwen3-tts'; steps: number | null; voiceReference: boolean }
+  | { runtime: 'adapter'; adapter: 'mlx-audio' | 'qwen3-tts' | 'drama3'; steps: number | null; voiceReference: boolean }
   /** Irodori-TTS's official runtime computes the model in FP32 or, on CUDA alone, in BF16; its codec stays in FP32. */
   | { runtime: 'adapter'; adapter: 'irodori-tts'; precision: 'fp32' | 'bf16'; steps: number | null; voiceReference: boolean }
   | {
@@ -521,6 +521,46 @@ const irodori = (steps: number, type: keyof typeof IRODORI_V4_SMALL = 'q8_0', co
   license: 'MIT'
 })
 
+/**
+ * Fish Audio Drama 3, a 35B mixture of experts with 3B active, in its official implementation as fish-speech's API
+ * server runs it on CUDA: bfloat16 with the experts in FP8, on a GPU of SM89 or later with 80 GB, which the bench rents
+ * as a Linux machine. It has no voice of its own and clones the run's reference voice from its WAVE file and
+ * transcript. Its languages are those of the model card's metadata, with Javanese as `jv` where the card writes `jw`.
+ * It is under the Fish Audio Community License: research, non-commercial use, and commercial use below USD 500,000 of
+ * annual revenue.
+ */
+const OFFICIAL_DRAMA_3: TtsModel = {
+  id: 'drama-3-official',
+  label: 'Fish Audio Drama 3, official BF16 with FP8 experts',
+  runtime: 'adapter',
+  adapter: 'drama3',
+  steps: null,
+  voiceReference: true,
+  files: checkpoint('fishaudio/drama-3', 'e0a9218aa48888270f06ef1ed9ea67622c0e17d2', [
+    ['config.json', 5_535, '4b13a31b504cf54181f52df5bbb27604f5cc4b77b6e90a12ab85d62e0d70b693'],
+    ['model.safetensors.index.json', 6_880_197, '7a2d824d4b073963a816f0d7e3b2e33bac89ae10c691bf8652325e61abc9f5c0'],
+    ['model-00001-of-00008.safetensors', 5_000_202_800, 'e486b4f438d0b2df28846e41e599bd2077a64a825893ed0371b332a40dc4b49b'],
+    ['model-00002-of-00008.safetensors', 5_000_496_824, 'a67b726fe950ad57ebc15696009bde4a7dbbdc3645b42fa7d77e3a5fa1d70262'],
+    ['model-00003-of-00008.safetensors', 5_000_988_520, 'acfdeb67b8c4cb4784d887339e85bddbc5d7b9be3bbee82e40fa10ffe305d965'],
+    ['model-00004-of-00008.safetensors', 5_000_496_392, 'fa2960bddf128f51c3d4d74a1a942e34f61cc7ea294d10aec27f79dc10455c9f'],
+    ['model-00005-of-00008.safetensors', 5_000_227_096, 'a49ed8717c47e12b354a711c71ecde8be153bad704ca0a25d4805534f4405971'],
+    ['model-00006-of-00008.safetensors', 4_984_792_768, '8867c0e3d600ebf28cf4734fc433dc98061fb990940e07b192ec0356ba1ff223'],
+    ['model-00007-of-00008.safetensors', 4_977_946_704, '51e7d473f8a270bf79b2896a6ea4f19162eeec5b1ea1c5a2ba7dc7750511dbda'],
+    ['model-00008-of-00008.safetensors', 4_638_423_240, 'c5b065cce3b3b851369dfdb5a3b60f6abf2699121071c2b1a9dfd84acb7b8f7d'],
+    ['tokenizer.json', 20_791_070, '0e9b9db76b2f0389b04b6ef057a2ac3b89100b7e96f2dd7034d19580a09654d6'],
+    ['codec.pth', 1_871_099_728, '74fc41c5a7151c6f350af8bd7e5d6e3accfcc7f3dfbfac23afd35af07052bb2f']
+  ]),
+  languages: [
+    'zh', 'en', 'ja', 'ko', 'es', 'pt', 'ar', 'ru', 'fr', 'de', 'sv', 'it', 'tr', 'no', 'nl', 'cy', 'eu', 'ca', 'da', 'gl',
+    'ta', 'hu', 'fi', 'pl', 'et', 'hi', 'la', 'ur', 'th', 'vi', 'jv', 'bn', 'yo', 'sl', 'cs', 'sw', 'nn', 'he', 'ms', 'uk',
+    'id', 'kk', 'bg', 'lv', 'my', 'tl', 'sk', 'ne', 'fa', 'af', 'el', 'bo', 'hr', 'ro', 'sn', 'mi', 'yi', 'am', 'be', 'km',
+    'is', 'az', 'sd', 'br', 'sq', 'ps', 'mn', 'ht', 'ml', 'sr', 'sa', 'te', 'ka', 'bs', 'pa', 'lt', 'kn', 'si', 'hy', 'mr',
+    'as', 'gu', 'fo'
+  ],
+  voices: [],
+  license: 'Fish Audio Community License'
+}
+
 export const TTS_MODELS: readonly TtsModel[] = [
   {
     id: 'qwen3-tts-0.6b',
@@ -563,6 +603,7 @@ export const TTS_MODELS: readonly TtsModel[] = [
   irodoriLarge('irodori-tts-v4-large-f16-16steps', 'Irodori-TTS v4 Large F16, 16 steps', IRODORI_V4_LARGE.f16, 16),
   officialIrodoriLarge('fp32'),
   officialIrodoriLarge('bf16'),
+  OFFICIAL_DRAMA_3,
   mlxIrodoriV41('irodori-tts-v4.1-small-mf-mlx', 'Irodori-TTS v4.1 Small MF, mlx-audio FP16', MLX_IRODORI_MF, null),
   mlxIrodoriV41('irodori-tts-v4.1-small-16steps-mlx', 'Irodori-TTS v4.1 Small, mlx-audio FP16, 16 steps', MLX_IRODORI_RF, 16),
   irodori(40),

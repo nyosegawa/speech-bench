@@ -26,6 +26,9 @@ export const QWEN3_TTS_ADAPTER: Adapter = { id: 'qwen3-tts', implementation: 'qw
  */
 export const QWEN3_ASR_ADAPTER: Adapter = { id: 'qwen3-asr', implementation: 'transformers', script: 'worker.py' }
 
+/** Fish Audio Drama 3 in fish-speech, Fish Audio's own implementation, whose commit is the version. */
+export const DRAMA3_ADAPTER: Adapter = { id: 'drama3', implementation: 'fish-speech', script: 'worker.py' }
+
 /** mlx-audio, which runs ports of many models on Apple's MLX, here for its Irodori-TTS. */
 export const MLX_AUDIO_ADAPTER: Adapter = { id: 'mlx-audio', implementation: 'mlx-audio', script: 'worker.py' }
 

@@ -33,6 +33,16 @@ Qwen3-TTS's adapter runs the CustomVoice checkpoints through `generate_custom_vo
 speech.cpp's reference pins, from the revisions speech.cpp converts, sampled with the checkpoint's
 `generate_config.json`. The run's seed goes to `torch.manual_seed()` before each sentence. It does not stream either.
 
+Drama 3's adapter runs fish-speech at the commit speech.cpp's reference pins, on Linux alone, where the bench rents a
+GPU of 80 GB: fish-speech computes the checkpoint's FP8 experts with Triton kernels on a GPU of SM89 or later, and
+dequantizes them to 70 GB of bfloat16 on any other, which the adapter refuses as another computation. It loads the
+model as fish-speech's API server does, less the sentence the server speaks to warm up, which the run's first
+sentence stands for, and answers each sentence as the server answers a streaming `/v1/tts` request with one
+reference, the run's reference voice with its takes' texts as the transcript, encoded once and kept as the server
+keeps a reference in memory. It samples with the model card's temperature 1.0, top-p 0.9 and top-k 30, the settings
+Fish Audio measured it with and SGLang-Omni's defaults, where fish-speech's server takes 0.7 and 0.7, the Fish Audio
+SDK's defaults for its older model too, when a request gives none.
+
 ## Rejected
 
 - **torch.compile, which Irodori-TTS's runtime offers.** On an Apple M5 through MPS (PyTorch 2.10.0, 2026-10-05) it

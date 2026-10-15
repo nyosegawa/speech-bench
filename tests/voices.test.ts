@@ -14,7 +14,7 @@ const byPath = (file: string): string => `file:${file}`
 function run(reference: string, seed: number, embeddings: number[][], options: { set?: string; misheard?: number; durationScale?: number } = {}): ListenedRun {
   const record = ttsRun({
     startedAt: '2026-10-01T00:00:00Z', set: { name: options.set ?? 'speak-ja-JP-20', locale: 'ja-JP', size: embeddings.length },
-    seed, reference: { name: reference, sha256: '0', seconds: 10 }, durationScale: options.durationScale ?? null,
+    seed, reference: { name: reference, sha256: '0', seconds: 10, transcript: null }, durationScale: options.durationScale ?? null,
     model: { id: 'irodori', label: 'Irodori', license: 'MIT', files: [] },
     machine: { platform: 'win32-x64', hostname: 'pc', os: 'Windows 11', cpu: 'Intel Core i9-9900K', memoryGb: 32, gpus: [{ name: 'RTX 2080', driver: '32.0.15.8180' }], power: null },
     runtime: { id: 'audio.cpp', version: 'v1', build: null, options: {} }

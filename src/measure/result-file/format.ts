@@ -161,7 +161,11 @@ const ttsRunRecord = z.strictObject({
   /** The voice described in words for a model without built-in voices, or null. */
   design: z.strictObject({ id: z.string(), instruction: z.string() }).nullable(),
   /** The reference voice the model spoke like, by name and the sha256 of its WAVE file, or null. */
-  reference: z.strictObject({ name: z.string(), sha256: z.string(), seconds: z.number() }).nullable(),
+  /**
+   * The reference voice, by its name, its WAVE file's sha256 and its length, and the transcript a model that clones a
+   * voice from its words too was given (format 23), null for the others and for a run before.
+   */
+  reference: z.strictObject({ name: z.string(), sha256: z.string(), seconds: z.number(), transcript: z.string().nullable().default(null) }).nullable(),
   /** What the length the model predicted for each sentence was multiplied by, or null when it was left as predicted. */
   durationScale: z.number().nullable(),
   /** The speech recognition model the synthesized audio is transcribed with, to count what it misread. */

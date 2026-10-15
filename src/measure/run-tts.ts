@@ -19,7 +19,7 @@ import { checkSetupFor, DEFAULT_SETUP, deviceOf, filesFor, modelFiles, modelReco
 import { runFile, runFolder } from './runs.ts'
 import { AUDIO_CPP, ensureRuntime, ensureSpeechCpp, releaseOf, runtimeTag, SPEECH_CPP, type RuntimeIdentity } from '../catalog/runtimes.ts'
 import { describeRuntime } from './report.ts'
-import { adapterCommand, adapterVersion, IRODORI_TTS_ADAPTER, MLX_AUDIO_ADAPTER, QWEN3_TTS_ADAPTER, syncAdapter, type Adapter } from '../engines/adapter.ts'
+import { adapterCommand, adapterVersion, DRAMA3_ADAPTER, IRODORI_TTS_ADAPTER, MLX_AUDIO_ADAPTER, QWEN3_TTS_ADAPTER, syncAdapter, type Adapter } from '../engines/adapter.ts'
 import { durationSeconds, encodeWav16, peakNormalize, resample } from '../core/wav.ts'
 
 /** The model the synthesized speech is transcribed with: the most accurate local recognizer measured (FLEURS ja-JP 5.31%, 2026-09-30). */
@@ -100,7 +100,10 @@ async function prepareTts(model: TtsModel, { seed, design, reference, durationSc
   if (model.runtime === 'adapter') {
     if (model.voiceReference && reference === null) throw new Error(`${model.id} has no voice of its own; give it one with --reference`)
     const fileOf = (name: string): string => files[model.files.findIndex((file) => file.file === name)]!
-    const voice = reference === null ? [] : ['--add-voice', `${REFERENCE_VOICE}=${reference.file}`]
+    const voice = reference === null ? [] : [
+      '--add-voice', `${REFERENCE_VOICE}=${reference.file}`,
+      ...(takesTranscript(model) ? ['--voice-text', `${REFERENCE_VOICE}=${reference.transcript}`] : [])
+    ]
     const adapter = SYNTHESIS_ADAPTERS[model.adapter]
     const { args, loadOptions } = adapterRun(model, fileOf, voice)
     const engine = new WorkerTts(adapterCommand(adapter, model.id, args), { voice: reference === null ? null : REFERENCE_VOICE, seed, options: stepsOption(model.steps) })
@@ -112,8 +115,12 @@ async function prepareTts(model: TtsModel, { seed, design, reference, durationSc
   return { engine: new AudioCppTts(audioCpp!, model, gguf, gpuBackend(), runOptions, reference?.file ?? null), runtime: releaseOf(AUDIO_CPP), loadOptions: model.loadOptions[gpuBackend()] ?? {}, remove }
 }
 
+/** Whether the model clones a voice from the words of its reference too, which a run then gives it and records. */
+const takesTranscript = (model: TtsModel): boolean => model.runtime === 'adapter' && model.adapter === 'drama3'
+
 /** The adapter of each synthesis model the catalog runs in one. */
 const SYNTHESIS_ADAPTERS: Record<Extract<TtsModel, { runtime: 'adapter' }>['adapter'], Adapter> = {
+  drama3: DRAMA3_ADAPTER,
   'irodori-tts': IRODORI_TTS_ADAPTER,
   'mlx-audio': MLX_AUDIO_ADAPTER,
   'qwen3-tts': QWEN3_TTS_ADAPTER
@@ -134,8 +141,20 @@ function adapterRun(model: Extract<TtsModel, { runtime: 'adapter' }>, fileOf: (n
     const args = ['--checkpoint', fileOf('model.safetensors'), '--codec', fileOf('weights.pth'), '--device', device, '--precision', model.precision, ...voice]
     return { args, loadOptions: { device, precision: model.precision } }
   }
+  if (model.adapter === 'drama3') {
+    const { temperature, topP, topK } = DRAMA3_SAMPLING
+    const args = ['--checkpoint', path.dirname(fileOf('config.json')), '--device', device, '--temperature', String(temperature), '--top-p', String(topP), ...voice]
+    return { args, loadOptions: { device, precision: 'bf16', experts: 'fp8', temperature: String(temperature), top_p: String(topP), top_k: String(topK) } }
+  }
   return { args: ['--model', path.dirname(fileOf('config.json')), '--device', device], loadOptions: { device, precision: 'bf16' } }
 }
+
+/**
+ * The sampling of Drama 3's model card at the pinned revision, which SGLang-Omni takes by default. fish-speech's server
+ * takes temperature 0.7 and top-p 0.7 when a request gives none, the Fish Audio SDK's defaults for its older model too,
+ * and top-k 30, which a request cannot change.
+ */
+const DRAMA3_SAMPLING = { temperature: 1.0, topP: 0.9, topK: 30 }
 
 const stamp = (date: Date): string => date.toISOString().replace(/[:.]/g, '-')
 
@@ -227,7 +246,7 @@ export async function runTts(model: TtsModel, locale: string, sentences: readonl
     voice,
     seed,
     design: design === null ? null : { id: design.id, instruction: design.instruction },
-    reference: reference === null ? null : { name: reference.name, sha256: reference.sha256, seconds: reference.seconds },
+    reference: reference === null ? null : { name: reference.name, sha256: reference.sha256, seconds: reference.seconds, transcript: takesTranscript(model) ? reference.transcript : null },
     durationScale,
     recognizer: { id: recognizer.id, label: recognizer.label },
     secondRecognizer: second === null ? null : { id: secondRecognizer.id, label: secondRecognizer.label, runtime: describeRuntime({ ...second.runtime, options: {} }) },
