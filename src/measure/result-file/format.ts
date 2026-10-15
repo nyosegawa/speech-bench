@@ -53,10 +53,8 @@ const memoryRecord = z.strictObject({
   peakResidentBytes: z.int(),
   /**
    * The peak of the GPU memory, or null on a machine without GPU memory of its own: `metal` is the memory macOS tags as
-   * graphics, which Metal's driver allocated and the GPU or the CPU has written, `dedicated` the dedicated GPU memory
-   * Windows counts for each process, and `device` the memory in use on Linux's NVIDIA GPUs beyond what they held before
-   * the runtime started, whatever process holds it, since nvidia-smi in a container sees no process of the container's
-   * own (format 22).
+   * graphics, which Metal's driver allocated and the GPU or the CPU has written, and `dedicated` the dedicated GPU
+   * memory Windows counts for each process, or on Linux the memory nvidia-smi lists for each compute process.
    */
   gpu: z.discriminatedUnion('measure', [
     z.strictObject({
@@ -70,8 +68,7 @@ const memoryRecord = z.strictObject({
        */
       peakTotalBytes: z.int().nullable().default(null)
     }),
-    z.strictObject({ measure: z.literal('dedicated'), peakBytes: z.int() }),
-    z.strictObject({ measure: z.literal('device'), peakBytes: z.int() })
+    z.strictObject({ measure: z.literal('dedicated'), peakBytes: z.int() })
   ]).nullable()
 })
 export type MemoryRecord = z.infer<typeof memoryRecord>

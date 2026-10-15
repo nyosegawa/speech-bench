@@ -380,10 +380,8 @@ to stopping it, which the report and the web app's runs page show after the spee
   counters (no administrator rights needed); a machine on which no process holds dedicated GPU memory records none. A
   Mac's GPU shares its memory with the CPU, and its figure is **GPU memory (Metal)**: the memory macOS tags as
   graphics, which Metal's driver allocated for the runtime and the GPU or the CPU has written. A buffer allocated but
-  never written takes no memory and is not counted. On Linux the figure is **VRAM (whole GPU)**: the memory in use on
-  the NVIDIA GPUs beyond what they held before the runtime started, from `nvidia-smi` every 100 ms, whatever process
-  holds it, since `nvidia-smi` in a container sees no process of the container's own (docs/adr/0032); nothing else
-  may use the GPU while it measures.
+  never written takes no memory and is not counted. On Linux VRAM is the memory `nvidia-smi` lists for each of those
+  processes among the GPUs' compute processes, a Vulkan runtime's included (docs/adr/0032).
 - **Memory (RSS + Metal)**: on a Mac, the peak of the two summed in one look, which is what the runtime held of the
   memory the CPU and the GPU share, and the figure to compare runtimes by. Neither part alone compares them: ggml's
   runtimes give Metal buffers of their own memory, which count in RSS, while PyTorch (MPS) and MLX have Metal allocate

@@ -184,11 +184,10 @@ const runtimeOf = (summary: Summary): string => {
 const percent = (rate: number): string => `${(rate * 100).toFixed(2)}%`
 
 /**
- * What each measure of GPU memory is called: the dedicated memory of a discrete GPU is its VRAM, counted for the
- * runtime's processes on Windows and for the whole GPU on Linux, and a Mac's GPU shares its memory with the CPU, so that
- * what Metal's driver allocated is named for Metal.
+ * What each measure of GPU memory is called: the dedicated memory of a discrete GPU is its VRAM, and a Mac's GPU shares
+ * its memory with the CPU, so that what Metal's driver allocated is named for Metal.
  */
-export const GPU_MEMORY_NAMES: Record<NonNullable<MemoryRecord['gpu']>['measure'], string> = { dedicated: 'VRAM', device: 'VRAM (whole GPU)', metal: 'GPU memory (Metal)' }
+export const GPU_MEMORY_NAMES: Record<NonNullable<MemoryRecord['gpu']>['measure'], string> = { dedicated: 'VRAM', metal: 'GPU memory (Metal)' }
 
 const gib = (bytes: number): string => (bytes / 1024 ** 3).toFixed(2)
 

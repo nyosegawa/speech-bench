@@ -78,7 +78,7 @@ const loadAndMemory: Array<Column<RunRow>> = [
     key: 'gpu',
     label: 'VRAM',
     numeric: true,
-    hint: 'The peak GPU memory of the runtime\'s processes: the dedicated memory of a discrete GPU on Windows, the memory in use on the whole GPU beyond what it held before the runtime started on Linux, and on a Mac the memory Metal\'s driver allocated, which a runtime\'s own buffers given to Metal leave out.',
+    hint: 'The peak GPU memory of the runtime\'s processes: the dedicated memory of a discrete GPU on Windows and Linux, and on a Mac the memory Metal\'s driver allocated, which a runtime\'s own buffers given to Metal leave out.',
     value: (row) => row.run.memory?.gpu?.peakBytes ?? Number.POSITIVE_INFINITY,
     cell: (row) => (row.run.memory?.gpu
       ? <div className="tabular-nums whitespace-nowrap">{gib(row.run.memory.gpu.peakBytes)}<div className="text-xs text-muted-foreground">{row.gpuMemory}</div></div>

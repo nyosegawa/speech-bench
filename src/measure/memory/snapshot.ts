@@ -94,16 +94,14 @@ export class PeakMemory {
   }
 
   /**
-   * The peaks as a result records them. A Windows machine on which no process held dedicated GPU memory in any snapshot
-   * has no GPU memory of its own, and records none rather than a zero; every Apple silicon Mac has Metal, and the bench
-   * runs on Linux with an NVIDIA GPU alone.
+   * The peaks as a result records them. A machine on which no process held dedicated GPU memory in any snapshot has
+   * no GPU memory of its own, and records none rather than a zero; every Apple silicon Mac has Metal.
    */
   record(): MemoryRecord {
     if (this.samples === 0) throw new Error('the memory of the runtime\'s processes was never sampled; the runtime may have exited at once')
     const gpu: MemoryRecord['gpu'] = this.gpu === 'metal'
       ? { measure: 'metal', peakBytes: this.peakGpu, peakTotalBytes: this.peakTotal }
-      : this.gpu === 'device' ? { measure: 'device', peakBytes: this.peakGpu }
-        : this.machineGpu ? { measure: 'dedicated', peakBytes: this.peakGpu } : null
+      : this.machineGpu ? { measure: 'dedicated', peakBytes: this.peakGpu } : null
     return { intervalMs: this.intervalMs, samples: this.samples, peakResidentBytes: this.peakResident, gpu }
   }
 }

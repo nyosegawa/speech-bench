@@ -1,4 +1,4 @@
-# A Linux machine is measured with an NVIDIA GPU, whose whole memory in use counts as the runtime's
+# A Linux machine is measured with an NVIDIA GPU, its runtime's VRAM read from nvidia-smi's compute processes
 
 Some models do not fit the bench's own machines, and some GPUs are not among them: Fish Audio Drama 3's official
 implementation computes its FP8 experts with CUDA kernels and needs a GPU of 80 GB, and speech.cpp is to be measured on
@@ -20,19 +20,20 @@ the same code, on the machine that runs it (result format 22):
   found the RTX 5080 only once `libegl1` was installed (2026-10-15).
 - **The resident memory** is each process's RSS with its parent from `/proc/<pid>/stat`, read every 100 ms as `ps`
   is on a Mac, without a tool a slim image may lack.
-- **The GPU memory** (`device`, reported as VRAM (whole GPU)) is the memory in use on all NVIDIA GPUs together, from
-  `nvidia-smi --query-gpu=timestamp,index,memory.used -lms 100`, beyond the first reading, taken before the runtime
-  starts. nvidia-smi gives memory per process only by the machine's pids, which a container's processes do not have,
-  so the whole GPU stands for the runtime's processes; a measurement wants a machine nothing else uses, which a rented
-  container is.
+- **The GPU memory** is VRAM, as on Windows: the memory `nvidia-smi --query-compute-apps=pid,used_memory` lists for
+  each of the runtime's processes, which counts a Vulkan runtime's buffers as it counts CUDA's, asked at every look,
+  which takes about 22 ms. In a container nvidia-smi gives the container's own pids: on a RunPod container (driver
+  580, 2026-10-15) it listed speech.cpp's worker as pid 1429 with 1,351 MiB, while the GPU had 1,655 MiB in use. A pid
+  it lists that the machine does not have stops the run, since a driver that gave the pids of another namespace would
+  leave the runtime's memory at zero.
 - **The GPU power** is read as on Windows, from the nvidia-smi on the `PATH`.
 - **A cold load** is refused on Linux. A copy that no file cache holds needs `/proc/sys/vm/drop_caches`, or `O_DIRECT`
   writes that fail on a file whose size is not a multiple of the block, and a container gives no root for the first.
 
 ## Rejected
 
-- **The memory of each process from `nvidia-smi --query-compute-apps=pid,used_memory`.** Its pids are the machine's,
-  and none of them is a pid the bench sees inside its container.
+- **The memory in use on the whole GPU, beyond what it held before the runtime started.** It counts what the driver
+  holds for others, 304 MiB more than the worker's own in the measurement above, and whatever else runs on the GPU.
 - **Running the adapter in the cloud and the bench on the Mac, with the protocol carried over the network.** The time
   to first audio would hold the round trip across the Pacific, and no process the bench could look at would hold the
   model.

@@ -1,14 +1,14 @@
-import { execFileSync, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
-import readline from 'node:readline'
-import type { Probe } from './probe.ts'
+import { runTool, type Probe } from './probe.ts'
 import type { ProcessRow, Snapshot } from './snapshot.ts'
 
 /**
- * On Linux the resident memory of a process is its RSS, read with its parent from /proc/<pid>/stat, and the GPU memory
- * is the memory in use on the machine's NVIDIA GPUs beyond what they held before the runtime started, read with
- * nvidia-smi. nvidia-smi gives memory per process only by the pids of the machine, which a container's processes do
- * not have, so in a rented container it lists none; the whole GPU is the runtime's on a machine nothing else uses.
+ * On Linux the resident memory of a process is its RSS, read with its parent from /proc/<pid>/stat, and its GPU memory
+ * the memory nvidia-smi lists for it among the GPUs' compute processes, which holds a Vulkan runtime's buffers as it
+ * holds CUDA's. In a container nvidia-smi gives the container's own pids (driver 580, RunPod, 2026-10-15: the worker of
+ * pid 1429 was listed as 1429); a pid it lists that the machine does not have stops the run, since the memory of the
+ * runtime could not be told from another process's.
  */
 
 /**
@@ -42,108 +42,67 @@ function readProcesses(pageBytes: number): ProcessRow[] {
   return rows
 }
 
-/** One line of `nvidia-smi --query-gpu=timestamp,index,memory.used --format=csv,noheader,nounits`, its MiB in bytes. */
-export function parseMemoryLine(line: string): { timestamp: string; index: number; bytes: number } {
-  const [timestamp, index, mib] = line.split(',').map((field) => field.trim())
-  if (!timestamp || !index || !mib || !/^\d+$/.test(index) || !/^\d+$/.test(mib)) throw new Error(`nvidia-smi wrote a line that is not a time, a GPU and its memory in use: ${line}`)
-  return { timestamp, index: Number(index), bytes: Number(mib) * 1024 * 1024 }
-}
-
 /**
- * The memory in use on all GPUs together from nvidia-smi's lines, a reading being the GPUs of one timestamp; it keeps
- * the latest whole reading and the first, which the runtime's memory is counted beyond.
+ * The GPU memory of each process in `nvidia-smi --query-compute-apps=pid,used_memory --format=csv,noheader,nounits`,
+ * in MiB, added up over the GPUs a process holds memory on. It writes nothing when no process holds any.
  */
-export class DeviceMemory {
-  private readonly gpus: number
-  private pending: { timestamp: string; bytes: number; count: number } | null = null
-  first: number | null = null
-  latest: number | null = null
-
-  constructor(gpus: number) {
-    this.gpus = gpus
+export function parseComputeApps(text: string): Map<number, number> {
+  const bytes = new Map<number, number>()
+  for (const line of text.split('\n').filter((row) => row.trim() !== '')) {
+    const [pid, mib] = line.split(',').map((field) => field.trim())
+    if (!pid || !mib || !/^\d+$/.test(pid) || !/^\d+$/.test(mib)) throw new Error(`nvidia-smi wrote a compute process that is not a pid and its memory: ${line}`)
+    bytes.set(Number(pid), (bytes.get(Number(pid)) ?? 0) + Number(mib) * 1024 * 1024)
   }
+  return bytes
+}
 
-  add(line: string): void {
-    const { timestamp, bytes } = parseMemoryLine(line)
-    if (this.pending === null || this.pending.timestamp !== timestamp) this.pending = { timestamp, bytes: 0, count: 0 }
-    this.pending.bytes += bytes
-    this.pending.count++
-    if (this.pending.count === this.gpus) {
-      this.latest = this.pending.bytes
-      this.first ??= this.pending.bytes
-    }
-  }
-
-  /** The memory in use beyond the first reading, never below zero. */
-  beyondFirst(): number {
-    if (this.first === null || this.latest === null) throw new Error('nvidia-smi has given no whole reading of the GPUs\' memory')
-    return Math.max(0, this.latest - this.first)
+/** Fails when nvidia-smi lists a pid the machine does not have, which a look at /proc a moment before found. */
+export function checkPids(gpuBytes: ReadonlyMap<number, number>, processes: readonly ProcessRow[], after: readonly ProcessRow[]): void {
+  const known = new Set([...processes, ...after].map(({ pid }) => pid))
+  for (const pid of gpuBytes.keys()) {
+    if (!known.has(pid)) throw new Error(`nvidia-smi lists GPU memory for pid ${pid}, which is no process of this machine; it counts the pids of another namespace, so the runtime's GPU memory cannot be told`)
   }
 }
 
-/** The time between two readings of the GPUs' memory, as nvidia-smi's `-lms` takes it. */
-const NVIDIA_SMI_MS = 100
-
-/** Looks at /proc every `intervalMs` while nvidia-smi reads the GPUs' memory every 100 ms. */
+/** Looks at /proc and asks nvidia-smi for the GPUs' compute processes, one after the other, which takes about 22 ms. */
 export class LinuxProbe implements Probe {
-  readonly gpu = 'device' as const
+  readonly gpu = 'dedicated' as const
   private readonly intervalMs: number
   private readonly pageBytes: number
-  private readonly gpus: number
-  private child: ChildProcessWithoutNullStreams | null = null
+  private readonly tool: typeof runTool
   private stopped = false
   private loop: Promise<void> | null = null
   private failure: Error | null = null
 
-  constructor(intervalMs: number, gpus: number) {
+  constructor(intervalMs: number, tool: typeof runTool = runTool) {
     this.intervalMs = intervalMs
-    this.gpus = gpus
+    this.tool = tool
     this.pageBytes = Number(execFileSync('getconf', ['PAGESIZE'], { encoding: 'utf8' }).trim())
     if (!Number.isInteger(this.pageBytes) || this.pageBytes <= 0) throw new Error('getconf gave no page size')
   }
 
+  private async look(): Promise<Snapshot> {
+    const processes = readProcesses(this.pageBytes)
+    const listed = await this.tool('nvidia-smi', ['--query-compute-apps=pid,used_memory', '--format=csv,noheader,nounits'])
+    if (listed.status !== 0) throw new Error(`nvidia-smi failed with status ${listed.status}: ${listed.stderr.trim() || listed.stdout.trim()}`)
+    const gpuBytes = parseComputeApps(listed.stdout)
+    // A process that started while nvidia-smi read is in the second look at /proc.
+    checkPids(gpuBytes, processes, gpuBytes.size === 0 ? [] : readProcesses(this.pageBytes))
+    return { processes, gpuBytes, residentAfterGpu: null }
+  }
+
   async start(root: () => number | null, take: (snapshot: Snapshot, root: number | null) => void): Promise<void> {
-    const memory = new DeviceMemory(this.gpus)
-    const child = spawn('nvidia-smi', ['--query-gpu=timestamp,index,memory.used', '--format=csv,noheader,nounits', '-lms', String(NVIDIA_SMI_MS)], { stdio: ['pipe', 'pipe', 'pipe'] })
-    this.child = child
-    let stderr = ''
-    child.stderr.setEncoding('utf8').on('data', (text: string) => { stderr += text })
-    await new Promise<void>((resolve, reject) => {
-      let started = false
-      const fail = (error: Error): void => {
-        if (!started) return reject(error)
-        this.failure ??= error
-      }
-      child.once('error', (error) => fail(new Error(`nvidia-smi could not be started to read the GPUs' memory (${error.message}); the NVIDIA driver installs it`, { cause: error })))
-      child.once('exit', (code) => {
-        if (!this.stopped) fail(new Error(`nvidia-smi stopped reading the GPUs' memory with code ${String(code)}: ${stderr.trim() || 'no message'}`))
-      })
-      readline.createInterface({ input: child.stdout }).on('line', (line) => {
-        if (this.stopped || line.trim() === '') return
-        try {
-          memory.add(line)
-          if (!started && memory.first !== null) {
-            started = true
-            resolve()
-          }
-        } catch (error) {
-          fail(error instanceof Error ? error : new Error(String(error)))
-          child.kill()
-        }
-      })
-    })
-    readProcesses(this.pageBytes)
+    await this.look()
     this.loop = (async () => {
       try {
-        while (!this.stopped && this.failure === null) {
+        while (!this.stopped) {
           const began = performance.now()
           const pid = root()
-          const processes = readProcesses(this.pageBytes)
-          take({ processes, gpuBytes: new Map(pid === null ? [] : [[pid, memory.beyondFirst()]]), residentAfterGpu: null }, pid)
+          take(await this.look(), pid)
           await new Promise((resolve) => setTimeout(resolve, Math.max(0, this.intervalMs - (performance.now() - began))))
         }
       } catch (error) {
-        this.failure ??= error instanceof Error ? error : new Error(String(error))
+        this.failure = error instanceof Error ? error : new Error(String(error))
       }
     })()
   }
@@ -151,13 +110,6 @@ export class LinuxProbe implements Probe {
   async stop(): Promise<void> {
     this.stopped = true
     await this.loop
-    const child = this.child
-    if (child && child.exitCode === null) {
-      await new Promise((resolve) => {
-        child.once('exit', resolve)
-        child.kill()
-      })
-    }
     if (this.failure) throw this.failure
   }
 }

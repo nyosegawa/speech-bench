@@ -27,10 +27,10 @@ export class MemorySampler {
   }
 
   /** Starts sampling on `machine`, once the tools it reads have answered. */
-  static async start(root: () => number | null, machine: Pick<MachineInfo, 'platform' | 'gpus'>): Promise<MemorySampler> {
+  static async start(root: () => number | null, machine: Pick<MachineInfo, 'platform'>): Promise<MemorySampler> {
     const probe = machine.platform === 'darwin-arm64'
       ? new MacProbe(INTERVAL_MS)
-      : machine.platform === 'win32-x64' ? new WindowsProbe(INTERVAL_MS) : new LinuxProbe(INTERVAL_MS, machine.gpus.length)
+      : machine.platform === 'win32-x64' ? new WindowsProbe(INTERVAL_MS) : new LinuxProbe(INTERVAL_MS)
     const sampler = new MemorySampler(probe)
     await probe.start(root, (snapshot, pid) => sampler.peak.add(snapshot, pid))
     return sampler
