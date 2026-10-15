@@ -152,7 +152,8 @@ def main():
             raise RuntimeError(f"{torch.cuda.get_device_name()} has no FP8 tensor cores (SM89 or later), on which the official implementation computes Drama 3's experts")
         precision = resolve_drama3_dtype(torch.bfloat16, [*devices, tower_device])
         queue = launch_thread_safe_queue(checkpoint_path=args.checkpoint, device=args.device, precision=precision, compile=False)
-        codec = load_codec_model(resolve_codec_path(args.checkpoint, None), tower_device, precision)
+        # Named, so that resolve_codec_path() does not look for the S2-Pro codec beside the folder when it is missing.
+        codec = load_codec_model(resolve_codec_path(args.checkpoint, os.path.join(args.checkpoint, "codec.pth")), tower_device, precision)
         engine = TTSInferenceEngine(llama_queue=queue, decoder_model=codec, precision=precision, compile=False, model_family="drama3")
         texts = dict(entry.split("=", 1) for entry in args.voice_text)
         voices = {}
