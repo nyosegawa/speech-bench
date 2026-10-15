@@ -26,7 +26,7 @@ function writeRun(id: string, run: RunRecord): void {
 describe('voiceRuns', () => {
   it('tells the takes gathered from the description from the tries of its candidates', () => {
     writeRun('gathered', ttsRun({ design: { id: 'calm', instruction: '落ち着いた声' } }))
-    writeRun('tried', ttsRun({ reference: { name: 'calm-candidate-1', sha256: 'a'.repeat(64), seconds: 10 } }))
+    writeRun('tried', ttsRun({ reference: { name: 'calm-candidate-1', sha256: 'a'.repeat(64), seconds: 10, transcript: null } }))
     joinCampaign(voiceCampaign('calm'), 'gathered')
     joinCampaign(voiceCampaign('calm'), 'tried')
     expect(voiceRuns('calm')).toEqual({ gathered: [runFile('gathered')], tried: [runFile('tried')] })

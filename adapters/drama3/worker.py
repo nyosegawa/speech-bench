@@ -147,11 +147,17 @@ def main():
         version = json.loads(importlib.metadata.distribution("fish-speech").read_text("direct_url.json"))["vcs_info"]["commit_id"]
         if not torch.cuda.is_available():
             raise RuntimeError(f"PyTorch {torch.__version__} finds no CUDA device; install the NVIDIA driver")
-        devices, tower_device = resolve_drama3_devices(args.device)
+        # One GPU, where fish-speech's "cuda" spreads the model over up to four.
+        devices, tower_device = resolve_drama3_devices("cuda:0")
         if not fp8_gemm_supported(devices):
             raise RuntimeError(f"{torch.cuda.get_device_name()} has no FP8 tensor cores (SM89 or later), on which the official implementation computes Drama 3's experts")
+        # fish-speech keeps the experts in FP8 where it can unless this variable says otherwise; set, it refuses to load
+        # rather than dequantize them, so that the run never computes otherwise than it records.
+        os.environ["FISH_DRAMA3_FP8_EXPERTS"] = "1"
         precision = resolve_drama3_dtype(torch.bfloat16, [*devices, tower_device])
-        queue = launch_thread_safe_queue(checkpoint_path=args.checkpoint, device=args.device, precision=precision, compile=False)
+        if precision != torch.bfloat16:
+            raise RuntimeError(f"fish-speech would run Drama 3 in {precision} on {torch.cuda.get_device_name()}, where the run records bfloat16")
+        queue = launch_thread_safe_queue(checkpoint_path=args.checkpoint, device="cuda:0", precision=precision, compile=False)
         # Named, so that resolve_codec_path() does not look for the S2-Pro codec beside the folder when it is missing.
         codec = load_codec_model(resolve_codec_path(args.checkpoint, os.path.join(args.checkpoint, "codec.pth")), tower_device, precision)
         engine = TTSInferenceEngine(llama_queue=queue, decoder_model=codec, precision=precision, compile=False, model_family="drama3")

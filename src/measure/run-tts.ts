@@ -102,7 +102,7 @@ async function prepareTts(model: TtsModel, { seed, design, reference, durationSc
     const fileOf = (name: string): string => files[model.files.findIndex((file) => file.file === name)]!
     const voice = reference === null ? [] : [
       '--add-voice', `${REFERENCE_VOICE}=${reference.file}`,
-      ...(model.adapter === 'drama3' ? ['--voice-text', `${REFERENCE_VOICE}=${reference.transcript}`] : [])
+      ...(takesTranscript(model) ? ['--voice-text', `${REFERENCE_VOICE}=${reference.transcript}`] : [])
     ]
     const adapter = SYNTHESIS_ADAPTERS[model.adapter]
     const { args, loadOptions } = adapterRun(model, fileOf, voice)
@@ -114,6 +114,9 @@ async function prepareTts(model: TtsModel, { seed, design, reference, durationSc
   const runOptions = { ...(seed === null ? {} : { seed }), ...(design === null ? {} : { instruction: design.instruction }), ...(durationScale === null ? {} : { duration_scale: durationScale }) }
   return { engine: new AudioCppTts(audioCpp!, model, gguf, gpuBackend(), runOptions, reference?.file ?? null), runtime: releaseOf(AUDIO_CPP), loadOptions: model.loadOptions[gpuBackend()] ?? {}, remove }
 }
+
+/** Whether the model clones a voice from the words of its reference too, which a run then gives it and records. */
+const takesTranscript = (model: TtsModel): boolean => model.runtime === 'adapter' && model.adapter === 'drama3'
 
 /** The adapter of each synthesis model the catalog runs in one. */
 const SYNTHESIS_ADAPTERS: Record<Extract<TtsModel, { runtime: 'adapter' }>['adapter'], Adapter> = {
@@ -243,7 +246,7 @@ export async function runTts(model: TtsModel, locale: string, sentences: readonl
     voice,
     seed,
     design: design === null ? null : { id: design.id, instruction: design.instruction },
-    reference: reference === null ? null : { name: reference.name, sha256: reference.sha256, seconds: reference.seconds },
+    reference: reference === null ? null : { name: reference.name, sha256: reference.sha256, seconds: reference.seconds, transcript: takesTranscript(model) ? reference.transcript : null },
     durationScale,
     recognizer: { id: recognizer.id, label: recognizer.label },
     secondRecognizer: second === null ? null : { id: secondRecognizer.id, label: secondRecognizer.label, runtime: describeRuntime({ ...second.runtime, options: {} }) },

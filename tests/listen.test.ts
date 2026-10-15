@@ -15,7 +15,7 @@ function run(model: string, startedAt: string, options: RunOptions = {}): Listen
   const record = ttsRun({
     startedAt, set: { name: options.set ?? 'speak-ja-JP-20', locale: 'ja-JP', size: 1 }, seed: options.seed ?? null,
     design: options.design === undefined ? null : { id: options.design, instruction: `${options.design} instruction` },
-    reference: options.reference === undefined ? null : { name: options.reference, sha256: '0', seconds: 30 },
+    reference: options.reference === undefined ? null : { name: options.reference, sha256: '0', seconds: 30, transcript: null },
     durationScale: options.durationScale ?? null,
     model: { id: model, label: `${model} label`, license: 'MIT', files: [] },
     machine: { platform: 'darwin-arm64', hostname: 'mac', os: 'macOS 26.2', cpu: 'Apple M5', memoryGb: 32, gpus: [{ name: options.gpu ?? 'Apple M5', driver: null }], power: null },
