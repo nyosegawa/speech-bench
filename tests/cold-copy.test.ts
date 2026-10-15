@@ -23,7 +23,8 @@ describe('cold copies of model files', () => {
     fs.rmSync(data, { recursive: true, force: true })
   })
 
-  it('keeps each file\'s place below the folder they share, with its contents, and removes the copies', () => {
+  // Linux makes no cold copy: an uncached copy there needs root.
+  it.skipIf(process.platform === 'linux')('keeps each file\'s place below the folder they share, with its contents, and removes the copies', () => {
     const model = path.join(data, 'models', 'repo', 'rev')
     fs.mkdirSync(path.join(model, 'speech_tokenizer'), { recursive: true })
     fs.writeFileSync(path.join(model, 'config.json'), '{"a":1}')
