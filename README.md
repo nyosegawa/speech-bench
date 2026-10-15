@@ -312,6 +312,18 @@ into `adapters/` of the data folder on the first run, before the timing starts; 
 cache (`UV_CACHE_DIR`), about 2.9 GB for each CUDA build of PyTorch. Neither official implementation streams, so the
 first audio arrives with the last.
 
+`adapters/sglang-omni/` serves Drama 3 with SGLang Omni, the server of Fish Audio's cookbook, as `drama-3-sglang`, the
+official checkpoint in BF16 with the experts in FP8, and `drama-3-int4-sglang`, fishaudio/drama-3-int4, an unofficial
+GPTQ quantization whose experts and attention projections run in int4 as W4A16 (24.0 GB of files against 41.5 GB). It
+runs on Linux x64 alone, with glibc 2.34 or later and an NVIDIA GPU whose driver runs CUDA 13 (580 or later), since
+SGLang Omni's packages are built for CUDA 13, and its environment is about 5 GB of wheels to download. The adapter
+starts `sgl-omni serve` on the checkpoint, encodes the reference voice with a short request before it reports ready,
+and streams each sentence from `/v1/audio/speech` as the server sends it, with the reference's WAVE file, the texts of
+its takes as its transcript, and the model card's sampling. SGLang Omni takes no seed for Drama 3, so these entries
+run without `--seeds`. The server's engine fills 0.70 of the GPU's memory with the weights and a KV cache, whatever one
+sentence needs, beside budgets of 0.10 for its vocoder and 6 GiB for its preprocessing, so the VRAM a run records is
+mostly that share. Both checkpoints are under the Fish Audio Community License.
+
 `adapters/mlx-audio/` runs mlx-audio's port of Irodori-TTS v4.1 on the Mac's GPU through MLX, from
 mlx-community's FP16 conversions. `generate()` encodes the reference for every sentence, so the adapter keeps
 the latent of the voice it loaded and hands it back; mlx-audio does not stream Irodori-TTS either. Called in one
@@ -497,6 +509,7 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 | Qwen3-TTS 0.6B and 1.7B CustomVoice, official | Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice at 85e237c1 and Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice at 0c0e3051, in qwen-tts at 022e286b with the packages of `adapters/qwen3-tts/uv.lock` |
 | Qwen3-ASR 0.6B and 1.7B, official | Qwen/Qwen3-ASR-0.6B at 5eb14417 and Qwen/Qwen3-ASR-1.7B at 7278e1e7, in transformers 5.18.0 with qwen-asr 0.0.6 and the packages of `adapters/qwen3-asr/uv.lock` |
 | Fish Audio Drama 3, official | fishaudio/drama-3 at e0a9218a, in fish-speech at 54156693 with the packages of `adapters/drama3/uv.lock` |
+| Fish Audio Drama 3 in SGLang Omni | fishaudio/drama-3 at e0a9218a and fishaudio/drama-3-int4 at a6f58869, in SGLang Omni at 549dd1b9 with the packages of `adapters/sglang-omni/uv.lock`, SGLang 0.5.21 and PyTorch 2.13.0 among them |
 | PyTorch for the official implementations | PyPI's on a Mac and on Linux, where it is a CUDA build; on Windows the CUDA 12.8 build from PyTorch's index, pinned in each adapter's lock file |
 | NeMo-Speech.cpp | v0.2.0, `nemo-speech serve` |
 | parakeet-tdt-0.6b-v3 and ReazonSpeech NeMo v2 in NeMo-Speech.cpp | nvidia/parakeet-tdt-0.6b-v3 and reazon-research/reazonspeech-nemo-v2, the `.nemo` checkpoints speech.cpp's files were converted from, converted to F16 by NeMo-Speech.cpp's `convert_model.py` at v0.2.0 (6a3ca369) with the packages of `converters/nemo-speech.cpp/uv.lock`, and pinned by the size and sha256 of the result |

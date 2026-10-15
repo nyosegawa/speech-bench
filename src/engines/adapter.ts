@@ -14,6 +14,8 @@ export interface Adapter {
   /** The package of the implementation, named in the project's dependencies with the commit or release it is pinned to. */
   implementation: string
   script: string
+  /** How long the adapter may take to become ready, where its loading takes longer than a worker's usually does. */
+  readySeconds?: number
 }
 
 export const IRODORI_TTS_ADAPTER: Adapter = { id: 'irodori-tts', implementation: 'irodori-tts', script: 'worker.py' }
@@ -29,6 +31,13 @@ export const QWEN3_ASR_ADAPTER: Adapter = { id: 'qwen3-asr', implementation: 'tr
 /** Fish Audio Drama 3 in fish-speech, Fish Audio's own implementation, whose commit is the version. */
 export const DRAMA3_ADAPTER: Adapter = { id: 'drama3', implementation: 'fish-speech', script: 'worker.py' }
 
+/**
+ * Fish Audio Drama 3 served by SGLang Omni, the server of Fish Audio's cookbook, whose commit is the version. The
+ * adapter gives the server 1800 s to start, as SGLang Omni's benchmark guides give a cold start, and then encodes each
+ * voice with a short request; it is given longer, so that its own `fatal` names a server that does not start.
+ */
+export const SGLANG_OMNI_ADAPTER: Adapter = { id: 'sglang-omni', implementation: 'sglang-omni', script: 'worker.py', readySeconds: 2100 }
+
 /** mlx-audio, which runs ports of many models on Apple's MLX, here for its Irodori-TTS. */
 export const MLX_AUDIO_ADAPTER: Adapter = { id: 'mlx-audio', implementation: 'mlx-audio', script: 'worker.py' }
 
@@ -38,13 +47,15 @@ const folderOf = (adapter: Adapter): string => path.join(import.meta.dirname, '.
 const environmentOf = (adapter: Adapter): Record<string, string> => ({ UV_PROJECT_ENVIRONMENT: path.join(dataDir(), 'adapters', adapter.id) })
 
 /**
- * The version of `implementation` that the text of a pyproject.toml pins among its dependencies: the commit of a git
- * dependency, shortened, or the pin of a release, which names the package, since the adapter's id may name another.
+ * The version of `implementation` that the text of a pyproject.toml pins among its dependencies, with or without
+ * extras: the commit of a git dependency, shortened, or the pin of a release, which names the package, since the
+ * adapter's id may name another.
  */
 export function pinnedVersion(project: string, implementation: string): string {
-  const commit = new RegExp(`"${implementation} @ git\\+[^@"]+@([0-9a-f]{40})"`).exec(project)
+  const named = `"${implementation}(?:\\[[^\\]"]*\\])?`
+  const commit = new RegExp(`${named} @ git\\+[^@"]+@([0-9a-f]{40})"`).exec(project)
   if (commit) return commit[1]!.slice(0, 12)
-  const release = new RegExp(`"${implementation}==([^",;\\s]+)"`).exec(project)
+  const release = new RegExp(`${named}==([^",;\\s]+)"`).exec(project)
   if (release) return `${implementation}==${release[1]!}`
   throw new Error(`the project does not pin ${implementation} to a commit or a release`)
 }
@@ -80,5 +91,6 @@ export const adapterCommand = (adapter: Adapter, name: string, args: readonly st
   executable: 'uv',
   // --no-sync implies --frozen: the worker runs in the environment syncAdapter() installed from the lock file.
   args: ['run', '--no-sync', '--project', folderOf(adapter), 'python', path.join(folderOf(adapter), adapter.script), ...args],
-  env: { ...environmentOf(adapter), HF_HUB_OFFLINE: '1' }
+  env: { ...environmentOf(adapter), HF_HUB_OFFLINE: '1' },
+  readySeconds: adapter.readySeconds
 })
