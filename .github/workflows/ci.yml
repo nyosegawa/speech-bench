@@ -30,7 +30,7 @@ jobs:
           python-version: '3.13'
       # GNU tar reads no zip; the bench unpacks the runtimes' archives on Linux with libarchive's bsdtar.
       - if: runner.os == 'Linux'
-        run: sudo apt-get install -y libarchive-tools
+        run: sudo apt-get update && sudo apt-get install -y libarchive-tools
       - run: npm ci
       - run: npm --prefix web ci
       - run: npm run typecheck
