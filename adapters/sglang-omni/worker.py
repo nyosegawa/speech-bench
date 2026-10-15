@@ -41,6 +41,7 @@ import signal
 import socket
 import subprocess
 import sys
+import sysconfig
 import time
 import traceback
 
@@ -124,6 +125,31 @@ def free_port():
         return probe.getsockname()[1]
 
 
+def cuda_home():
+    """
+    A CUDA toolkit made of the one PyTorch's CUDA 13 wheels install in the environment, or None where they hold no nvcc.
+    SGLang imports DeepGEMM on a GPU of SM90 or later, which asserts that it finds a toolkit and stops the server with an
+    AssertionError SGLang does not catch, and SGLang builds kernels on the server's first start that link
+    $CUDA_HOME/lib64/libcudart.so; the wheels keep only lib/libcudart.so.13, and a machine without a toolkit of its own,
+    such as RunPod's base image, then has neither (2026-10-16). The folder links the wheels' bin, include and nvvm, and
+    their libraries under lib64 with libcudart.so beside them, and leaves the wheels as they are.
+    """
+    wheels = os.path.join(sysconfig.get_paths()["purelib"], "nvidia", "cu13")
+    if not os.path.exists(os.path.join(wheels, "bin", "nvcc")):
+        return None
+    home = os.path.join(sys.prefix, "cuda-home")
+    os.makedirs(os.path.join(home, "lib64"), exist_ok=True)
+    links = {name: os.path.join(wheels, name) for name in ("bin", "include", "nvvm") if os.path.exists(os.path.join(wheels, name))}
+    for name in os.listdir(os.path.join(wheels, "lib")):
+        links[os.path.join("lib64", name)] = os.path.join(wheels, "lib", name)
+    links[os.path.join("lib64", "libcudart.so")] = os.path.join(wheels, "lib", "libcudart.so.13")
+    for name, target in links.items():
+        path = os.path.join(home, name)
+        if not os.path.lexists(path):
+            os.symlink(target, path)
+    return home
+
+
 def start_server(checkpoint, port):
     """Starts `sgl-omni serve` in a process group of its own, which its stages' processes join."""
     command = [
@@ -132,6 +158,10 @@ def start_server(checkpoint, port):
     ]
     # Without SGLANG_OMNI_STRICT_PORT the server takes another port when the one given is taken, where no one asks.
     environment = {**os.environ, "SGLANG_OMNI_STRICT_PORT": "1", "SGLANG_OMNI_STARTUP_TIMEOUT": str(START_SECONDS)}
+    if "CUDA_HOME" not in environment:
+        home = cuda_home()
+        if home is not None:
+            environment["CUDA_HOME"] = home
     return subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=sys.stderr, stderr=sys.stderr, env=environment, start_new_session=True)
 
 
