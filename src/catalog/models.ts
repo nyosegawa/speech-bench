@@ -562,7 +562,8 @@ const OFFICIAL_DRAMA_3: TtsModel = {
 }
 
 /**
- * Fish Audio Drama 3 in speech.cpp, one GGUF file with its codec inside, which speech.cpp 0.8.8 and later read. It
+ * Fish Audio Drama 3 in speech.cpp, one GGUF file of each weight type with its codec inside, which speech.cpp 0.8.8 and
+ * later read; speech.cpp's name `drama-3` fetches the Q4_K file, which `drama-3` is here too. It
  * clones the run's reference voice from a voice file made of the reference's WAVE file and the words of its takes, and
  * samples with the file's defaults, the model card's temperature 1.0, top-p 0.9 and top-k 30, as the official entry
  * does. A GPU without the memory for the whole file keeps the experts of the later layers on the CPU. It is under the
@@ -580,7 +581,11 @@ const drama3 = (id: string, label: string, file: PinnedFile): TtsModel => ({
   license: OFFICIAL_DRAMA_3.license
 })
 const DRAMA_3 = {
-  q4_k: model('sakasegawa/drama-3-GGUF', 'PENDING', 'Drama-35B-A3B-v3-Q4_K.gguf', 20_787_264_352, '2a57b14c9b208a2ff833ab7305b920ca8f154ad807004a52d96a86a90a55523e')
+  q4_k: model('sakasegawa/drama-3-GGUF', 'b6fa51cff778b69e72ee4994f85311b4c5ab6bc5', 'Drama-35B-A3B-v3-Q4_K.gguf', 20_787_264_352, '2a57b14c9b208a2ff833ab7305b920ca8f154ad807004a52d96a86a90a55523e'),
+  f16: model('sakasegawa/drama-3-GGUF', 'b6fa51cff778b69e72ee4994f85311b4c5ab6bc5', 'Drama-35B-A3B-v3-F16.gguf', 71_612_483_232, '99f63d2f1d5c6af1b113518f74bab17fdcbcf306c6c4bed40669f665092d3491'),
+  q8_0: model('sakasegawa/drama-3-GGUF', 'b6fa51cff778b69e72ee4994f85311b4c5ab6bc5', 'Drama-35B-A3B-v3-Q8_0.gguf', 38_465_601_376, 'db0b1f195b4e49183ef5aa84de8af78bb8f873bcdab73ef60931598bc7b95da8'),
+  q6_k: model('sakasegawa/drama-3-GGUF', 'b6fa51cff778b69e72ee4994f85311b4c5ab6bc5', 'Drama-35B-A3B-v3-Q6_K.gguf', 29_902_656_896, 'bb232b7ac08cffc5cd5f21a69e37bdbf198351c45433fd57e156992da934f9fe'),
+  q5_k: model('sakasegawa/drama-3-GGUF', 'b6fa51cff778b69e72ee4994f85311b4c5ab6bc5', 'Drama-35B-A3B-v3-Q5_K.gguf', 25_206_848_608, '3a26462bf34e504df5026193563910338be3140e243a516e1b8661e18037c21a')
 }
 
 export const TTS_MODELS: readonly TtsModel[] = [
@@ -626,6 +631,10 @@ export const TTS_MODELS: readonly TtsModel[] = [
   officialIrodoriLarge('fp32'),
   officialIrodoriLarge('bf16'),
   drama3('drama-3', 'Fish Audio Drama 3 Q4_K', DRAMA_3.q4_k),
+  drama3('drama-3-f16', 'Fish Audio Drama 3 F16', DRAMA_3.f16),
+  drama3('drama-3-q8_0', 'Fish Audio Drama 3 Q8_0', DRAMA_3.q8_0),
+  drama3('drama-3-q6_k', 'Fish Audio Drama 3 Q6_K', DRAMA_3.q6_k),
+  drama3('drama-3-q5_k', 'Fish Audio Drama 3 Q5_K', DRAMA_3.q5_k),
   OFFICIAL_DRAMA_3,
   mlxIrodoriV41('irodori-tts-v4.1-small-mf-mlx', 'Irodori-TTS v4.1 Small MF, mlx-audio FP16', MLX_IRODORI_MF, null),
   mlxIrodoriV41('irodori-tts-v4.1-small-16steps-mlx', 'Irodori-TTS v4.1 Small, mlx-audio FP16, 16 steps', MLX_IRODORI_RF, 16),

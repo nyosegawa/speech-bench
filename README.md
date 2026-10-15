@@ -104,7 +104,7 @@ folder `SPEECH_BENCH_DATA` names.
   runtimes/    llama.cpp, CrispASR, speech.cpp, NeMo-Speech.cpp and audio.cpp releases, and speech.cpp's CI builds by run
   recordings/  your recordings, <locale>/<speaker>/manifest.jsonl
   references/  reference voices made from synthesized takes, <name>.wav and <name>.json
-  voice-files/ Irodori-TTS voice files made from the references for speech.cpp, by reference, codec and release or build
+  voice-files/ voice files made from the references for speech.cpp, by reference, codec and release or build
   adapters/    the Python environments of the adapters
   cold/        copies of model files for a cold load, while the run lasts
   logs/        server output
@@ -288,10 +288,12 @@ Runtimes run as a process, speech.cpp's worker among them, are reached through s
 another protocol, or one that answers a request it was not sent or answers one twice, stops the run. Irodori-TTS
 v4.1 and v4 Large in speech.cpp have no voice of their own and need `--reference`; v4 Large's files
 (`irodori-tts-v4-large`, `-16steps` and `-f16-16steps`) need speech.cpp 0.8.7 or a later build, which
-`SPEECH_BENCH_SPEECH_CPP` names until the pinned release reads them. The reference goes to the worker as a voice
-file, which `speech voice` makes once on the CPU and `voice-files/` keeps by the reference, the codec the model
-file names and the release of speech.cpp, so that a release that refuses the voice files of the ones before it,
-as v0.7.0 does, makes its own from the reference.
+`SPEECH_BENCH_SPEECH_CPP` names until the pinned release reads them. Fish Audio Drama 3 in speech.cpp (`drama-3`,
+the Q4_K file, under the Fish Audio Community License) needs speech.cpp 0.8.8 or a later build and `--reference` too.
+The reference goes to the worker as a voice file, which `speech voice` makes once on the CPU, with the texts of the
+reference's takes for a model that clones a voice from its words as Drama 3 does, and `voice-files/` keeps by the
+reference, the codec the model file names and the release of speech.cpp, so that a release that refuses the voice
+files of the ones before it, as v0.7.0 does, makes its own from the reference.
 
 A model's official implementation runs in an adapter of the bench's own that speaks the same protocol
 (docs/adr/0012), on the GPU: through MPS on a Mac and through CUDA on Windows, where an adapter that finds no CUDA
