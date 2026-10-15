@@ -64,9 +64,10 @@ export async function sha256Of(file: string): Promise<string> {
   return hash.digest('hex')
 }
 
-// The tar.exe of Windows is bsdtar, which reads zip like the tar of macOS. The GNU tar of Git Bash, often
-// first on a developer's PATH, cannot.
+// The tar.exe of Windows is bsdtar, which reads zip like the tar of macOS. GNU tar, Linux's and Git Bash's, often
+// first on a developer's PATH, cannot, so on Linux the bench runs libarchive's bsdtar.
 function tarCommand(): string {
+  if (process.platform === 'linux') return 'bsdtar'
   if (process.platform !== 'win32') return 'tar'
   if (!process.env.SystemRoot) throw new Error('SystemRoot is not set, so the tar.exe of Windows cannot be found')
   return path.join(process.env.SystemRoot, 'System32', 'tar.exe')
@@ -75,5 +76,11 @@ function tarCommand(): string {
 /** Unpacks a .tar.gz or .zip archive into dir, or only the named members of it. */
 export function extractArchive(archive: string, dir: string, members: string[] = []): void {
   fs.mkdirSync(dir, { recursive: true })
-  execFileSync(tarCommand(), ['-xf', archive, '-C', dir, ...members], { stdio: 'inherit', windowsHide: true })
+  const command = tarCommand()
+  try {
+    execFileSync(command, ['-xf', archive, '-C', dir, ...members], { stdio: 'inherit', windowsHide: true })
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') throw new Error(`${command} is not installed; on Linux it comes with libarchive-tools`, { cause: error })
+    throw error
+  }
 }

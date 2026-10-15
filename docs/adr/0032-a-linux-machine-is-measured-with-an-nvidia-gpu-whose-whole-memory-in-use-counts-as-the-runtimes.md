@@ -12,7 +12,12 @@ the same code, on the machine that runs it (result format 22):
 - **The runtimes.** speech.cpp and llama.cpp run their Vulkan builds, which their releases publish for Linux x64, and
   sherpa-onnx its npm package for Linux x64. A runtime without a Linux archive (CrispASR, NeMo-Speech.cpp, audio.cpp,
   mlx-audio) stops the run, naming the systems it runs on. An official implementation runs on CUDA with PyPI's
-  PyTorch, which is a CUDA build on Linux, where its adapter's lock file includes Linux.
+  PyTorch, which is a CUDA build on Linux, where its adapter's lock file includes Linux. The zip archives are unpacked
+  with libarchive's `bsdtar`, as macOS's and Windows' `tar` are bsdtar, since GNU tar reads no zip.
+- **The driver's Vulkan in a container.** NVIDIA's driver 580 loads `libEGL.so.1` when Vulkan starts, and without it
+  its ICD gives the loader no `vkCreateInstance`, so the loader passes it over and finds no NVIDIA device, with a newer
+  loader too: on a RunPod container of Ubuntu 22.04 with `graphics` among its driver capabilities, `speech devices`
+  found the RTX 5080 only once `libegl1` was installed (2026-10-15).
 - **The resident memory** is each process's RSS with its parent from `/proc/<pid>/stat`, read every 100 ms as `ps`
   is on a Mac, without a tool a slim image may lack.
 - **The GPU memory** (`device`, reported as VRAM (whole GPU)) is the memory in use on all NVIDIA GPUs together, from

@@ -11,8 +11,10 @@ makes voices for models that have none built in, from a description and lines in
 
 - macOS on Apple Silicon, Windows x64 with a discrete GPU, or Linux x64 with an NVIDIA GPU and its driver
   (`nvidia-smi`); on Linux speech.cpp and llama.cpp run their Vulkan builds, which need the Vulkan loader
-  (`libvulkan.so.1`) and, in a container, the driver's Vulkan, which `NVIDIA_DRIVER_CAPABILITIES` including `graphics`
-  (or `all`) gives it; CrispASR, NeMo-Speech.cpp, audio.cpp and mlx-audio do not run there
+  (`libvulkan.so.1`) and `libEGL.so.1`, which NVIDIA's Vulkan driver loads and without which it does not start
+  (Ubuntu's `libvulkan1` and `libegl1`), and, in a container, the driver's Vulkan, which `NVIDIA_DRIVER_CAPABILITIES`
+  including `graphics` (or `all`) gives it, and the bench unpacks the runtimes' zip archives with `bsdtar`
+  (`libarchive-tools`), since GNU tar reads no zip; CrispASR, NeMo-Speech.cpp, audio.cpp and mlx-audio do not run there
 - Node.js 22.18 or later (TypeScript runs directly through type stripping)
 - [uv](https://docs.astral.sh/uv/) 0.11 or later, only for the implementations the adapters run (the official ones of Irodori-TTS,
   Qwen3-TTS and Qwen3-ASR, and mlx-audio) and for NeMo-Speech.cpp's converter, and Git, which fetches the converter;
