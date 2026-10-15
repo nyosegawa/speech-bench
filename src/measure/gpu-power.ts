@@ -36,7 +36,11 @@ export function powerOf(readings: readonly PowerReading[]): GpuPowerRecord {
 
 /** Whether the machine has an NVIDIA GPU, whose power nvidia-smi reads; on others the power is not measured. */
 export const hasNvidiaGpu = (machine: Pick<MachineInfo, 'platform' | 'gpus'>): boolean =>
-  machine.platform === 'win32-x64' && machine.gpus.some((gpu) => /\bNVIDIA\b/i.test(gpu.name))
+  machine.platform !== 'darwin-arm64' && machine.gpus.some((gpu) => /\bNVIDIA\b/i.test(gpu.name))
+
+/** nvidia-smi as the NVIDIA driver installs it: in System32 on Windows, which a shell's PATH may not reach, and on the PATH on Linux. */
+const nvidiaSmi = (platform: MachineInfo['platform']): string =>
+  platform === 'win32-x64' ? path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'nvidia-smi.exe') : 'nvidia-smi'
 
 /** Reads the power of the machine's NVIDIA GPUs through nvidia-smi while a runtime runs. */
 export class GpuPowerSampler {
@@ -50,9 +54,8 @@ export class GpuPowerSampler {
   }
 
   /** Starts reading, once nvidia-smi has given its first reading; it fails when nvidia-smi is missing or cannot read. */
-  static start(): Promise<GpuPowerSampler> {
-    // The driver installs nvidia-smi in System32, which a shell's PATH may not reach.
-    const executable = path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'nvidia-smi.exe')
+  static start(platform: MachineInfo['platform']): Promise<GpuPowerSampler> {
+    const executable = nvidiaSmi(platform)
     const child = spawn(executable, ['--query-gpu=timestamp,index,power.draw', '--format=csv,noheader,nounits', `-lms`, String(INTERVAL_MS)], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
     return GpuPowerSampler.reading(child, executable)
   }

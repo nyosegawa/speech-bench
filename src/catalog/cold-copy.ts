@@ -32,8 +32,10 @@ export function commonFolder(files: readonly string[]): string {
 }
 
 function copyCold(source: string, target: string): void {
+  const platform = platformKey()
+  if (platform === 'linux-x64') throw new Error('a cold load is measured on macOS and Windows; on Linux, measure the load as the system finds the files')
   fs.mkdirSync(path.dirname(target), { recursive: true })
-  if (platformKey() === 'darwin-arm64') {
+  if (platform === 'darwin-arm64') {
     const copied = spawnSync('cp', ['-c', source, target], { encoding: 'utf8', windowsHide: true })
     if (copied.status !== 0) throw new Error(`cp -c could not clone ${source} (${copied.stderr.trim()}); a cold load needs the model files on the APFS volume of the data folder`)
     return

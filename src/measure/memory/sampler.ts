@@ -1,5 +1,6 @@
-import { platformKey } from '../../core/platform.ts'
+import type { MachineInfo } from '../../core/platform.ts'
 import type { MemoryRecord } from '../result-file/format.ts'
+import { LinuxProbe } from './linux.ts'
 import { MacProbe } from './macos.ts'
 import type { Probe } from './probe.ts'
 import { PeakMemory } from './snapshot.ts'
@@ -25,9 +26,11 @@ export class MemorySampler {
     this.peak = new PeakMemory(INTERVAL_MS, probe.gpu)
   }
 
-  /** Starts sampling, once the tools it reads have answered. */
-  static async start(root: () => number | null): Promise<MemorySampler> {
-    const probe = platformKey() === 'darwin-arm64' ? new MacProbe(INTERVAL_MS) : new WindowsProbe(INTERVAL_MS)
+  /** Starts sampling on `machine`, once the tools it reads have answered. */
+  static async start(root: () => number | null, machine: Pick<MachineInfo, 'platform' | 'gpus'>): Promise<MemorySampler> {
+    const probe = machine.platform === 'darwin-arm64'
+      ? new MacProbe(INTERVAL_MS)
+      : machine.platform === 'win32-x64' ? new WindowsProbe(INTERVAL_MS) : new LinuxProbe(INTERVAL_MS, machine.gpus.length)
     const sampler = new MemorySampler(probe)
     await probe.start(root, (snapshot, pid) => sampler.peak.add(snapshot, pid))
     return sampler

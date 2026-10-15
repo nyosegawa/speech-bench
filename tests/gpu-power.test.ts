@@ -20,8 +20,9 @@ describe('the power of NVIDIA GPUs', () => {
     expect(() => powerOf([])).toThrow(/no reading/)
   })
 
-  it('is read on Windows from an NVIDIA GPU alone', () => {
+  it('is read on Windows and Linux from an NVIDIA GPU alone', () => {
     expect(hasNvidiaGpu({ platform: 'win32-x64', gpus: [{ name: 'NVIDIA GeForce RTX 2080', driver: '32.0.15.8180' }] })).toBe(true)
+    expect(hasNvidiaGpu({ platform: 'linux-x64', gpus: [{ name: 'NVIDIA H100 80GB HBM3', driver: '570.172.08' }] })).toBe(true)
     expect(hasNvidiaGpu({ platform: 'win32-x64', gpus: [{ name: 'AMD Radeon RX 7900 XTX', driver: '32.0.12011.1036' }] })).toBe(false)
     expect(hasNvidiaGpu({ platform: 'darwin-arm64', gpus: [{ name: 'Apple M5', driver: null }] })).toBe(false)
   })

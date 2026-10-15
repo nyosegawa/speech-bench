@@ -24,9 +24,9 @@ export class RuntimeWatch {
 
   static async start(machine: MachineInfo, root: () => number | null): Promise<RuntimeWatch> {
     const before = await machineLoad()
-    const memory = await MemorySampler.start(root)
+    const memory = await MemorySampler.start(root, machine)
     try {
-      return new RuntimeWatch(before, memory, hasNvidiaGpu(machine) ? await GpuPowerSampler.start() : null)
+      return new RuntimeWatch(before, memory, hasNvidiaGpu(machine) ? await GpuPowerSampler.start(machine.platform) : null)
     } catch (error) {
       await memory.close()
       throw error

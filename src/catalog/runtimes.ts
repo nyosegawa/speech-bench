@@ -20,10 +20,11 @@ interface RuntimeAsset {
   renamedDll?: { importer: string; dll: string; as: string }
 }
 
+/** A runtime's release, with its archive for each system it is measured on; a system without one does not run it. */
 export interface RuntimeSpec {
   id: string
   version: string
-  assets: Record<PlatformKey, RuntimeAsset>
+  assets: Partial<Record<PlatformKey, RuntimeAsset>>
 }
 
 /**
@@ -43,7 +44,7 @@ export const releaseOf = (spec: Pick<RuntimeSpec, 'id' | 'version'>): RuntimeIde
 export const runtimeTag = ({ version, build }: RuntimeIdentity): string =>
   build === null ? version : `${version}-${build.commit.slice(0, 12)}${build.ciRun === null ? '' : `-ci${build.ciRun}`}`
 
-/** The llama.cpp release Qwen3-ASR is measured in. */
+/** The llama.cpp release Qwen3-ASR is measured in: Metal on the Mac, Vulkan on Windows and Linux. */
 export const LLAMA_CPP: RuntimeSpec = {
   id: 'llama.cpp',
   version: 'b11246',
@@ -57,6 +58,11 @@ export const LLAMA_CPP: RuntimeSpec = {
       url: 'https://github.com/ggml-org/llama.cpp/releases/download/b11246/llama-b11246-bin-win-vulkan-x64.zip',
       sha256: 'a6195668eeaadfa80e9c2ec27875e35125a1b44e94d17e72c8725b7725e5ccd3',
       executable: 'llama-server.exe'
+    },
+    'linux-x64': {
+      url: 'https://github.com/ggml-org/llama.cpp/releases/download/b11246/llama-b11246-bin-ubuntu-vulkan-x64.tar.gz',
+      sha256: 'cd955de6c99dfc2ac0556cd2117fc5726ad42ccb59244e77c8032bd6aecdeeff',
+      executable: 'llama-b11246/llama-server'
     }
   }
 }
@@ -86,7 +92,7 @@ const speechCppRelease = (version: string): string => `https://github.com/nyoseg
 /**
  * speech.cpp's one executable, `speech`, with the library linked in: `speech worker` runs Qwen3-TTS, Irodori-TTS,
  * Qwen3-ASR and the FastConformer models behind the worker protocol, `speech voice` makes Irodori-TTS voice files
- * and `speech info` reads a model file.
+ * and `speech info` reads a model file. Its Linux archive is its Vulkan build, which needs the system's libvulkan.so.1.
  */
 export const SPEECH_CPP: RuntimeSpec = {
   id: 'speech.cpp',
@@ -101,6 +107,11 @@ export const SPEECH_CPP: RuntimeSpec = {
       url: `${speechCppRelease('0.8.2')}/speech-0.8.2-windows-x64-vulkan.zip`,
       sha256: '2e94fae3629404013a5d5b391f363f8499429055a3c778891bb5dbe7daf077c0',
       executable: 'speech.exe'
+    },
+    'linux-x64': {
+      url: `${speechCppRelease('0.8.2')}/speech-0.8.2-linux-x64-vulkan.zip`,
+      sha256: '852c0bf0781c4308129447f6dffe701e776388497bd6fc0567eef47cafb52464',
+      executable: 'speech'
     }
   }
 }
@@ -124,6 +135,11 @@ export const SPEECH_CPP_RELEASES: readonly RuntimeSpec[] = [
         url: `${speechCppRelease('0.8.4')}/speech-0.8.4-windows-x64-vulkan.zip`,
         sha256: 'c35e75e64b170d69c2249fc32a82ae6e1a16170f2064eeb60cf815d3a5d65001',
         executable: 'speech.exe'
+      },
+      'linux-x64': {
+        url: `${speechCppRelease('0.8.4')}/speech-0.8.4-linux-x64-vulkan.zip`,
+        sha256: '91696bae75761950297586be8b8c409d706da193d29074718517bdb96e1180d6',
+        executable: 'speech'
       }
     }
   }
@@ -210,6 +226,11 @@ export const SHERPA_ONNX: RuntimeSpec = {
       // Windows 11 keeps ONNX Runtime 1.17 as System32\onnxruntime.dll and loads it in place of the 1.28.2 beside
       // the addon, wherever the addon is loaded from, which then stops at the API version sherpa-onnx asks for.
       renamedDll: { importer: 'package/sherpa-onnx-c-api.dll', dll: 'onnxruntime.dll', as: 'sherpa-ort.dll' }
+    },
+    'linux-x64': {
+      url: 'https://registry.npmjs.org/sherpa-onnx-linux-x64/-/sherpa-onnx-linux-x64-1.13.8.tgz',
+      sha256: '13291bcd825da5858ca27a35443e9a2c229a40616c0910086de2db12c5c9312c',
+      executable: 'package/sherpa-onnx.node'
     }
   }
 }
@@ -290,12 +311,19 @@ export async function ensureLibrary(spec: LibrarySpec): Promise<string> {
   return pathToFileURL(entry).href
 }
 
+/** The runtime's archive for `platform`, refusing a system the runtime is not measured on. */
+export function assetFor(spec: RuntimeSpec, platform: PlatformKey): RuntimeAsset {
+  const asset = spec.assets[platform]
+  if (!asset) throw new Error(`${spec.id} ${spec.version} is not measured on ${platform}; it runs on ${Object.keys(spec.assets).join(' and ')}`)
+  return asset
+}
+
 /**
  * The executable of the runtime on this machine, downloading and unpacking its release first when it is not
  * there. The unpacked folder is renamed into place only once complete, so a folder that exists is whole.
  */
 export async function ensureRuntime(spec: RuntimeSpec): Promise<string> {
-  const asset = spec.assets[platformKey()]
+  const asset = assetFor(spec, platformKey())
   const folder = path.join(runtimesDir(), `${spec.id}-${spec.version}`)
   const executable = path.join(folder, asset.executable)
   const renamed = asset.renamedDll ? { ...asset.renamedDll, file: path.join(path.dirname(asset.renamedDll.importer), asset.renamedDll.as) } : null

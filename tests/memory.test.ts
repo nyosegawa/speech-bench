@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { DeviceMemory, parseMemoryLine, parseStat } from '../src/measure/memory/linux.ts'
 import { graphicsBytes, MacProbe, parsePs } from '../src/measure/memory/macos.ts'
 import { PeakMemory, processTree, type ProcessRow, type Snapshot } from '../src/measure/memory/snapshot.ts'
 import { parseCountersLine, WindowsProbe } from '../src/measure/memory/windows.ts'
@@ -98,6 +99,38 @@ describe('reading the memory on macOS', () => {
   it('refuses JSON that is not footprint\'s', () => {
     expect(() => graphicsBytes({ processes: [{ pid: 1 }] })).toThrow(/categories/)
     expect(() => graphicsBytes({})).toThrow(/processes/)
+  })
+})
+
+describe('reading the memory on Linux', () => {
+  it('reads the parent and the RSS in pages of a process whose command holds spaces and parentheses', () => {
+    const stat = '4242 (python3 (worker) x) S 4100 4242 4100 34816 4242 4194560 81920 0 12 0 950 210 0 0 20 0 24 0 77812 9123840000 1572864 18446744073709551615 1 1 0 0 0 0 0 16781312 17442 0 0 0 17 3 0 0 0 0 0'
+    expect(parseStat(stat)).toEqual({ parent: 4100, residentPages: 1572864 })
+    expect(() => parseStat('4242 (python3) S')).toThrow(/parent and an RSS/)
+  })
+
+  it('counts the memory in use on all GPUs together from whole readings, beyond the first, and never below zero', () => {
+    const memory = new DeviceMemory(2)
+    for (const line of ['t1, 0, 500', 't1, 1, 100', 't2, 0, 30500']) memory.add(line)
+    // t2 lacks its second GPU, so the latest whole reading is still t1's.
+    expect(memory.beyondFirst()).toBe(0)
+    for (const line of ['t2, 1, 2100', 't3, 0, 400', 't3, 1, 100']) {
+      memory.add(line)
+      if (line === 't2, 1, 2100') expect(memory.beyondFirst()).toBe(32000 * MIB)
+    }
+    expect(memory.beyondFirst()).toBe(0)
+  })
+
+  it('refuses a line without the memory in use, as nvidia-smi writes for a GPU it cannot read', () => {
+    expect(parseMemoryLine('2026/10/15 09:00:00.100, 0, 81559')).toEqual({ timestamp: '2026/10/15 09:00:00.100', index: 0, bytes: 81559 * MIB })
+    expect(() => parseMemoryLine('2026/10/15 09:00:00.100, 0, [N/A]')).toThrow(/memory in use/)
+  })
+
+  it('records the whole GPU\'s memory beyond the first reading as the runtime\'s, even where it held none', () => {
+    const peak = new PeakMemory(100, 'device')
+    peak.add(snapshot([row(1, 0, 50), row(10, 1, 100)], [[10, 0]]), 10)
+    peak.add(snapshot([row(1, 0, 50), row(10, 1, 300)], [[10, 41000]]), 10)
+    expect(peak.record()).toEqual({ intervalMs: 100, samples: 2, peakResidentBytes: 300 * MIB, gpu: { measure: 'device', peakBytes: 41000 * MIB } })
   })
 })
 

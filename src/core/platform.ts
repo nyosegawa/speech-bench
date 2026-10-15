@@ -1,21 +1,26 @@
 import { execFileSync } from 'node:child_process'
+import fs from 'node:fs'
 import os from 'node:os'
 
-/** The systems the bench runs on: macOS on Apple silicon and Windows on x64. */
-export type PlatformKey = 'darwin-arm64' | 'win32-x64'
+/**
+ * The systems the bench runs on: macOS on Apple silicon, Windows on x64, and Linux on x64 with an NVIDIA GPU, as a
+ * machine rented in the cloud is.
+ */
+export type PlatformKey = 'darwin-arm64' | 'win32-x64' | 'linux-x64'
 
 export function platformKey(): PlatformKey {
   const key = `${process.platform}-${process.arch}`
-  if (key === 'darwin-arm64' || key === 'win32-x64') return key
-  throw new Error(`speech-bench runs on macOS arm64 and Windows x64, not ${key}`)
+  if (key === 'darwin-arm64' || key === 'win32-x64' || key === 'linux-x64') return key
+  throw new Error(`speech-bench runs on macOS arm64, Windows x64 and Linux x64, not ${key}`)
 }
 
-/** The GPU interface ggml runs on here: Metal on a Mac, Vulkan on Windows. */
+/** The GPU interface ggml runs on here: Metal on a Mac, Vulkan on Windows and Linux. */
 export const gpuBackend = (): 'metal' | 'vulkan' => (platformKey() === 'darwin-arm64' ? 'metal' : 'vulkan')
 
 /**
- * The GPU PyTorch runs the official implementations on here: Metal through MPS on a Mac, CUDA on Windows, where the
- * adapters install PyTorch's CUDA build. The adapters refuse to start on a machine without it rather than run on the CPU.
+ * The GPU PyTorch runs the official implementations on here: Metal through MPS on a Mac, CUDA on Windows and Linux,
+ * where the adapters install PyTorch's CUDA build. The adapters refuse to start on a machine without it rather than run
+ * on the CPU.
  */
 export const torchDevice = (): 'mps' | 'cuda' => (platformKey() === 'darwin-arm64' ? 'mps' : 'cuda')
 
@@ -46,7 +51,7 @@ export interface MachineInfo {
   cpu: string
   memoryGb: number
   gpus: Gpu[]
-  /** A Mac's power, which can slow it; null on Windows, which the bench runs on desktops. */
+  /** A Mac's power, which can slow it; null on Windows and Linux, which the bench runs on desktops and servers. */
   power: Power | null
 }
 
@@ -66,6 +71,29 @@ export function parseVideoControllers(text: string): Gpu[] {
     if (!name || !driver) throw new Error(`PowerShell gave a video controller without a name and a driver version: ${line}`)
     return { name, driver }
   })
+}
+
+/** The GPUs as `nvidia-smi --query-gpu=name,driver_version --format=csv,noheader` writes them, one a line. */
+export function parseNvidiaGpus(text: string): Gpu[] {
+  const gpus = text.split(/\r?\n/).filter((line) => line.trim() !== '').map((line) => {
+    const comma = line.lastIndexOf(',')
+    const [name, driver] = [line.slice(0, comma).trim(), line.slice(comma + 1).trim()]
+    if (comma < 0 || !name || !driver) throw new Error(`nvidia-smi gave a GPU without a name and a driver version: ${line}`)
+    return { name, driver }
+  })
+  if (gpus.length === 0) throw new Error('nvidia-smi lists no GPU; speech-bench runs on Linux with an NVIDIA GPU')
+  return gpus
+}
+
+/**
+ * A Linux system's name from /etc/os-release, its PRETTY_NAME, with the kernel's release, since a container reports the
+ * system of its image and the kernel of the machine it runs on.
+ */
+export function linuxName(osRelease: string, kernel: string): string {
+  const pretty = /^PRETTY_NAME=(?:"([^"]*)"|(\S+))$/m.exec(osRelease)
+  const name = pretty?.[1] ?? pretty?.[2]
+  if (!name) throw new Error('/etc/os-release names no PRETTY_NAME')
+  return `${name} (Linux ${kernel})`
 }
 
 /** A Mac's power from `pmset -g batt`, which names the source, and `pmset -g`, which lists `lowpowermode`. */
@@ -88,14 +116,24 @@ export function machineInfo(): MachineInfo {
     // On a Mac the GPU is part of the chip that names the CPU.
     return { platform, hostname: os.hostname(), os: system, cpu, memoryGb, gpus: [{ name: cpu, driver: null }], power: parsePower(read('pmset', ['-g', 'batt']), read('pmset', ['-g'])) }
   }
+  const cpu = os.cpus()[0]?.model.trim() ?? 'unknown'
+  if (platform === 'linux-x64') {
+    let listed: string
+    try {
+      listed = read('nvidia-smi', ['--query-gpu=name,driver_version', '--format=csv,noheader'])
+    } catch (error) {
+      throw new Error(`nvidia-smi could not list the GPUs (${(error as Error).message}); speech-bench runs on Linux with an NVIDIA GPU and its driver`, { cause: error })
+    }
+    return { platform, hostname: os.hostname(), os: linuxName(fs.readFileSync('/etc/os-release', 'utf8'), os.release()), cpu, memoryGb, gpus: parseNvidiaGpus(listed), power: null }
+  }
   const gpus = parseVideoControllers(read('powershell', ['-NoProfile', '-Command', 'Get-CimInstance Win32_VideoController | ForEach-Object { $_.Name + "`t" + $_.DriverVersion }']))
-  return { platform, hostname: os.hostname(), os: windowsName(os.release()), cpu: os.cpus()[0]?.model.trim() ?? 'unknown', memoryGb, gpus, power: null }
+  return { platform, hostname: os.hostname(), os: windowsName(os.release()), cpu, memoryGb, gpus, power: null }
 }
 
 /** The names of the machine's GPUs, as the report and the pages write them. */
 export const gpuNames = (machine: Pick<MachineInfo, 'gpus'>): string => machine.gpus.map((gpu) => gpu.name).join(' + ')
 
-/** How busy the machine was: the share of the CPUs' time spent working over a second, and macOS's load average. */
+/** How busy the machine was: the share of the CPUs' time spent working over a second, and the load average. */
 export interface MachineLoad {
   cpuBusy: number
   /** The load average of the last minute; null on Windows, which keeps none. */
@@ -118,5 +156,5 @@ export function busyShare(before: readonly os.CpuInfo[], after: readonly os.CpuI
 export async function machineLoad(): Promise<MachineLoad> {
   const before = os.cpus()
   await new Promise((resolve) => setTimeout(resolve, 1000))
-  return { cpuBusy: busyShare(before, os.cpus()), loadAverage: platformKey() === 'darwin-arm64' ? os.loadavg()[0]! : null }
+  return { cpuBusy: busyShare(before, os.cpus()), loadAverage: platformKey() === 'win32-x64' ? null : os.loadavg()[0]! }
 }
