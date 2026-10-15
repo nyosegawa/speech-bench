@@ -561,6 +561,28 @@ const OFFICIAL_DRAMA_3: TtsModel = {
   license: 'Fish Audio Community License'
 }
 
+/**
+ * Fish Audio Drama 3 in speech.cpp, one GGUF file with its codec inside, which speech.cpp 0.8.8 and later read. It
+ * clones the run's reference voice from a voice file made of the reference's WAVE file and the words of its takes, and
+ * samples with the file's defaults, the model card's temperature 1.0, top-p 0.9 and top-k 30, as the official entry
+ * does. A GPU without the memory for the whole file keeps the experts of the later layers on the CPU. It is under the
+ * Fish Audio Community License.
+ */
+const drama3 = (id: string, label: string, file: PinnedFile): TtsModel => ({
+  id,
+  label,
+  runtime: 'speech.cpp',
+  steps: null,
+  voiceReference: true,
+  files: [file],
+  languages: OFFICIAL_DRAMA_3.languages,
+  voices: [],
+  license: OFFICIAL_DRAMA_3.license
+})
+const DRAMA_3 = {
+  q4_k: model('sakasegawa/drama-3-GGUF', 'PENDING', 'Drama-35B-A3B-v3-Q4_K.gguf', 20_787_264_352, '2a57b14c9b208a2ff833ab7305b920ca8f154ad807004a52d96a86a90a55523e')
+}
+
 export const TTS_MODELS: readonly TtsModel[] = [
   {
     id: 'qwen3-tts-0.6b',
@@ -603,6 +625,7 @@ export const TTS_MODELS: readonly TtsModel[] = [
   irodoriLarge('irodori-tts-v4-large-f16-16steps', 'Irodori-TTS v4 Large F16, 16 steps', IRODORI_V4_LARGE.f16, 16),
   officialIrodoriLarge('fp32'),
   officialIrodoriLarge('bf16'),
+  drama3('drama-3', 'Fish Audio Drama 3 Q4_K', DRAMA_3.q4_k),
   OFFICIAL_DRAMA_3,
   mlxIrodoriV41('irodori-tts-v4.1-small-mf-mlx', 'Irodori-TTS v4.1 Small MF, mlx-audio FP16', MLX_IRODORI_MF, null),
   mlxIrodoriV41('irodori-tts-v4.1-small-16steps-mlx', 'Irodori-TTS v4.1 Small, mlx-audio FP16, 16 steps', MLX_IRODORI_RF, 16),
