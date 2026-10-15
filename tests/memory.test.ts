@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { checkPids, parseComputeApps, parseStat } from '../src/measure/memory/linux.ts'
 import { graphicsBytes, MacProbe, parsePs } from '../src/measure/memory/macos.ts'
 import { PeakMemory, processTree, type ProcessRow, type Snapshot } from '../src/measure/memory/snapshot.ts'
 import { parseCountersLine, WindowsProbe } from '../src/measure/memory/windows.ts'
@@ -98,6 +99,27 @@ describe('reading the memory on macOS', () => {
   it('refuses JSON that is not footprint\'s', () => {
     expect(() => graphicsBytes({ processes: [{ pid: 1 }] })).toThrow(/categories/)
     expect(() => graphicsBytes({})).toThrow(/processes/)
+  })
+})
+
+describe('reading the memory on Linux', () => {
+  it('reads the parent and the RSS in pages of a process whose command holds spaces and parentheses', () => {
+    const stat = '4242 (python3 (worker) x) S 4100 4242 4100 34816 4242 4194560 81920 0 12 0 950 210 0 0 20 0 24 0 77812 9123840000 1572864 18446744073709551615 1 1 0 0 0 0 0 16781312 17442 0 0 0 17 3 0 0 0 0 0'
+    expect(parseStat(stat)).toEqual({ parent: 4100, residentPages: 1572864 })
+    expect(() => parseStat('4242 (python3) S')).toThrow(/parent and an RSS/)
+  })
+
+  it('adds up the GPU memory of a process on every GPU, and reads nothing as no process', () => {
+    expect(parseComputeApps('1429, 1351\n1429, 20\n1500, 4\n')).toEqual(new Map([[1429, 1371 * MIB], [1500, 4 * MIB]]))
+    expect(parseComputeApps('')).toEqual(new Map())
+    expect(() => parseComputeApps('1429, [N/A]\n')).toThrow(/pid and its memory/)
+  })
+
+  it('refuses a pid nvidia-smi lists that the machine does not have, as one of another namespace would be', () => {
+    const processes = [row(1, 0, 10), row(1429, 1, 900)]
+    expect(() => checkPids(new Map([[1429, 1351 * MIB]]), processes, [])).not.toThrow()
+    expect(() => checkPids(new Map([[1500, MIB]]), processes, [row(1500, 1429, 10)])).not.toThrow()
+    expect(() => checkPids(new Map([[734512, 1351 * MIB]]), processes, processes)).toThrow(/another namespace/)
   })
 })
 

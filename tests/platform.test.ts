@@ -1,6 +1,6 @@
 import type os from 'node:os'
 import { describe, expect, it } from 'vitest'
-import { busyShare, parsePower, parseVideoControllers, windowsName } from '../src/core/platform.ts'
+import { busyShare, linuxName, parseNvidiaGpus, parsePower, parseVideoControllers, windowsName } from '../src/core/platform.ts'
 
 describe('windowsName', () => {
   it('tells Windows 11 from Windows 10 by the build, since both report version 10.0', () => {
@@ -19,6 +19,27 @@ describe('the GPUs of a Windows machine', () => {
 
   it('refuses a controller without a driver version, rather than record one unknown', () => {
     expect(() => parseVideoControllers('Microsoft Basic Display Adapter\t\r\n')).toThrow(/driver version/)
+  })
+})
+
+describe('a Linux machine', () => {
+  it('reads each NVIDIA GPU\'s name and driver version as nvidia-smi lists them', () => {
+    expect(parseNvidiaGpus('NVIDIA H100 80GB HBM3, 570.172.08\nNVIDIA H100 80GB HBM3, 570.172.08\n')).toEqual([
+      { name: 'NVIDIA H100 80GB HBM3', driver: '570.172.08' },
+      { name: 'NVIDIA H100 80GB HBM3', driver: '570.172.08' }
+    ])
+  })
+
+  it('refuses a GPU without a driver version, and a machine without a GPU', () => {
+    expect(() => parseNvidiaGpus('NVIDIA GeForce RTX 5090\n')).toThrow(/driver version/)
+    expect(() => parseNvidiaGpus('\n')).toThrow(/no GPU/)
+  })
+
+  it('names the system of the container\'s image with the kernel of the machine', () => {
+    const osRelease = 'NAME="Ubuntu"\nVERSION_ID="22.04"\nPRETTY_NAME="Ubuntu 22.04.5 LTS"\nID=ubuntu\n'
+    expect(linuxName(osRelease, '6.8.0-60-generic')).toBe('Ubuntu 22.04.5 LTS (Linux 6.8.0-60-generic)')
+    expect(linuxName('PRETTY_NAME=Debian\n', '6.1.0')).toBe('Debian (Linux 6.1.0)')
+    expect(() => linuxName('NAME="Ubuntu"\n', '6.8.0')).toThrow(/PRETTY_NAME/)
   })
 })
 

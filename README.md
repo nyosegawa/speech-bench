@@ -3,16 +3,23 @@
 Measures local speech recognition and speech synthesis models under one set of conditions, across the runtimes
 they run in and the machines they run on, so that [speech.cpp](https://github.com/nyosegawa/speech.cpp) takes up
 a model on numbers, and a port can be checked against the model it was ported from. It runs pinned releases
-(llama.cpp, CrispASR, speech.cpp, NeMo-Speech.cpp, audio.cpp) on macOS with Metal and on Windows with Vulkan. It
-also makes voices for models that have none built in, from a description and lines in character.
+(llama.cpp, CrispASR, speech.cpp, NeMo-Speech.cpp, audio.cpp) on macOS with Metal and on Windows with Vulkan, and on
+Linux with an NVIDIA GPU, as a machine rented in the cloud is, for a model or a GPU the other two cannot hold. It also
+makes voices for models that have none built in, from a description and lines in character.
 
 ## Requirements
 
-- macOS on Apple Silicon, or Windows x64 with a discrete GPU
+- macOS on Apple Silicon, Windows x64 with a discrete GPU, or Linux x64 with an NVIDIA GPU and its driver
+  (`nvidia-smi`); on Linux speech.cpp and llama.cpp run their Vulkan builds, which need the Vulkan loader
+  (`libvulkan.so.1`) and `libEGL.so.1`, which NVIDIA's Vulkan driver loads and without which it does not start
+  (Ubuntu's `libvulkan1` and `libegl1`), and, in a container, the driver's Vulkan, which `NVIDIA_DRIVER_CAPABILITIES`
+  including `graphics` (or `all`) gives it, and the bench unpacks the runtimes' zip archives with `bsdtar`
+  (`libarchive-tools`), since GNU tar reads no zip; CrispASR, NeMo-Speech.cpp, audio.cpp and mlx-audio do not run there
 - Node.js 22.18 or later (TypeScript runs directly through type stripping)
 - [uv](https://docs.astral.sh/uv/) 0.11 or later, only for the implementations the adapters run (the official ones of Irodori-TTS,
   Qwen3-TTS and Qwen3-ASR, and mlx-audio) and for NeMo-Speech.cpp's converter, and Git, which fetches the converter;
-  on Windows the official implementations need an NVIDIA GPU, on which they run through CUDA
+  on Windows and Linux the official implementations need an NVIDIA GPU, on which they run through CUDA, and on Linux an
+  adapter runs only where its lock file includes Linux
 - [GitHub CLI](https://cli.github.com/), logged in, only to measure a build of speech.cpp's CI
 
 ```sh
@@ -361,31 +368,35 @@ to stopping it, which the report and the web app's runs page show after the spee
 - **Load time**: from starting the runtime to its being ready.
 - **Cold load time**: with `--cold-load`, the load time from copies of the model files that no file cache holds,
   made before the runtime starts and removed after it stops, without administrator rights: APFS clones (`cp -c`) on a
-  Mac, `robocopy /J` on Windows (docs/adr/0029). The report writes such a load time `cold`.
+  Mac, `robocopy /J` on Windows (docs/adr/0029). The report writes such a load time `cold`. Linux has no such copy
+  without root, and refuses `--cold-load`.
 - **First request**: the first utterance or sentence after loading, run once more untimed, apart from the rest, since
   it pays for the GPU's first use (Vulkan and Metal prepare their shaders then).
 - **Peak memory**: the resident memory of the process the bench starts and every process under it (uv and the Python
   it runs, for an adapter), looked at every 100 ms, the largest sum over those processes in one look
-  (docs/adr/0026): RSS on macOS, the working set on Windows. On a Mac it holds the weights ggml gives Metal from its
-  own memory and a model file llama.cpp maps into memory.
+  (docs/adr/0026): RSS on macOS and Linux (from `/proc`), the working set on Windows. On a Mac it holds the weights
+  ggml gives Metal from its own memory and a model file llama.cpp maps into memory.
 - **VRAM**: on Windows the dedicated GPU memory Windows counts for each of those processes, read from its performance
   counters (no administrator rights needed); a machine on which no process holds dedicated GPU memory records none. A
   Mac's GPU shares its memory with the CPU, and its figure is **GPU memory (Metal)**: the memory macOS tags as
   graphics, which Metal's driver allocated for the runtime and the GPU or the CPU has written. A buffer allocated but
-  never written takes no memory and is not counted.
+  never written takes no memory and is not counted. On Linux VRAM is the memory `nvidia-smi` lists for each of those
+  processes among the GPUs' compute processes, a Vulkan runtime's included (docs/adr/0032).
 - **Memory (RSS + Metal)**: on a Mac, the peak of the two summed in one look, which is what the runtime held of the
   memory the CPU and the GPU share, and the figure to compare runtimes by. Neither part alone compares them: ggml's
   runtimes give Metal buffers of their own memory, which count in RSS, while PyTorch (MPS) and MLX have Metal allocate
   theirs, which count as GPU memory (Metal). For a run made before it was recorded the report and the runs page give
-  the sum of the two peaks, written `≤`, since the two may have peaked at different times. Windows has no such figure:
-  the working set and VRAM are different memories.
-- **GPU power**: on Windows with an NVIDIA GPU, its power every 100 ms from `nvidia-smi` (in `System32`, installed
-  with the driver), the peak and the mean. It is the whole GPU's, whatever else runs on it.
+  the sum of the two peaks, written `≤`, since the two may have peaked at different times. Windows and Linux have no
+  such figure: the resident memory and VRAM are different memories.
+- **GPU power**: on Windows and Linux with an NVIDIA GPU, its power every 100 ms from `nvidia-smi` (in `System32` on
+  Windows, installed with the driver, and on the `PATH` on Linux), the peak and the mean. It is the whole GPU's,
+  whatever else runs on it.
 
 Each run also records the machine it ran on (docs/adr/0027): the system and its version (with its build on a Mac),
-the CPU, the memory, each GPU with its driver's version on Windows, a Mac's power source and Low Power Mode, and how
-busy the machine was over the second before the runtime started and the second after it stopped (the share of the
-CPUs' time spent working, and on a Mac the load average), so that a figure that does not agree with the others can be
+the CPU, the memory, each GPU with its driver's version on Windows and Linux, a Mac's power source and Low Power Mode,
+and how busy the machine was over the second before the runtime started and the second after it stopped (the share of
+the CPUs' time spent working, and on a Mac and Linux the load average), so that a figure that does not agree with the
+others can be
 traced to the machine. A run cut short, and every run made before these were recorded, records none of them, which
 the report writes as `not measured`.
 
@@ -467,12 +478,12 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 
 | Input | Version |
 |---|---|
-| llama.cpp | b11246 |
+| llama.cpp | b11246, its Vulkan build on Windows and Linux |
 | CrispASR | v0.8.38 (its macOS build needs macOS 26) |
 | Qwen3-ASR 1.7B and 0.6B in llama.cpp | ggml-org Q8_0, each with its audio projector |
 | parakeet-tdt-0.6b-v3, parakeet-tdt_ctc-0.6b-ja, ReazonSpeech NeMo v2 in CrispASR | cstr Q8_0 |
 | FLEURS | google/fleurs at revision 70bb2e84: ja-JP, en-US, fr-FR, de-DE, hi-IN, id-ID, it-IT, ko-KR, pt-BR and es-419 (it has no Spanish of Spain) |
-| speech.cpp | v0.8.2, its one executable `speech`, whose worker runs the synthesis and recognition models and whose `speech voice` makes voice files; v0.8.4 too, which a plan or `SPEECH_BENCH_SPEECH_CPP=v0.8.4` names |
+| speech.cpp | v0.8.2, its one executable `speech`, whose worker runs the synthesis and recognition models and whose `speech voice` makes voice files; v0.8.4 too, which a plan or `SPEECH_BENCH_SPEECH_CPP=v0.8.4` names; on Linux their Vulkan builds |
 | Qwen3-ASR 1.7B and 0.6B in speech.cpp | sakasegawa/Qwen3-ASR-1.7B-GGUF and sakasegawa/Qwen3-ASR-0.6B-GGUF, one Q8_0 file each with the audio encoder inside, the layout speech.cpp v0.7.0 reads |
 | parakeet-tdt-0.6b-v3, parakeet-tdt_ctc-0.6b-ja, ReazonSpeech NeMo v2 in speech.cpp | sakasegawa/parakeet-tdt-0.6b-v3-GGUF, sakasegawa/parakeet-tdt_ctc-0.6b-ja-GGUF and sakasegawa/reazonspeech-nemo-v2-GGUF, one F16 file each, the layout speech.cpp v0.7.0 reads |
 | Qwen3-TTS 0.6B and 1.7B CustomVoice | sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF and sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF, one Q8_0 file each with the F16 codec inside, the layout speech.cpp v0.7.0 reads |
@@ -480,12 +491,12 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 | Irodori-TTS v4.1 Small, official | Aratako/Irodori-TTS-v4.1-Small-MF and Aratako/Irodori-TTS-v4.1-Small with Aratako/Semantic-DACVAE-Japanese-32dim, in Irodori-TTS at 89f9d8fb with the packages of `adapters/irodori-tts/uv.lock` |
 | Qwen3-TTS 0.6B and 1.7B CustomVoice, official | Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice at 85e237c1 and Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice at 0c0e3051, in qwen-tts at 022e286b with the packages of `adapters/qwen3-tts/uv.lock` |
 | Qwen3-ASR 0.6B and 1.7B, official | Qwen/Qwen3-ASR-0.6B at 5eb14417 and Qwen/Qwen3-ASR-1.7B at 7278e1e7, in transformers 5.18.0 with qwen-asr 0.0.6 and the packages of `adapters/qwen3-asr/uv.lock` |
-| PyTorch for the official implementations | PyPI's on a Mac; on Windows the CUDA 12.8 build from PyTorch's index, pinned in each adapter's lock file |
+| PyTorch for the official implementations | PyPI's on a Mac and on Linux, where it is a CUDA build; on Windows the CUDA 12.8 build from PyTorch's index, pinned in each adapter's lock file |
 | NeMo-Speech.cpp | v0.2.0, `nemo-speech serve` |
 | parakeet-tdt-0.6b-v3 and ReazonSpeech NeMo v2 in NeMo-Speech.cpp | nvidia/parakeet-tdt-0.6b-v3 and reazon-research/reazonspeech-nemo-v2, the `.nemo` checkpoints speech.cpp's files were converted from, converted to F16 by NeMo-Speech.cpp's `convert_model.py` at v0.2.0 (6a3ca369) with the packages of `converters/nemo-speech.cpp/uv.lock`, and pinned by the size and sha256 of the result |
 | audio.cpp | v0.9.0 |
 | Irodori-TTS v4 Small | audio-cpp/audio.cpp-gguf Q8_0 |
-| sherpa-onnx | 1.13.8, the Node addon of its npm packages for macOS arm64 and Windows x64, for speaker embeddings and the VAD; on Windows its ONNX Runtime is renamed so that Windows ML's copy in System32 is not loaded in its place (docs/adr/0018) |
+| sherpa-onnx | 1.13.8, the Node addon of its npm packages for macOS arm64, Windows x64 and Linux x64, for speaker embeddings and the VAD; on Windows its ONNX Runtime is renamed so that Windows ML's copy in System32 is not loaded in its place (docs/adr/0018) |
 | Common Voice 8.0 | japanese-asr/ja_asr.common_voice_8_0 at revision bf8819e8: the test split of ja-JP, one Parquet file of MP3 clips and sentences, copied from Mozilla's release (CC0) |
 | hyparquet | 1.31.2, its npm package, which reads the Parquet file |
 | mpg123-decoder | 1.0.3 with the packages it imports, mpg123 in WebAssembly, which decodes the MP3 to the same samples on every machine |

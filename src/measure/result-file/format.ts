@@ -49,12 +49,12 @@ const memoryRecord = z.strictObject({
   /** The time asked between the starts of two samples; a sample that takes longer delays the next. */
   intervalMs: z.int(),
   samples: z.int(),
-  /** The peak of the resident memory: RSS on macOS, the working set on Windows. */
+  /** The peak of the resident memory: RSS on macOS and Linux, the working set on Windows. */
   peakResidentBytes: z.int(),
   /**
    * The peak of the GPU memory, or null on a machine without GPU memory of its own: `metal` is the memory macOS tags as
    * graphics, which Metal's driver allocated and the GPU or the CPU has written, and `dedicated` the dedicated GPU
-   * memory Windows counts for each process.
+   * memory Windows counts for each process, or on Linux the memory nvidia-smi lists for each compute process.
    */
   gpu: z.discriminatedUnion('measure', [
     z.strictObject({
@@ -93,14 +93,14 @@ const runCommon = {
   format: z.literal(RESULT_FORMAT),
   startedAt: z.string(),
   machine: z.strictObject({
-    platform: z.enum(['darwin-arm64', 'win32-x64']),
+    platform: z.enum(['darwin-arm64', 'win32-x64', 'linux-x64']),
     hostname: z.string(),
     os: z.string(),
     cpu: z.string(),
     memoryGb: z.number(),
     /** Each GPU with its driver's version, null on a Mac, whose driver comes with the system `os` names with its build. */
     gpus: z.array(z.strictObject({ name: z.string(), driver: z.string().nullable() })),
-    /** Where a Mac drew its power from and whether Low Power Mode slowed it; null on Windows. */
+    /** Where a Mac drew its power from and whether Low Power Mode slowed it; null on Windows and Linux. */
     power: z.strictObject({ source: z.enum(['ac', 'battery']), lowPowerMode: z.boolean() }).nullable()
   }),
   set: z.strictObject({ name: z.string(), locale: z.string(), size: z.int() }),

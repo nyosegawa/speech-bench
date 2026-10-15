@@ -17,7 +17,8 @@ export const SPEECH_CPP_REPOSITORY = 'nyosegawa/speech.cpp'
  */
 const CI_ARCHIVES: Record<PlatformKey, { job: string; system: string }> = {
   'darwin-arm64': { job: 'macos-metal', system: 'macos-arm64-metal' },
-  'win32-x64': { job: 'windows-vulkan', system: 'windows-x64-vulkan' }
+  'win32-x64': { job: 'windows-vulkan', system: 'windows-x64-vulkan' },
+  'linux-x64': { job: 'linux (vulkan)', system: 'linux-x64-vulkan' }
 }
 
 /** The run of speech.cpp's CI that the variable names as `ci:<run id>`, or null for a build directory. */
