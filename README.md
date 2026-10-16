@@ -286,10 +286,10 @@ descriptions of the voices in `prompts/voices-<locale>.json` (Irodori-TTS's `ins
 Runtimes run as a process, speech.cpp's worker among them, are reached through speech.cpp's worker protocol 3
 (docs/adr/0008): JSON lines, a request per line, the speech streamed back in base64 16-bit chunks. A worker of
 another protocol, or one that answers a request it was not sent or answers one twice, stops the run. Irodori-TTS
-v4.1 and v4 Large in speech.cpp have no voice of their own and need `--reference`; v4 Large's files
-(`irodori-tts-v4-large`, `-16steps` and `-f16-16steps`) need speech.cpp 0.8.7 or a later build, which
-`SPEECH_BENCH_SPEECH_CPP` names until the pinned release reads them. Fish Audio Drama 3 in speech.cpp (`drama-3`,
-the Q4_K file, under the Fish Audio Community License) needs speech.cpp 0.8.8 or a later build and `--reference` too.
+v4.1 and v4 Large in speech.cpp have no voice of their own and need `--reference`, and so does Fish Audio Drama 3
+(`drama-3`, the Q4_K file, and its other types, under the Fish Audio Community License). v4 Large's files
+(`irodori-tts-v4-large`, `-16steps` and `-f16-16steps`) need speech.cpp 0.8.7 or later and Drama 3's 0.8.8 or later,
+which the pinned release is; a run that names 0.8.4 or 0.8.2 stops on them.
 The reference goes to the worker as a voice file, which `speech voice` makes once on the CPU, with the texts of the
 reference's takes for a model that clones a voice from its words as Drama 3 does, and `voice-files/` keeps by the
 reference, the codec the model file names and the release of speech.cpp, so that a release that refuses the voice
@@ -500,7 +500,7 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 | Qwen3-ASR 1.7B and 0.6B in llama.cpp | ggml-org Q8_0, each with its audio projector |
 | parakeet-tdt-0.6b-v3, parakeet-tdt_ctc-0.6b-ja, ReazonSpeech NeMo v2 in CrispASR | cstr Q8_0 |
 | FLEURS | google/fleurs at revision 70bb2e84: ja-JP, en-US, fr-FR, de-DE, hi-IN, id-ID, it-IT, ko-KR, pt-BR and es-419 (it has no Spanish of Spain) |
-| speech.cpp | v0.8.2, its one executable `speech`, whose worker runs the synthesis and recognition models and whose `speech voice` makes voice files; v0.8.4 too, which a plan or `SPEECH_BENCH_SPEECH_CPP=v0.8.4` names; on Linux their Vulkan builds |
+| speech.cpp | v0.8.8, its one executable `speech`, whose worker runs the synthesis and recognition models and whose `speech voice` makes voice files; v0.8.4 and v0.8.2 too, which a plan or `SPEECH_BENCH_SPEECH_CPP=v0.8.4` names; on Linux their Vulkan builds |
 | Qwen3-ASR 1.7B and 0.6B in speech.cpp | sakasegawa/Qwen3-ASR-1.7B-GGUF and sakasegawa/Qwen3-ASR-0.6B-GGUF, one Q8_0 file each with the audio encoder inside, the layout speech.cpp v0.7.0 reads |
 | parakeet-tdt-0.6b-v3, parakeet-tdt_ctc-0.6b-ja, ReazonSpeech NeMo v2 in speech.cpp | sakasegawa/parakeet-tdt-0.6b-v3-GGUF, sakasegawa/parakeet-tdt_ctc-0.6b-ja-GGUF and sakasegawa/reazonspeech-nemo-v2-GGUF, one F16 file each, the layout speech.cpp v0.7.0 reads |
 | Qwen3-TTS 0.6B and 1.7B CustomVoice | sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF and sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF, one Q8_0 file each with the F16 codec inside, the layout speech.cpp v0.7.0 reads |
@@ -531,7 +531,7 @@ The build must speak worker protocol 3, as speech.cpp v0.8.0 and later do.
 A local build is named by its CMake build directory (`cmake -B build`, then `cmake --build build --config Release`)
 (docs/adr/0019). The bench refuses a directory that is not a Release build of speech.cpp, and a source with changes
 that are not committed. A result records the release number the build reports and the commit it was built from, and
-the report writes its runtime as `speech.cpp 0.8.2, local build eacd7865c0d4`, so that it is not taken for the
+the report writes its runtime as `speech.cpp 0.8.8, local build eacd7865c0d4`, so that it is not taken for the
 release's. Build it just before measuring: the bench cannot tell an executable built before the last `git pull`.
 
 A build of speech.cpp's CI is named as `ci:<run id>`, a run of its workflow `build` (docs/adr/0022), which packs on
@@ -557,7 +557,7 @@ builds the merge of the branch into its base rather than the branch's head, so i
 the artifact, checks its sha256 against the one GitHub gives, unpacks `speech-<version>-windows-x64-vulkan.zip` from it
 into `runtimes/speech.cpp-ci-<run id>` and checks that `speech --version` reports that version. A result records the
 version, the run's commit and the run, and the report writes its runtime as
-`speech.cpp 0.8.2, CI build eacd7865c0d4 (run 37818860464)`.
+`speech.cpp 0.8.8, CI build eacd7865c0d4 (run 37818860464)`.
 
 ### A model file before it is published
 
