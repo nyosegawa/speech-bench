@@ -90,59 +90,47 @@ export const CRISPASR: RuntimeSpec = {
 const speechCppRelease = (version: string): string => `https://github.com/nyosegawa/speech.cpp/releases/download/v${version}`
 
 /**
- * speech.cpp's one executable, `speech`, with the library linked in: `speech worker` runs Qwen3-TTS, Irodori-TTS,
- * Qwen3-ASR and the FastConformer models behind the worker protocol, `speech voice` makes Irodori-TTS voice files
- * and `speech info` reads a model file. Its Linux archive is its Vulkan build, which needs the system's libvulkan.so.1.
+ * A release of speech.cpp by its number and the sha256 GitHub gives for each of its archives: the Metal build on a Mac
+ * and the Vulkan builds on Windows and on Linux, whose Vulkan build needs the system's libvulkan.so.1.
  */
-export const SPEECH_CPP: RuntimeSpec = {
+const speechCppSpec = (version: string, sha256: Readonly<Record<PlatformKey, string>>): RuntimeSpec => ({
   id: 'speech.cpp',
-  version: 'v0.8.2',
+  version: `v${version}`,
   assets: {
-    'darwin-arm64': {
-      url: `${speechCppRelease('0.8.2')}/speech-0.8.2-macos-arm64-metal.zip`,
-      sha256: '9357a7a043910a177e847bb59b422b0b87b3faedcdd8d95ada5be8992726d499',
-      executable: 'speech'
-    },
-    'win32-x64': {
-      url: `${speechCppRelease('0.8.2')}/speech-0.8.2-windows-x64-vulkan.zip`,
-      sha256: '2e94fae3629404013a5d5b391f363f8499429055a3c778891bb5dbe7daf077c0',
-      executable: 'speech.exe'
-    },
-    'linux-x64': {
-      url: `${speechCppRelease('0.8.2')}/speech-0.8.2-linux-x64-vulkan.zip`,
-      sha256: '852c0bf0781c4308129447f6dffe701e776388497bd6fc0567eef47cafb52464',
-      executable: 'speech'
-    }
+    'darwin-arm64': { url: `${speechCppRelease(version)}/speech-${version}-macos-arm64-metal.zip`, sha256: sha256['darwin-arm64'], executable: 'speech' },
+    'win32-x64': { url: `${speechCppRelease(version)}/speech-${version}-windows-x64-vulkan.zip`, sha256: sha256['win32-x64'], executable: 'speech.exe' },
+    'linux-x64': { url: `${speechCppRelease(version)}/speech-${version}-linux-x64-vulkan.zip`, sha256: sha256['linux-x64'], executable: 'speech' }
   }
-}
+})
+
+/**
+ * speech.cpp's one executable, `speech`, with the library linked in: `speech worker` runs Qwen3-TTS, Irodori-TTS,
+ * Fish Audio Drama 3, Qwen3-ASR and the FastConformer models behind the worker protocol, `speech voice` makes voice
+ * files and `speech info` reads a model file. 0.8.8 is the first release that reads Drama 3's files, and 0.8.7 the
+ * first that reads Irodori-TTS v4 Large's.
+ */
+export const SPEECH_CPP: RuntimeSpec = speechCppSpec('0.8.8', {
+  'darwin-arm64': '5d9e8d7b42321b000b98d2d35cb938ad547a607f227520d74467c9c4fea25416',
+  'win32-x64': 'f7bcb9a08f6eba45dbe921fdd481301c6d140d44235d4ed3b6e09b85d0147361',
+  'linux-x64': '7521c9728b1d8eaf4e23c5781a7c035158674ee8bef62446ebbaf61d1a826426'
+})
 
 /**
  * The releases of speech.cpp a run can name besides the one it runs by default, so that a release candidate is measured
- * beside the release before it. The hashes are those GitHub gives for the release's archives.
+ * beside the release before it, and a run of an earlier release made again.
  */
 export const SPEECH_CPP_RELEASES: readonly RuntimeSpec[] = [
   SPEECH_CPP,
-  {
-    id: 'speech.cpp',
-    version: 'v0.8.4',
-    assets: {
-      'darwin-arm64': {
-        url: `${speechCppRelease('0.8.4')}/speech-0.8.4-macos-arm64-metal.zip`,
-        sha256: '8e2cca3630f7d82b55236d5246f7de5045bf7f11ac14a36e965e5628cfbcbe6a',
-        executable: 'speech'
-      },
-      'win32-x64': {
-        url: `${speechCppRelease('0.8.4')}/speech-0.8.4-windows-x64-vulkan.zip`,
-        sha256: 'c35e75e64b170d69c2249fc32a82ae6e1a16170f2064eeb60cf815d3a5d65001',
-        executable: 'speech.exe'
-      },
-      'linux-x64': {
-        url: `${speechCppRelease('0.8.4')}/speech-0.8.4-linux-x64-vulkan.zip`,
-        sha256: '91696bae75761950297586be8b8c409d706da193d29074718517bdb96e1180d6',
-        executable: 'speech'
-      }
-    }
-  }
+  speechCppSpec('0.8.4', {
+    'darwin-arm64': '8e2cca3630f7d82b55236d5246f7de5045bf7f11ac14a36e965e5628cfbcbe6a',
+    'win32-x64': 'c35e75e64b170d69c2249fc32a82ae6e1a16170f2064eeb60cf815d3a5d65001',
+    'linux-x64': '91696bae75761950297586be8b8c409d706da193d29074718517bdb96e1180d6'
+  }),
+  speechCppSpec('0.8.2', {
+    'darwin-arm64': '9357a7a043910a177e847bb59b422b0b87b3faedcdd8d95ada5be8992726d499',
+    'win32-x64': '2e94fae3629404013a5d5b391f363f8499429055a3c778891bb5dbe7daf077c0',
+    'linux-x64': '852c0bf0781c4308129447f6dffe701e776388497bd6fc0567eef47cafb52464'
+  })
 ]
 
 /**
