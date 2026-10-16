@@ -299,6 +299,11 @@ export type TtsRuntime =
   | { runtime: 'adapter'; adapter: 'mlx-audio' | 'qwen3-tts' | 'drama3'; steps: number | null; voiceReference: boolean }
   /** Irodori-TTS's official runtime computes the model in FP32 or, on CUDA alone, in BF16; its codec stays in FP32. */
   | { runtime: 'adapter'; adapter: 'irodori-tts'; precision: 'fp32' | 'bf16'; steps: number | null; voiceReference: boolean }
+  /**
+   * SGLang Omni computes Drama 3 as its checkpoint's quantization says: in BF16 with the experts in FP8, or with the
+   * experts and the attention projections in int4, run as W4A16.
+   */
+  | { runtime: 'adapter'; adapter: 'sglang-omni'; quantization: 'fp8-experts' | 'int4'; steps: number | null; voiceReference: boolean }
   | {
       runtime: 'audio.cpp'
       family: string
@@ -562,6 +567,50 @@ const OFFICIAL_DRAMA_3: TtsModel = {
 }
 
 /**
+ * Fish Audio Drama 3 served by SGLang Omni, the server of Fish Audio's cookbook, through CUDA 13 on a Linux machine the
+ * bench rents. It clones the run's reference voice from its WAVE file and transcript, samples with the model card's
+ * settings, and has the official entry's languages and license. The server reads the checkpoint's config, index, shards
+ * and tokenizer.json, and the codec beside them.
+ */
+const sglangDrama3 = (id: string, label: string, quantization: 'fp8-experts' | 'int4', files: readonly ModelFile[]): TtsModel => ({
+  id,
+  label,
+  runtime: 'adapter',
+  adapter: 'sglang-omni',
+  quantization,
+  steps: null,
+  voiceReference: true,
+  files,
+  languages: OFFICIAL_DRAMA_3.languages,
+  voices: [],
+  license: OFFICIAL_DRAMA_3.license
+})
+
+/**
+ * fishaudio/drama-3-int4, an unofficial GPTQ quantization of Drama 3 whose experts and attention projections hold
+ * symmetric 4-bit weights, one scale per 128 input channels, run on GPTQ-Marlin kernels, with the rest in BF16: 20.8 GB
+ * of weights on the GPU against the official checkpoint's 37.0 GB, as SGLang Omni's cookbook measures them.
+ */
+const DRAMA_3_INT4 = checkpoint('fishaudio/drama-3-int4', 'a6f588691a13b6607cb09f9800556487ab7aa0fe', [
+  ['config.json', 6_019, '496b5d5a033c6497f2db68a6cdfcbe07c37fbe3c43e9c703b3d4f03e7073f5fd'],
+  ['model.safetensors.index.json', 6_643_280, 'b4efab813630b87ad65f91d6b3b7efb258d92dcc2dee901e7a42697c10b55011'],
+  ['model-00001-of-00012.safetensors', 2_000_535_888, '1d17414dc1abf63ff063a590b2447d24f6ea7f18d5dd14d00576232231bd1eee'],
+  ['model-00002-of-00012.safetensors', 2_001_314_592, '77d83c82a83bc02b4893ab22257415806aa8400d2ba31416d26e27d9052b88bc'],
+  ['model-00003-of-00012.safetensors', 2_001_489_696, '607da15109e98ab1b1de60fc3bb9db3246ce71cd974310f66e5b259c7190d53e'],
+  ['model-00004-of-00012.safetensors', 2_001_332_856, '476ebbc278d262ba9c9f43dbed0a7194fdd783c3046f418eebafa475fe910a9f'],
+  ['model-00005-of-00012.safetensors', 2_001_385_568, '204b11abc1e223c05b9b025941b4d9b9e9b71c1d410656d3292d9e1cb909ac53'],
+  ['model-00006-of-00012.safetensors', 2_001_201_200, '2aa11e163646420fd3cbbe4d28fe258ce64868299c3f4cc08109eda78f69ca40'],
+  ['model-00007-of-00012.safetensors', 2_001_466_576, '135e10983dee048cb5fd9b1aa54731bb26e7de71a5fb3788a3aa770dfd2b8ab0'],
+  ['model-00008-of-00012.safetensors', 2_006_184_792, '72ae08e3f7e6bd2f352c882b17e386b74ec898eb0d5f61bb2707b6b6d6c656b1'],
+  ['model-00009-of-00012.safetensors', 2_001_368_888, 'fe327f32b05c4783e63ba63e09e63d4e25c092983533763082e3cdfb5bbfd03c'],
+  ['model-00010-of-00012.safetensors', 2_003_610_704, '82fc8904de8bdb7d1e30e30a8293075f8a123e9db1cffe5e3a866be286d66121'],
+  ['model-00011-of-00012.safetensors', 2_000_926_592, '8c627d0980146857c8742ed6841041a9350774d7974796231a8f063bd7d11206'],
+  ['model-00012-of-00012.safetensors', 80_001_416, '2b72dc82f247f36881859ce05d36c8f6b02dfe9fd5fa3237c579b958c07b28a7'],
+  ['tokenizer.json', 20_791_070, '0e9b9db76b2f0389b04b6ef057a2ac3b89100b7e96f2dd7034d19580a09654d6'],
+  ['codec.pth', 1_871_099_728, '74fc41c5a7151c6f350af8bd7e5d6e3accfcc7f3dfbfac23afd35af07052bb2f']
+])
+
+/**
  * Fish Audio Drama 3 in speech.cpp, one GGUF file of each weight type with its codec inside, which speech.cpp 0.8.8 and
  * later read; speech.cpp's name `drama-3` fetches the Q4_K file, which `drama-3` is here too. It
  * clones the run's reference voice from a voice file made of the reference's WAVE file and the words of its takes, and
@@ -636,6 +685,8 @@ export const TTS_MODELS: readonly TtsModel[] = [
   drama3('drama-3-q6_k', 'Fish Audio Drama 3 Q6_K', DRAMA_3.q6_k),
   drama3('drama-3-q5_k', 'Fish Audio Drama 3 Q5_K', DRAMA_3.q5_k),
   OFFICIAL_DRAMA_3,
+  sglangDrama3('drama-3-sglang', 'Fish Audio Drama 3, SGLang Omni BF16 with FP8 experts', 'fp8-experts', OFFICIAL_DRAMA_3.files),
+  sglangDrama3('drama-3-int4-sglang', 'Fish Audio Drama 3 int4 (unofficial, W4A16), SGLang Omni', 'int4', DRAMA_3_INT4),
   mlxIrodoriV41('irodori-tts-v4.1-small-mf-mlx', 'Irodori-TTS v4.1 Small MF, mlx-audio FP16', MLX_IRODORI_MF, null),
   mlxIrodoriV41('irodori-tts-v4.1-small-16steps-mlx', 'Irodori-TTS v4.1 Small, mlx-audio FP16, 16 steps', MLX_IRODORI_RF, 16),
   irodori(40),

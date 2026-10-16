@@ -1,0 +1,37 @@
+[project]
+name = "speech-bench-sglang-omni"
+version = "0"
+description = "Fish Audio Drama 3 served by SGLang Omni behind speech.cpp's worker protocol, for speech-bench"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  # The extra holds the packages of Drama 3's codec, as SGLang Omni's cookbook installs it.
+  "sglang-omni[fishaudio] @ git+https://github.com/sgl-project/sglang-omni@549dd1b9e84d834a4d49a7c91d496db454859e80",
+  # The release SGLang Omni pins, named here so that the project says which PyTorch it runs.
+  "torch==2.13.0",
+  # The release SGLang 0.5.21 pins, named here so that it comes from the index below, which uv honours only at the root.
+  "cuda-tile==1.6.0rc5",
+]
+
+[tool.uv]
+# The lock file is made and run with uv 0.11; older releases are not checked against it.
+required-version = ">=0.11"
+package = false
+# SGLang Omni's cookbook installs it with prereleases allowed, which SGLang 0.5.21 needs: it pins cuda-tile 1.6.0rc5.
+prerelease = "allow"
+# SGLang Omni pins wheels built for CUDA 13 on Linux alone, and the bench rents a Linux machine with an NVIDIA GPU for
+# Drama 3; PyPI's PyTorch for Linux is a CUDA build.
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+override-dependencies = [
+  # SGLang Omni overrides descript-audiotools' protobuf<3.20 in its own project, which uv honours only at the root.
+  "protobuf>=6.31.1,<7.0.0",
+]
+
+# PyPI has cuda-tile 1.6.0rc5 as a stub alone, whose build downloads the wheel from NVIDIA's index unpinned; taken from
+# that index, the wheel is pinned by its hash in the lock file.
+[tool.uv.sources]
+cuda-tile = { index = "nvidia" }
+
+[[tool.uv.index]]
+name = "nvidia"
+url = "https://pypi.nvidia.com"
+explicit = true

@@ -43,6 +43,18 @@ keeps a reference in memory. It samples with the model card's temperature 1.0, t
 Fish Audio measured it with and SGLang-Omni's defaults, where fish-speech's server takes 0.7 and 0.7, the Fish Audio
 SDK's defaults for its older model too, when a request gives none.
 
+Drama 3 is measured in SGLang Omni too, the server Fish Audio's cookbook serves it with, in the official checkpoint and
+in the int4 quantization SGLang Omni reads. SGLang Omni runs the model as a pipeline of processes behind its HTTP
+server, so the adapter starts `sgl-omni serve` at the commit it pins, with the server's defaults for Drama 3 and the
+codec from the checkpoint's folder, and speaks to it as a client does. Each sentence is a streaming
+`/v1/audio/speech` request with the run's reference voice, its WAVE file by its path and its takes' texts as the
+transcript, sampled with the model card's settings, and its raw PCM goes out as it arrives. The server encodes a
+reference the first time a request gives it and keeps the codes, and no request only encodes one, so the adapter sends
+each voice one request of eight frames before `ready`. SGLang Omni refuses a seed for Drama 3, whose engine samples
+from generators seeded once when it starts, so these entries run without one. The lock file allows prereleases, as the
+cookbook installs SGLang Omni, since SGLang 0.5.21 pins a release candidate of cuda-tile; that one comes from NVIDIA's
+index, where PyPI has only a stub whose build downloads it unpinned.
+
 ## Rejected
 
 - **torch.compile, which Irodori-TTS's runtime offers.** On an Apple M5 through MPS (PyTorch 2.10.0, 2026-10-05) it

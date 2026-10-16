@@ -7,9 +7,9 @@ import { logsDir } from '../core/paths.ts'
 /**
  * Loading the model and compiling GPU kernels comes before `ready`. After a GPU driver update the Vulkan
  * shaders took 12.6 s to compile on an RTX 2080 (2026-09-29), and an Irodori-TTS worker's first start
- * compiled Metal kernels for 16 s on an Apple M5 (2026-10-01).
+ * compiled Metal kernels for 16 s on an Apple M5 (2026-10-01). A command whose loading takes longer says so.
  */
-const READY_TIMEOUT_MS = 180_000
+const READY_SECONDS = 180
 
 /** The version of speech.cpp's worker protocol the bench speaks, which a worker raises when its callers must change. */
 const WORKER_PROTOCOL = 3
@@ -62,6 +62,8 @@ export interface WorkerCommand {
   args: readonly string[]
   /** Variables set for the worker on top of the bench's own environment. */
   env?: Readonly<Record<string, string>>
+  /** How long the worker may take to become ready, where its loading takes longer than most workers'. */
+  readySeconds?: number
 }
 
 /** The name a run's reference voice is given in a worker, which every request then names. */
@@ -137,7 +139,8 @@ export class WorkerProcess {
         for (const pending of this.pending.values()) pending.reject(error)
         this.pending.clear()
       }
-      const timeout = setTimeout(() => fail(new Error(`the worker did not become ready in ${READY_TIMEOUT_MS / 1000} s; see ${log}`)), READY_TIMEOUT_MS)
+      const readySeconds = this.command.readySeconds ?? READY_SECONDS
+      const timeout = setTimeout(() => fail(new Error(`the worker did not become ready in ${readySeconds} s; see ${log}`)), readySeconds * 1000)
       child.once('error', fail)
       child.once('exit', (code) => fail(new Error(`the worker exited with code ${String(code)}; see ${log}`)))
       readline.createInterface({ input: child.stdout }).on('line', (line) => {

@@ -11,6 +11,11 @@ describe('pinnedVersion', () => {
     expect(pinnedVersion(project('transformers==5.18.0'), 'transformers')).toBe('transformers==5.18.0')
   })
 
+  it('reads the pin of a dependency installed with extras', () => {
+    expect(pinnedVersion(project('sglang-omni[fishaudio] @ git+https://github.com/sgl-project/sglang-omni@549dd1b9e84d834a4d49a7c91d496db454859e80'), 'sglang-omni')).toBe('549dd1b9e84d')
+    expect(pinnedVersion(project('qwen-asr[vllm]==0.0.6'), 'qwen-asr')).toBe('qwen-asr==0.0.6')
+  })
+
   it('refuses an implementation not pinned to one commit or release, whose version a result could not name', () => {
     expect(() => pinnedVersion(project('transformers>=5.18'), 'transformers')).toThrow(/does not pin transformers/)
     expect(() => pinnedVersion(project('qwen-tts @ git+https://github.com/QwenLM/Qwen3-TTS@main'), 'qwen-tts')).toThrow(/does not pin qwen-tts/)
@@ -44,9 +49,10 @@ describe('the adapters\' environments', () => {
     expect(windows.length > 0).toBe(runsOn('win32'))
     for (const url of windows) expect(url).toMatch(/^https:\/\/download(-r2)?\.pytorch\.org\/whl\/cu\d+\/torch-[^/]+%2Bcu\d+-/)
     expect(wheels.some((url) => url.startsWith('https://files.pythonhosted.org/') && url.endsWith('macosx_11_0_arm64.whl'))).toBe(runsOn('darwin'))
-    // PyPI's PyTorch for Linux x64 is a CUDA build, which pulls in NVIDIA's CUDA runtime.
+    // PyPI's PyTorch for Linux x64 is a CUDA build, which pulls in NVIDIA's CUDA runtime: for CUDA 12 a package named
+    // with the major version, for CUDA 13 one without it.
     const linux = wheels.filter((url) => url.startsWith('https://files.pythonhosted.org/') && url.endsWith('manylinux_2_28_x86_64.whl'))
     expect(linux.length > 0).toBe(runsOn('linux'))
-    if (runsOn('linux')) expect(lock).toMatch(/\{ name = "nvidia-cuda-runtime-cu12", marker = "[^"]*sys_platform == 'linux'[^"]*" \}/)
+    if (runsOn('linux')) expect(lock).toMatch(/\{ name = "nvidia-cuda-runtime(-cu12)?", marker = "[^"]*sys_platform == 'linux'[^"]*" \}/)
   })
 })

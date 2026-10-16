@@ -19,7 +19,7 @@ import { checkSetupFor, DEFAULT_SETUP, deviceOf, filesFor, modelFiles, modelReco
 import { runFile, runFolder } from './runs.ts'
 import { AUDIO_CPP, ensureRuntime, ensureSpeechCpp, releaseOf, runtimeTag, SPEECH_CPP, type RuntimeIdentity } from '../catalog/runtimes.ts'
 import { describeRuntime } from './report.ts'
-import { adapterCommand, adapterVersion, DRAMA3_ADAPTER, IRODORI_TTS_ADAPTER, MLX_AUDIO_ADAPTER, QWEN3_TTS_ADAPTER, syncAdapter, type Adapter } from '../engines/adapter.ts'
+import { adapterCommand, adapterVersion, DRAMA3_ADAPTER, IRODORI_TTS_ADAPTER, MLX_AUDIO_ADAPTER, QWEN3_TTS_ADAPTER, SGLANG_OMNI_ADAPTER, syncAdapter, type Adapter } from '../engines/adapter.ts'
 import { durationSeconds, encodeWav16, peakNormalize, resample } from '../core/wav.ts'
 
 /** The model the synthesized speech is transcribed with: the most accurate local recognizer measured (FLEURS ja-JP 5.31%, 2026-09-30). */
@@ -102,12 +102,8 @@ async function prepareTts(model: TtsModel, { seed, design, reference, durationSc
   if (model.runtime === 'adapter') {
     if (model.voiceReference && reference === null) throw new Error(`${model.id} has no voice of its own; give it one with --reference`)
     const fileOf = (name: string): string => files[model.files.findIndex((file) => file.file === name)]!
-    const voice = reference === null ? [] : [
-      '--add-voice', `${REFERENCE_VOICE}=${reference.file}`,
-      ...(takesTranscript(model) ? ['--voice-text', `${REFERENCE_VOICE}=${reference.transcript}`] : [])
-    ]
     const adapter = SYNTHESIS_ADAPTERS[model.adapter]
-    const { args, loadOptions } = adapterRun(model, fileOf, voice)
+    const { args, loadOptions } = adapterRun(model, fileOf, reference)
     const engine = new WorkerTts(adapterCommand(adapter, model.id, args), { voice: reference === null ? null : REFERENCE_VOICE, seed, options: stepsOption(model.steps) })
     return { engine, runtime: releaseOf({ id: adapter.id, version: adapterVersion(adapter) }), loadOptions, transcript: reference !== null && takesTranscript(model) ? reference.transcript : null, remove }
   }
@@ -118,22 +114,33 @@ async function prepareTts(model: TtsModel, { seed, design, reference, durationSc
 }
 
 /** Whether an adapter's model clones a voice from the words of its reference too, which a run then gives it. */
-const takesTranscript = (model: Extract<TtsModel, { runtime: 'adapter' }>): boolean => model.adapter === 'drama3'
+const takesTranscript = (model: Extract<TtsModel, { runtime: 'adapter' }>): boolean => model.adapter === 'drama3' || model.adapter === 'sglang-omni'
 
 /** The adapter of each synthesis model the catalog runs in one. */
 const SYNTHESIS_ADAPTERS: Record<Extract<TtsModel, { runtime: 'adapter' }>['adapter'], Adapter> = {
   drama3: DRAMA3_ADAPTER,
   'irodori-tts': IRODORI_TTS_ADAPTER,
   'mlx-audio': MLX_AUDIO_ADAPTER,
-  'qwen3-tts': QWEN3_TTS_ADAPTER
+  'qwen3-tts': QWEN3_TTS_ADAPTER,
+  'sglang-omni': SGLANG_OMNI_ADAPTER
+}
+
+/** What SGLang Omni computes Drama 3's weights in, as its checkpoint's quantization says. */
+const SGLANG_OMNI_PRECISION: Record<Extract<TtsModel, { adapter: 'sglang-omni' }>['quantization'], Record<string, string>> = {
+  'fp8-experts': { precision: 'bf16', experts: 'fp8' },
+  int4: { precision: 'bf16', experts: 'int4', attention: 'int4' }
 }
 
 /**
- * The arguments of the adapter that runs a synthesis model and the options it is loaded with. The official
- * implementations run in PyTorch on the GPU of the machine, Irodori-TTS in the precision of the model's entry and the
- * others in the precision they are released in; mlx-audio runs only on Apple silicon.
+ * The arguments of the adapter that runs a synthesis model, the run's reference voice among them, and the options it
+ * is loaded with. The official implementations run in PyTorch on the GPU of the machine, Irodori-TTS in the precision
+ * of the model's entry and the others in the precision they are released in; mlx-audio runs only on Apple silicon.
  */
-function adapterRun(model: Extract<TtsModel, { runtime: 'adapter' }>, fileOf: (name: string) => string, voice: readonly string[]): { args: string[]; loadOptions: Record<string, string> } {
+export function adapterRun(model: Extract<TtsModel, { runtime: 'adapter' }>, fileOf: (name: string) => string, reference: ReferenceVoice | null): { args: string[]; loadOptions: Record<string, string> } {
+  const voice = reference === null ? [] : [
+    '--add-voice', `${REFERENCE_VOICE}=${reference.file}`,
+    ...(takesTranscript(model) ? ['--voice-text', `${REFERENCE_VOICE}=${reference.transcript}`] : [])
+  ]
   if (model.adapter === 'mlx-audio') {
     if (platformKey() !== 'darwin-arm64') throw new Error('mlx-audio runs on Apple silicon alone')
     return { args: ['--model', path.dirname(fileOf('config.json')), ...voice], loadOptions: { device: 'metal', precision: 'fp16' } }
@@ -147,6 +154,11 @@ function adapterRun(model: Extract<TtsModel, { runtime: 'adapter' }>, fileOf: (n
     const { temperature, topP, topK } = DRAMA3_SAMPLING
     const args = ['--checkpoint', path.dirname(fileOf('config.json')), '--device', device, '--temperature', String(temperature), '--top-p', String(topP), ...voice]
     return { args, loadOptions: { device, precision: 'bf16', experts: 'fp8', temperature: String(temperature), top_p: String(topP), top_k: String(topK) } }
+  }
+  if (model.adapter === 'sglang-omni') {
+    const { temperature, topP, topK } = DRAMA3_SAMPLING
+    const args = ['--checkpoint', path.dirname(fileOf('config.json')), '--device', device, '--temperature', String(temperature), '--top-p', String(topP), '--top-k', String(topK), ...voice]
+    return { args, loadOptions: { device, ...SGLANG_OMNI_PRECISION[model.quantization], temperature: String(temperature), top_p: String(topP), top_k: String(topK) } }
   }
   return { args: ['--model', path.dirname(fileOf('config.json')), '--device', device], loadOptions: { device, precision: 'bf16' } }
 }
