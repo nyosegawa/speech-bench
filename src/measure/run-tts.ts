@@ -7,7 +7,7 @@ import type { VoiceDesign } from '../make/recipes.ts'
 import type { Prompt } from '../datasets/prompts.ts'
 import type { ReferenceVoice } from '../make/references.ts'
 import { AudioCppTts } from '../engines/audiocpp.ts'
-import { irodoriVoiceFile } from '../engines/irodori-voice.ts'
+import { speechVoiceFile } from '../engines/speech-voice.ts'
 import { REFERENCE_VOICE, speechWorkerArgs } from '../engines/worker.ts'
 import { WorkerTts } from '../engines/worker-tts.ts'
 import type { Synthesis, TtsEngine } from '../engines/tts-engine.ts'
@@ -66,6 +66,8 @@ interface PreparedTts {
   engine: TtsEngine
   runtime: RuntimeIdentity
   loadOptions: Readonly<Record<string, string>>
+  /** The words of the reference's takes, given to a model that clones a voice from them too, which the run records. */
+  transcript: string | null
   /** Removes the copies of the model files a cold load read, once the runtime has stopped. */
   remove: () => void
 }
@@ -85,13 +87,13 @@ async function prepareTts(model: TtsModel, { seed, design, reference, durationSc
     if (!modelGguf || others.length > 0) throw new Error(`${model.id} is one GGUF file in speech.cpp`)
     const { executable, runtime } = await ensureSpeechCpp(setup.speechCpp)
     const { device, options } = deviceOf(setup)
-    const voiceFile = reference === null ? null : await irodoriVoiceFile({ executable, version: runtimeTag(runtime) }, modelGguf, reference)
+    const voiceFile = reference === null ? null : await speechVoiceFile({ executable, version: runtimeTag(runtime) }, modelGguf, reference)
     const { files: [gguf], remove } = await filesFor(model, setup)
     const engine = new WorkerTts(
-      { name: model.id, executable, args: speechWorkerArgs(gguf!, device, voiceFile) },
+      { name: model.id, executable, args: speechWorkerArgs(gguf!, device, voiceFile?.file ?? null) },
       { voice: voiceFile === null ? null : REFERENCE_VOICE, seed, options: stepsOption(model.steps) }
     )
-    return { engine, runtime, loadOptions: { ...(voiceFile === null ? {} : { voice: 'voice file made on the CPU' }), ...options }, remove }
+    return { engine, runtime, loadOptions: { ...(voiceFile === null ? {} : { voice: 'voice file made on the CPU' }), ...options }, transcript: voiceFile?.transcript ?? null, remove }
   }
   // The runtime is fetched and the adapter installed before the copies are made, so that neither leaves copies behind.
   const audioCpp = model.runtime === 'audio.cpp' ? await ensureRuntime(AUDIO_CPP) : null
@@ -107,16 +109,16 @@ async function prepareTts(model: TtsModel, { seed, design, reference, durationSc
     const adapter = SYNTHESIS_ADAPTERS[model.adapter]
     const { args, loadOptions } = adapterRun(model, fileOf, voice)
     const engine = new WorkerTts(adapterCommand(adapter, model.id, args), { voice: reference === null ? null : REFERENCE_VOICE, seed, options: stepsOption(model.steps) })
-    return { engine, runtime: releaseOf({ id: adapter.id, version: adapterVersion(adapter) }), loadOptions, remove }
+    return { engine, runtime: releaseOf({ id: adapter.id, version: adapterVersion(adapter) }), loadOptions, transcript: reference !== null && takesTranscript(model) ? reference.transcript : null, remove }
   }
   const [gguf] = files
   if (!gguf) throw new Error(`${model.id} has no GGUF`)
   const runOptions = { ...(seed === null ? {} : { seed }), ...(design === null ? {} : { instruction: design.instruction }), ...(durationScale === null ? {} : { duration_scale: durationScale }) }
-  return { engine: new AudioCppTts(audioCpp!, model, gguf, gpuBackend(), runOptions, reference?.file ?? null), runtime: releaseOf(AUDIO_CPP), loadOptions: model.loadOptions[gpuBackend()] ?? {}, remove }
+  return { engine: new AudioCppTts(audioCpp!, model, gguf, gpuBackend(), runOptions, reference?.file ?? null), runtime: releaseOf(AUDIO_CPP), loadOptions: model.loadOptions[gpuBackend()] ?? {}, transcript: null, remove }
 }
 
-/** Whether the model clones a voice from the words of its reference too, which a run then gives it and records. */
-const takesTranscript = (model: TtsModel): boolean => model.runtime === 'adapter' && model.adapter === 'drama3'
+/** Whether an adapter's model clones a voice from the words of its reference too, which a run then gives it. */
+const takesTranscript = (model: Extract<TtsModel, { runtime: 'adapter' }>): boolean => model.adapter === 'drama3'
 
 /** The adapter of each synthesis model the catalog runs in one. */
 const SYNTHESIS_ADAPTERS: Record<Extract<TtsModel, { runtime: 'adapter' }>['adapter'], Adapter> = {
@@ -185,7 +187,7 @@ export async function runTts(model: TtsModel, locale: string, sentences: readonl
   const audioFolder = runFolder(stem)
   fs.mkdirSync(audioFolder, { recursive: true })
 
-  const { engine, runtime, loadOptions, remove } = await prepareTts(model, choice, setup)
+  const { engine, runtime, loadOptions, transcript, remove } = await prepareTts(model, choice, setup)
   const spoken: Spoken[] = []
   let loadSeconds = 0
   let warmupSeconds = 0
@@ -246,7 +248,7 @@ export async function runTts(model: TtsModel, locale: string, sentences: readonl
     voice,
     seed,
     design: design === null ? null : { id: design.id, instruction: design.instruction },
-    reference: reference === null ? null : { name: reference.name, sha256: reference.sha256, seconds: reference.seconds, transcript: takesTranscript(model) ? reference.transcript : null },
+    reference: reference === null ? null : { name: reference.name, sha256: reference.sha256, seconds: reference.seconds, transcript },
     durationScale,
     recognizer: { id: recognizer.id, label: recognizer.label },
     secondRecognizer: second === null ? null : { id: secondRecognizer.id, label: secondRecognizer.label, runtime: describeRuntime({ ...second.runtime, options: {} }) },
