@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -5,6 +6,7 @@ import { downloadVerified, extractArchive } from './download.ts'
 import { ciRunOf, ensureSpeechCppCiBuild } from './ci-build.ts'
 import { readSpeechCppBuild, SPEECH_CPP_BUILD_VARIABLE } from './local-build.ts'
 import { renameImport } from './pe.ts'
+import { ensureSourceBuild, sourceBuildDir, type SourceBuildSpec } from './source-build.ts'
 import { runtimesDir } from '../core/paths.ts'
 import { platformKey, type PlatformKey } from '../core/platform.ts'
 
@@ -172,6 +174,46 @@ export const NEMO_SPEECH_CPP: RuntimeSpec = {
       executable: 'nemo-speech-0.2.0-windows-x86_64-vulkan/bin/nemo-speech.exe'
     }
   }
+}
+
+/**
+ * NeMo-Speech.cpp at the commit that fixed its speech-LLM (SALM) transcription after adding it, which no release has:
+ * v0.2.0 is the latest (2026-10-29), and the nightly prerelease is deleted and published again from main whenever main
+ * moves. The bench builds the commit itself as the release workflow builds the macOS Metal archive, with the
+ * metal-server preset and SentencePiece built statically by the repository's script, but without the text
+ * normalization the archive also carries, which the bench never asks for.
+ */
+export const NEMO_SPEECH_CPP_SALM: SourceBuildSpec = {
+  id: 'nemo-speech.cpp',
+  repository: 'https://github.com/NVIDIA/NeMo-Speech.cpp',
+  commit: '66d50d91b75a406becd95fbaf39d2c9c13e95d7c',
+  submodules: ['llama.cpp', 'third_party/cpp-httplib'],
+  prepare: ['scripts/build_sentencepiece_static.sh'],
+  presets: {
+    'darwin-arm64': {
+      preset: 'metal-server',
+      definitions: ['-DGGML_NATIVE=OFF', '-DNEMO_SPEECH_BUILD_GRPC=OFF', '-DNEMO_SPEECH_WITH_GRPC=OFF', '-DCMAKE_OSX_DEPLOYMENT_TARGET=13.3'],
+      buildDir: 'build/metal-server'
+    }
+  },
+  executable: 'bin/nemo-speech'
+}
+
+/** The release number in what `nemo-speech --version` prints, `nemo-speech 0.2.0`, or null for anything else. */
+export function parseNemoSpeechVersion(output: string): string | null {
+  return /^nemo-speech (\d+\.\d+\.\d+\S*)$/.exec(output.trim())?.[1] ?? null
+}
+
+/**
+ * The executable of the build of NeMo-Speech.cpp that has SALM, built first when it is not there, and what a run
+ * records of it: the release number it reports and the commit it was built from.
+ */
+export function ensureNemoSpeechSalm(): { executable: string; runtime: RuntimeIdentity } {
+  const executable = ensureSourceBuild(NEMO_SPEECH_CPP_SALM)
+  const printed = execFileSync(executable, ['--version'], { encoding: 'utf8', windowsHide: true })
+  const version = parseNemoSpeechVersion(printed)
+  if (version === null) throw new Error(`${executable} --version printed ${JSON.stringify(printed.trim())}, not NeMo-Speech.cpp's version; remove ${sourceBuildDir(NEMO_SPEECH_CPP_SALM)} to build it again`)
+  return { executable, runtime: { id: NEMO_SPEECH_CPP_SALM.id, version, build: { commit: NEMO_SPEECH_CPP_SALM.commit, ciRun: null } } }
 }
 
 /** audio.cpp's prebuilt server: Metal on the Mac, Vulkan on Windows. It runs Irodori-TTS for measuring only. */

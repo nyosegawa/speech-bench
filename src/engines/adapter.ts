@@ -41,6 +41,13 @@ export const SGLANG_OMNI_ADAPTER: Adapter = { id: 'sglang-omni', implementation:
 /** mlx-audio, which runs ports of many models on Apple's MLX, here for its Irodori-TTS. */
 export const MLX_AUDIO_ADAPTER: Adapter = { id: 'mlx-audio', implementation: 'mlx-audio', script: 'worker.py' }
 
+/**
+ * mlx-audio for its speech recognition, here Nemotron 3.5 Transcribe, pinned apart from its Irodori-TTS at the commit
+ * the MLX conversion it runs was made and checked with, so that the synthesis entries stay at the commit they were
+ * measured at.
+ */
+export const MLX_AUDIO_ASR_ADAPTER: Adapter = { id: 'mlx-audio-asr', implementation: 'mlx-audio', script: 'worker.py' }
+
 const folderOf = (adapter: Adapter): string => path.join(import.meta.dirname, '..', '..', 'adapters', adapter.id)
 
 /** The adapter's Python environment, in the data folder with the other downloads rather than in the repository. */

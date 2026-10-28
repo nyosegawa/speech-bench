@@ -4,21 +4,21 @@ import { modelCovers, VAD_MODEL, type AsrModel } from '../catalog/models.ts'
 import type { UtteranceSet } from '../datasets/item.ts'
 import { coldCopies } from '../catalog/cold-copy.ts'
 import { ensureModelFile, type ModelFile } from '../catalog/model-file.ts'
-import { convertedSha256 } from '../catalog/convert.ts'
+import { checkpointOrigin, convertedSha256 } from '../catalog/convert.ts'
 import { CrispAsr } from '../engines/crispasr.ts'
 import type { AsrEngine } from '../engines/engine.ts'
 import { LlamaServerAsr } from '../engines/llama-server.ts'
-import { NEMO_SPEECH_LOAD_OPTIONS, nemoSpeechDevice, NemoSpeechAsr } from '../engines/nemo-speech.ts'
+import { NEMO_SPEECH_LOAD_OPTIONS, NEMO_SPEECH_SALM_LOAD_OPTIONS, nemoSpeechDevice, NemoSpeechAsr, NemoSpeechSalmAsr } from '../engines/nemo-speech.ts'
 import { speechWorkerArgs } from '../engines/worker.ts'
 import { WorkerAsr } from '../engines/worker-asr.ts'
 import { VoiceDetector } from '../engines/voice-activity.ts'
-import { gpuDevice, machineInfo, torchDevice } from '../core/platform.ts'
-import { adapterCommand, adapterVersion, QWEN3_ASR_ADAPTER, syncAdapter } from '../engines/adapter.ts'
+import { gpuDevice, machineInfo, platformKey, torchDevice } from '../core/platform.ts'
+import { adapterCommand, adapterVersion, MLX_AUDIO_ASR_ADAPTER, QWEN3_ASR_ADAPTER, syncAdapter } from '../engines/adapter.ts'
 import { RESULT_FORMAT, type AsrRunRecord, type ModelRecord, type NewPreparation, type UtteranceRecord } from './result-file/format.ts'
 import { RuntimeWatch } from './watch.ts'
 import { resultText } from './result-file/file.ts'
 import { runFile } from './runs.ts'
-import { CRISPASR, ensureRuntime, ensureSpeechCpp, LLAMA_CPP, NEMO_SPEECH_CPP, releaseOf, type RuntimeIdentity } from '../catalog/runtimes.ts'
+import { CRISPASR, ensureNemoSpeechSalm, ensureRuntime, ensureSpeechCpp, LLAMA_CPP, NEMO_SPEECH_CPP, releaseOf, type RuntimeIdentity } from '../catalog/runtimes.ts'
 import { durationSeconds, peakNormalize, readWav, trimAround, withTrailingSilence, type Pcm } from '../core/wav.ts'
 
 /** How utterances are prepared unless a run asks otherwise. */
@@ -82,6 +82,13 @@ export async function filesFor(model: { files: readonly ModelFile[] }, setup: Ru
   return setup.coldLoad ? coldCopies(files) : { files, remove: () => undefined }
 }
 
+/**
+ * What a run records of how a speech-LLM is asked: the instruction every utterance is sent with, greedy decoding and
+ * no reasoning, which both of its runtimes do by default and the run states, since the model's card gives other
+ * settings for other tasks.
+ */
+export const speechLmOptions = (instruction: string): Record<string, string> => ({ instruction, temperature: '0', reasoning: 'off' })
+
 /** The engine that runs the model from `files`, the local paths of its files, with its runtime and the options it is loaded with. */
 export async function prepareAsr(model: AsrModel, files: readonly string[], setup: RunSetup): Promise<{ engine: AsrEngine; runtime: RuntimeIdentity; loadOptions: Readonly<Record<string, string>> }> {
   checkSetupFor(model, setup)
@@ -90,11 +97,25 @@ export async function prepareAsr(model: AsrModel, files: readonly string[], setu
     return { engine: new LlamaServerAsr(await ensureRuntime(LLAMA_CPP), model, files, device), runtime: releaseOf(LLAMA_CPP), loadOptions: options }
   }
   if (model.runtime === 'adapter') {
-    const device = torchDevice()
     const folder = path.dirname(files[model.files.findIndex((file) => file.file === 'config.json')]!)
+    if (model.adapter === 'mlx-audio-asr') {
+      if (platformKey() !== 'darwin-arm64') throw new Error('mlx-audio runs on Apple silicon alone')
+      syncAdapter(MLX_AUDIO_ASR_ADAPTER)
+      const engine = new WorkerAsr(adapterCommand(MLX_AUDIO_ASR_ADAPTER, model.id, ['--model', folder, '--instruction', model.instruction]), { ...model, decoding: null })
+      return { engine, runtime: releaseOf({ id: MLX_AUDIO_ASR_ADAPTER.id, version: adapterVersion(MLX_AUDIO_ASR_ADAPTER) }), loadOptions: { device: 'metal', precision: '4bit', ...speechLmOptions(model.instruction) } }
+    }
+    const device = torchDevice()
     syncAdapter(QWEN3_ASR_ADAPTER)
     const engine = new WorkerAsr(adapterCommand(QWEN3_ASR_ADAPTER, model.id, ['--model', folder, '--device', device]), { ...model, decoding: null })
     return { engine, runtime: releaseOf({ id: QWEN3_ASR_ADAPTER.id, version: adapterVersion(QWEN3_ASR_ADAPTER) }), loadOptions: { device, precision: 'bf16' } }
+  }
+  if (model.runtime === 'nemo-speech.cpp' && model.family === 'salm') {
+    // The decoder names its encoder file, which the server loads from the decoder's folder, where the conversion put it.
+    const decoder = files[0]
+    if (!decoder) throw new Error(`${model.id} has no decoder`)
+    const { executable, runtime } = ensureNemoSpeechSalm()
+    const engine = new NemoSpeechSalmAsr(executable, model, decoder, nemoSpeechDevice(device))
+    return { engine, runtime, loadOptions: { ...NEMO_SPEECH_SALM_LOAD_OPTIONS, ...options, ...speechLmOptions(model.instruction) } }
   }
   const [gguf] = files
   if (!gguf || files.length !== 1) throw new Error(`${model.id} is one GGUF file in ${model.runtime}`)
@@ -117,8 +138,8 @@ export async function prepareAsr(model: AsrModel, files: readonly string[], setu
 function fileRecord(file: ModelFile): ModelRecord['files'][number] {
   if (file.kind === 'local') return { source: 'local', file: file.file, bytes: file.bytes, sha256: file.sha256 }
   if (file.kind === 'converted') {
-    const { checkpoint, converter } = file
-    return { source: 'huggingface', repo: checkpoint.repo, revision: checkpoint.revision, file: file.file, sha256: convertedSha256(file), converter: { repository: converter.repository, commit: converter.commit, args: [...file.args] } }
+    const { checkpoint, converter, args } = file.conversion
+    return { source: 'huggingface', ...checkpointOrigin(checkpoint), file: file.file, sha256: convertedSha256(file), converter: { repository: converter.repository, commit: converter.commit, args: [...args] } }
   }
   return { source: 'huggingface', repo: file.repo, revision: file.revision, file: file.file, sha256: file.sha256, converter: null }
 }

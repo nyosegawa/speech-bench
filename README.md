@@ -3,7 +3,8 @@
 Measures local speech recognition and speech synthesis models under one set of conditions, across the runtimes
 they run in and the machines they run on, so that [speech.cpp](https://github.com/nyosegawa/speech.cpp) takes up
 a model on numbers, and a port can be checked against the model it was ported from. It runs pinned releases
-(llama.cpp, CrispASR, speech.cpp, NeMo-Speech.cpp, audio.cpp) on macOS with Metal and on Windows with Vulkan, and on
+(llama.cpp, CrispASR, speech.cpp, NeMo-Speech.cpp, audio.cpp), and a pinned commit of NeMo-Speech.cpp it builds itself,
+on macOS with Metal and on Windows with Vulkan, and on
 Linux with an NVIDIA GPU, as a machine rented in the cloud is, for a model or a GPU the other two cannot hold. It also
 makes voices for models that have none built in, from a description and lines in character.
 
@@ -17,9 +18,11 @@ makes voices for models that have none built in, from a description and lines in
   (`libarchive-tools`), since GNU tar reads no zip; CrispASR, NeMo-Speech.cpp, audio.cpp and mlx-audio do not run there
 - Node.js 22.18 or later (TypeScript runs directly through type stripping)
 - [uv](https://docs.astral.sh/uv/) 0.11 or later, only for the implementations the adapters run (the official ones of Irodori-TTS,
-  Qwen3-TTS and Qwen3-ASR, and mlx-audio) and for NeMo-Speech.cpp's converter, and Git, which fetches the converter;
-  on Windows and Linux the official implementations need an NVIDIA GPU, on which they run through CUDA, and on Linux an
-  adapter runs only where its lock file includes Linux
+  Qwen3-TTS and Qwen3-ASR, and mlx-audio) and for NeMo-Speech.cpp's converter and its build, and Git, which fetches the
+  converter and the source; on Windows and Linux the official implementations need an NVIDIA GPU, on which they run
+  through CUDA, and on Linux an adapter runs only where its lock file includes Linux
+- the Xcode Command Line Tools, only on a Mac to build NeMo-Speech.cpp's speech-LLM and the quantizer its converter
+  builds (CMake and Ninja come pinned through uv)
 - [GitHub CLI](https://cli.github.com/), logged in, only to measure a build of speech.cpp's CI
 
 ```sh
@@ -72,6 +75,9 @@ SPEECH_BENCH_SPEECH_CPP=~/src/speech.cpp/build node src/cli.ts asr --locale ja-J
 # parakeet-tdt-0.6b-v3 in speech.cpp and in NVIDIA's NeMo-Speech.cpp, from F16 files of the same checkpoint
 node src/cli.ts asr --locale fr-FR --models parakeet-tdt-0.6b-v3-speech.cpp,parakeet-tdt-0.6b-v3-nemo-speech.cpp --count 100
 
+# Nemotron 3.5 Transcribe, a speech-LLM, in NeMo-Speech.cpp built at a pinned commit and in mlx-audio, on a Mac
+node src/cli.ts asr --locale ja-JP --models nemotron-3.5-transcribe-30b-a4b-nemo-speech.cpp,nemotron-3.5-transcribe-30b-a4b-ea-mlx --count 100
+
 # Measure on your own utterances, recorded under Record in the web app (see below)
 node src/cli.ts asr --locale ja-JP --models qwen3-asr-1.7b --set recordings --speaker guest
 
@@ -93,15 +99,17 @@ folder `SPEECH_BENCH_DATA` names.
 
 ```text
 ~/speech-bench-data/
-  models/      model files from Hugging Face, by repository and revision
+  models/      model files from Hugging Face, by repository and revision, cloned from Hugging Face's own cache when it holds them
   converted/   model files converted from checkpoints, by converter and commit
   converters/  the converters at their commits and their Python environments
+  builders/    the CMake and Ninja that build a runtime from its source
   datasets/    FLEURS transcriptions and audio archives, and the copy of Common Voice 8.0
   fleurs/      the FLEURS recordings unpacked for measuring
   common-voice/ the Common Voice clips decoded to 16 kHz WAVE for measuring
   spellings/   the work directories of annotating accepted spellings
   huggingface/ the annotations of Common Voice as they are uploaded to Hugging Face
-  runtimes/    llama.cpp, CrispASR, speech.cpp, NeMo-Speech.cpp and audio.cpp releases, and speech.cpp's CI builds by run
+  runtimes/    llama.cpp, CrispASR, speech.cpp, NeMo-Speech.cpp and audio.cpp releases, speech.cpp's CI builds by run, and
+               NeMo-Speech.cpp built at a commit
   recordings/  your recordings, <locale>/<speaker>/manifest.jsonl
   references/  reference voices made from synthesized takes, <name>.wav and <name>.json
   voice-files/ voice files made from the references for speech.cpp, by reference, codec and release or build
@@ -201,6 +209,22 @@ the weight type of speech.cpp's files, with NeMo-Speech.cpp's converter at the c
 fetches the converter with Git, installs the packages `converters/nemo-speech.cpp/` locks through uv, and keeps the
 file only when its size and sha256 are the ones pinned. NeMo-Speech.cpp decodes an RNN-T model greedily, so its
 ReazonSpeech compares with `reazonspeech-nemo-v2-greedy-speech.cpp`.
+
+Nemotron 3.5 Transcribe 30B-A4B, NVIDIA's speech-LLM, runs on a Mac in the two runtimes that run it besides NVIDIA's
+own. NeMo-Speech.cpp runs it from commit 66d50d91, which no release has yet, so the bench builds that commit itself,
+with the CMake and Ninja that `builders/nemo-speech.cpp/` locks and the Xcode Command Line Tools, and converts
+NVIDIA's checkpoint with the converter of the same commit to a decoder with IQ4_NL experts and its F16 encoder file,
+the type NeMo-Speech.cpp's guide gives Metal (docs/adr/0033). The converter writes the decoder in BF16, 66 GB, before
+it quantizes it, so a conversion needs about 90 GB free beside the 67.5 GB checkpoint for a quarter of an hour on an
+Apple M5; the bench takes the checkpoint from Hugging Face's cache when `hf download` put it there (docs/adr/0035),
+and keeps the two files it makes, 22 GB. The server is asked through its chat completions, with one decode slot. At
+that commit it answers a clip whose speaker branch hears no one with nothing, without decoding it, which a run counts
+as an empty transcription: 17 of 99 Common Voice clips trimmed to the voice
+(docs/measurements/nemotron-3.5-transcribe-on-an-apple-m5-2026-10-29.md). mlx-audio runs nativ-community's 4-bit MLX
+conversion through `adapters/mlx-audio-asr/`, which was made from the early-access checkpoint of NVIDIA's NGC, whose
+weights are not the release's, so its ids say `ea`. Both decode greedily without reasoning and are not told the
+language; they are given the instruction the model card recommends for verbatim transcription, and under the ids
+ending in `-runtime-instruction` the one both write when given none (docs/adr/0034).
 
 Recognition runs of one set, chosen on the web app's runs page, open the transcripts page: what every run heard of
 each utterance, as it was scored, with what it heard for another unit, heard but was not said, and did not hear
@@ -513,6 +537,9 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 | PyTorch for the official implementations | PyPI's on a Mac and on Linux, where it is a CUDA build; on Windows the CUDA 12.8 build from PyTorch's index, pinned in each adapter's lock file |
 | NeMo-Speech.cpp | v0.2.0, `nemo-speech serve` |
 | parakeet-tdt-0.6b-v3 and ReazonSpeech NeMo v2 in NeMo-Speech.cpp | nvidia/parakeet-tdt-0.6b-v3 and reazon-research/reazonspeech-nemo-v2, the `.nemo` checkpoints speech.cpp's files were converted from, converted to F16 by NeMo-Speech.cpp's `convert_model.py` at v0.2.0 (6a3ca369) with the packages of `converters/nemo-speech.cpp/uv.lock`, and pinned by the size and sha256 of the result |
+| NeMo-Speech.cpp with SALM | commit 66d50d91, built by the bench with its `llama.cpp` and `cpp-httplib` submodules, SentencePiece at the commit its script pins, and the CMake 4.1.2 and Ninja 1.13.0 of `builders/nemo-speech.cpp/uv.lock` |
+| Nemotron 3.5 Transcribe 30B-A4B in NeMo-Speech.cpp | nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B at ef905575, converted to an IQ4_NL decoder and its F16 encoder file by NeMo-Speech.cpp's `convert_model.py` at 66d50d91 with the packages of `converters/nemo-speech.cpp/uv.lock`, and pinned by the size and sha256 of both |
+| Nemotron 3.5 Transcribe 30B-A4B early access in mlx-audio | nativ-community/Nemotron-3.5-Transcribe-30B-A4B-EA-4bit at c47153ca, converted from NVIDIA's early-access checkpoint, in mlx-audio at 92decb75 with the packages of `adapters/mlx-audio-asr/uv.lock` |
 | audio.cpp | v0.9.0 |
 | Irodori-TTS v4 Small | audio-cpp/audio.cpp-gguf Q8_0 |
 | sherpa-onnx | 1.13.8, the Node addon of its npm packages for macOS arm64, Windows x64 and Linux x64, for speaker embeddings and the VAD; on Windows its ONNX Runtime is renamed so that Windows ML's copy in System32 is not loaded in its place (docs/adr/0018) |

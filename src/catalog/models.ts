@@ -1,4 +1,5 @@
-import type { ConvertedFile, Converter } from './convert.ts'
+import { convertedFiles, type CheckpointFolder, type ConvertedFile, type Converter } from './convert.ts'
+import { NEMO_SPEECH_CPP_SALM } from './runtimes.ts'
 import type { ModelFile } from './model-file.ts'
 import type { PinnedFile } from './store.ts'
 import { tagCovers } from '../core/language.ts'
@@ -7,15 +8,19 @@ import { tagCovers } from '../core/language.ts'
  * Where a model runs: llama-server with the language model and its audio projector, CrispASR with one GGUF and
  * the backend it loads as, which CrispASR's /health reports, speech.cpp's worker with the model's one GGUF file,
  * its audio encoder inside, in the layout speech.cpp v0.7.0 reads, and the decoding every request asks for, or null
- * for the model's default, NeMo-Speech.cpp's server with one GGUF file its converter made, or an adapter of the
- * model's official implementation with the checkpoint as it is published.
+ * for the model's default, NeMo-Speech.cpp's server with the GGUF files its converter made, a FastConformer model's one
+ * file in its release or a speech-LLM's decoder and encoder in the build that has SALM, or an adapter of the model's
+ * official implementation with the checkpoint as it is published or of mlx-audio with an MLX conversion. A speech-LLM
+ * is told `instruction` with every utterance.
  */
 export type AsrRuntime =
   | { runtime: 'llama-server' }
   | { runtime: 'crispasr'; backend: string }
   | { runtime: 'speech.cpp'; decoding: 'greedy' | null }
-  | { runtime: 'nemo-speech.cpp' }
+  | { runtime: 'nemo-speech.cpp'; family: 'fastconformer' }
+  | { runtime: 'nemo-speech.cpp'; family: 'salm'; instruction: string }
   | { runtime: 'adapter'; adapter: 'qwen3-asr' }
+  | { runtime: 'adapter'; adapter: 'mlx-audio-asr'; instruction: string }
 
 /** A speech recognition model the bench can run, with the languages its model card lists. */
 export type AsrModel = AsrRuntime & {
@@ -51,7 +56,8 @@ const NEMO_SPEECH_CONVERTER: Converter = {
   id: 'nemo-speech.cpp',
   repository: 'https://github.com/NVIDIA/NeMo-Speech.cpp',
   commit: '6a3ca369370782acee0dd155e34394ba60b920c4',
-  script: 'convert_model.py'
+  script: 'convert_model.py',
+  submodules: []
 }
 
 /**
@@ -60,7 +66,7 @@ const NEMO_SPEECH_CONVERTER: Converter = {
  * NeMo-Speech.cpp in Q8_0 alone, and ReazonSpeech not at all (2026-10-08).
  */
 const nemoSpeechF16 = (checkpoint: PinnedFile, file: string, bytes: number, sha256: Readonly<Record<string, string>>): ConvertedFile =>
-  ({ kind: 'converted', converter: NEMO_SPEECH_CONVERTER, checkpoint, args: ['--outtype', 'fp16'], file, bytes, sha256 })
+  ({ kind: 'converted', conversion: { converter: NEMO_SPEECH_CONVERTER, checkpoint, args: ['--outtype', 'fp16'], outputs: [{ file, bytes, sha256 }] }, file })
 
 const QWEN3_ASR_1_7B = ['ggml-org/Qwen3-ASR-1.7B-GGUF', '36a678687ba7d07a74ca70ccb0e36902e005fb80'] as const
 const QWEN3_ASR_0_6B = ['ggml-org/Qwen3-ASR-0.6B-GGUF', '928ab958557df9aa2ef1c93e0e83c7ad0933fae2'] as const
@@ -92,6 +98,93 @@ const OFFICIAL_QWEN3_ASR_1_7B = checkpoint('Qwen/Qwen3-ASR-1.7B', '7278e1e70fe20
   ['model.safetensors.index.json', 64_821, 'f994739fe38e5210b9e3e8ce6c6307315e2ceac3cb630e7b7414d69dce520f60'],
   ...QWEN3_ASR_TOKENIZER
 ])
+
+/** The languages NVIDIA's model card of Nemotron 3.5 Transcribe marks for transcription (revision ef905575). */
+const NEMOTRON_TRANSCRIBE_LANGUAGES = ['cs', 'nl', 'en', 'fr', 'de', 'hi', 'it', 'ko', 'pl', 'pt', 'ru', 'sk', 'es', 'bg', 'hr', 'da', 'et', 'fi', 'hu', 'ja', 'lv', 'lt', 'ro', 'sl', 'sv', 'th', 'tr', 'uk', 'ar', 'bn', 'zh', 'el', 'he', 'id', 'mt', 'mr', 'tl', 'ta', 'te', 'vi']
+
+/**
+ * The instructions Nemotron 3.5 Transcribe is measured with: the one NVIDIA's model card recommends for verbatim
+ * transcription, multilingual included, and gave every ASR benchmark it reports, FLEURS and Common Voice among them,
+ * and the one both of its runtimes write when given none, which the card does not mention. With the card's, mlx-audio's
+ * 4-bit conversion answered two of the first 100 English FLEURS utterances with nothing at all and transcribed both with
+ * the runtimes' (2026-10-29).
+ */
+export const NEMOTRON_TRANSCRIBE_INSTRUCTIONS = {
+  card: 'Audio transcription. Language: as spoken. Wording: verbatim, including fillers and repetitions. Formatting: punctuation and capitalization. Output: transcript only.',
+  runtimes: 'Produce a verbatim transcript of the audio. Preserve named entities, abbreviations, numbers, dates, measurements, acronyms, and technical terms as clearly as possible. Keep the same language as spoken and do not translate.'
+} as const
+
+/**
+ * NVIDIA's checkpoint of Nemotron 3.5 Transcribe 30B-A4B in BF16, the files NeMo-Speech.cpp's converter reads, in a
+ * folder named as the repository, whose name the converter writes into both files and into the name of the encoder's.
+ */
+const NEMOTRON_TRANSCRIBE_CHECKPOINT: CheckpointFolder = {
+  kind: 'folder',
+  name: 'NVIDIA-Nemotron-3.5-Transcribe-30B-A4B',
+  files: checkpoint('nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B', 'ef905575a106fdad904f3b0ce661dccad654607d', [
+    ['config.json', 431_098, '5470c2642bbb32572a45aa417a06ad226f4a10c78e7f3eab163b84ff2707343a'],
+    ['generation_config.json', 56, 'd48f72c695fa8a239373070371a404a51d778d30018a1768307a2d0209549e43'],
+    ['llm_backbone/config.json', 2_403, '8f11ffe191b8ade26ff9b43196a2cfcc356f6ee73cfb3c6a6336968f178611d0'],
+    ['model.safetensors', 67_496_013_734, '03142dde5176c1d4df21ee829642745a1d670ea4d79e1a4684c64d53195acff2'],
+    ['tokenizer.json', 17_078_144, 'd071004cb4450d3aa31f87aab979cd09ffc99c4e709e6cf72c324346cd948d0d'],
+    ['tokenizer_config.json', 11_782, 'e11d0bb1b107a182a6db567822b605db852edcb01e87368bd8e28c62c2991d15']
+  ])
+}
+
+/**
+ * Nemotron 3.5 Transcribe converted by NeMo-Speech.cpp's converter at the commit of the build that runs it: the decoder
+ * with its routed experts in IQ4_NL and its dense linears in Q8_0, the type its guide gives Metal, Vulkan and GPUs
+ * without NVFP4, and beside it the encoder file, the speech and speaker encoders in F16 and the CTC timestamp head,
+ * which the decoder names.
+ */
+const NEMOTRON_TRANSCRIBE_IQ4_NL = convertedFiles({
+  converter: { id: 'nemo-speech.cpp', repository: NEMO_SPEECH_CPP_SALM.repository, commit: NEMO_SPEECH_CPP_SALM.commit, script: 'convert_model.py', submodules: ['llama.cpp'] },
+  checkpoint: NEMOTRON_TRANSCRIBE_CHECKPOINT,
+  args: ['--architecture', 'salm', '--outtype', 'iq4_nl'],
+  // The decoder in BF16, 65.8 GB, written before it is quantized, beside the two files it keeps (2026-10-29).
+  room: 90e9,
+  outputs: [
+    { file: 'NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-IQ4_NL.gguf', bytes: 20_352_806_816, sha256: { 'darwin-arm64': '3f70cc5da9a914158af60c5d8b9533a530cd1c90a517cb398d32e4acb16752cb' } },
+    { file: 'NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-Encoder-F16.gguf', bytes: 1_670_410_080, sha256: { 'darwin-arm64': 'ebcede89a3a47c446849b3a0beb074b4e62b7872569ff0619bc982285bac50b5' } }
+  ]
+})
+
+/**
+ * nativ-community's MLX conversion of Nemotron 3.5 Transcribe for mlx-audio, whose card names the commit of mlx-audio
+ * it was made and checked with, the one the adapter pins: the language model in affine 4-bit with groups of 64, the
+ * speech and speaker encoders unquantized, the MTP heads left out. It was converted from the early-access checkpoint of
+ * NVIDIA's NGC, whose weights are not the release's on Hugging Face: against ef905575, an encoder layer's weights lie
+ * 0.22 to 0.25 apart in relative L2 distance, the projection into the language model is another matrix (cosine 0.01),
+ * and two of the language model's linears lie 0.22 and 0.28 apart, where quantizing the release's to 4 bits moves them
+ * 0.09 (2026-10-29).
+ */
+const MLX_NEMOTRON_TRANSCRIBE_4BIT = checkpoint('nativ-community/Nemotron-3.5-Transcribe-30B-A4B-EA-4bit', 'c47153ca2ce4024d43e216b81e6db4f67b886545', [
+  ['config.json', 15_115, 'c178d329abd4d9c36f33c29201f5ee3e6a902fa48144a3d672f245a022ef95cf'],
+  ['generation_config.json', 56, 'd48f72c695fa8a239373070371a404a51d778d30018a1768307a2d0209549e43'],
+  ['model-00001-of-00004.safetensors', 5_122_763_825, '72737e0960410385d7f6d92a4d07531a6fd7affee8336e8358289424c1fde9a9'],
+  ['model-00002-of-00004.safetensors', 5_296_388_939, '8de12b1043c12b97088b2232349db22b1c5667cf02af5b4ea03237c6726fddd0'],
+  ['model-00003-of-00004.safetensors', 5_296_388_917, '9a44be756a7301e797013d133d9d32b11af1675b41fc8415a62f6e90c71f9951'],
+  ['model-00004-of-00004.safetensors', 3_543_096_893, 'bc90f06481c4f855be9f56f86a99beff2396b368d59591972fd40079d01cd258'],
+  ['model.safetensors.index.json', 161_810, '277763e61bd9156072d7a29834a6ca84234f0e59136788a1df308525f90b7142'],
+  ['tokenizer.json', 17_078_144, 'd071004cb4450d3aa31f87aab979cd09ffc99c4e709e6cf72c324346cd948d0d'],
+  ['tokenizer_config.json', 10_673, 'c4fb466fb2cd94746dbefc5f768ead8e5760a4ff15d89f55e92b7caf49b96aae']
+])
+
+/**
+ * Nemotron 3.5 Transcribe in NeMo-Speech.cpp and in mlx-audio, told one of its instructions, the card's under the plain
+ * ids and the runtimes' own under ids that say so.
+ */
+function nemotronTranscribe(instruction: keyof typeof NEMOTRON_TRANSCRIBE_INSTRUCTIONS): AsrModel[] {
+  const id = instruction === 'card' ? '' : '-runtime-instruction'
+  const label = instruction === 'card' ? '' : ', the runtimes\' instruction'
+  const common = { instruction: NEMOTRON_TRANSCRIBE_INSTRUCTIONS[instruction], languages: NEMOTRON_TRANSCRIBE_LANGUAGES, languageHint: 'none' } as const
+  return [
+    { id: `nemotron-3.5-transcribe-30b-a4b-nemo-speech.cpp${id}`, label: `Nemotron 3.5 Transcribe 30B-A4B, NeMo-Speech.cpp IQ4_NL${label}`, runtime: 'nemo-speech.cpp', family: 'salm', files: NEMOTRON_TRANSCRIBE_IQ4_NL, license: 'OpenMDW-1.1', ...common },
+    // The early-access checkpoint is under NVIDIA's Software and Model Evaluation License, as mlx-audio's page of the
+    // model says; nativ-community's card names none.
+    { id: `nemotron-3.5-transcribe-30b-a4b-ea-mlx${id}`, label: `Nemotron 3.5 Transcribe 30B-A4B early access, mlx-audio 4-bit${label}`, runtime: 'adapter', adapter: 'mlx-audio-asr', files: MLX_NEMOTRON_TRANSCRIBE_4BIT, license: 'NVIDIA Software and Model Evaluation License', ...common }
+  ]
+}
 
 /**
  * Qwen3-ASR as ggml-org converts it for llama-server, the CrispASR conversions of the NeMo models, all five in
@@ -225,6 +318,7 @@ export const ASR_MODELS: readonly AsrModel[] = [
     id: 'parakeet-tdt-0.6b-v3-nemo-speech.cpp',
     label: 'parakeet-tdt-0.6b-v3, NeMo-Speech.cpp F16',
     runtime: 'nemo-speech.cpp',
+    family: 'fastconformer',
     files: [nemoSpeechF16(
       model('nvidia/parakeet-tdt-0.6b-v3', '541d1f99c6b0c3cd0b11a95167540bb8edefd82b', 'parakeet-tdt-0.6b-v3.nemo', 2_509_332_480, '3cbdc85877e668ca7b82d0d56770eb1fac76691f55d6b97545e8d61ca588d10d'),
       'parakeet-tdt-0.6b-v3.f16.gguf', 1_296_681_120,
@@ -242,6 +336,7 @@ export const ASR_MODELS: readonly AsrModel[] = [
     id: 'reazonspeech-nemo-v2-nemo-speech.cpp',
     label: 'ReazonSpeech NeMo v2, NeMo-Speech.cpp F16, greedy',
     runtime: 'nemo-speech.cpp',
+    family: 'fastconformer',
     files: [nemoSpeechF16(
       model('reazon-research/reazonspeech-nemo-v2', '33693408be76b7cba9fd4a7546a0a8772430211b', 'reazonspeech-nemo-v2.nemo', 2_477_946_880, 'd196d43ad03466ca88beeda4bf5fafb07bab7202d4b663b8e4f12cb0a4381fae'),
       'reazonspeech-nemo-v2.f16.gguf', 1_281_776_672,
@@ -251,6 +346,7 @@ export const ASR_MODELS: readonly AsrModel[] = [
     languageHint: 'none',
     license: 'Apache-2.0'
   },
+  ...(['card', 'runtimes'] as const).flatMap(nemotronTranscribe),
   {
     id: 'qwen3-asr-1.7b-official',
     label: 'Qwen3-ASR 1.7B, official BF16',

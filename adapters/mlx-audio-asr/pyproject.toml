@@ -1,0 +1,16 @@
+[project]
+name = "speech-bench-mlx-audio-asr"
+version = "0"
+description = "mlx-audio's speech recognition behind speech.cpp's worker protocol, for speech-bench"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "mlx-audio[stt] @ git+https://github.com/Blaizzy/mlx-audio@92decb7577878ef8e9274c1a7e33084760be03aa",
+  "numpy",
+]
+
+[tool.uv]
+# The lock file is made and run with uv 0.11; older releases are not checked against it.
+required-version = ">=0.11"
+package = false
+# MLX runs on Apple silicon alone.
+environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'"]
