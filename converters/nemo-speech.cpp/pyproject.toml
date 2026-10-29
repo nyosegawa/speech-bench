@@ -1,10 +1,13 @@
 [project]
 name = "speech-bench-nemo-speech-converter"
 version = "0"
-description = "The packages NeMo-Speech.cpp's convert_model.py imports to convert an ASR checkpoint, for speech-bench"
+description = "The packages NeMo-Speech.cpp's convert_model.py imports to convert an ASR or a speech-LLM checkpoint, for speech-bench"
 requires-python = ">=3.12,<3.13"
 # The converter's requirements.txt names these for every family it converts, torch without a version; an ASR
-# checkpoint needs these alone, pinned so that the converted file is the same byte for byte.
+# checkpoint needs the first six alone, and a speech-LLM's decoder goes through llama.cpp's converter, which also reads
+# the checkpoint's safetensors and its configuration with transformers, at the version the requirements pin. All are
+# pinned so that the converted file is the same byte for byte. The converter then builds llama.cpp's llama-quantize,
+# with the CMake and Ninja it finds first on the PATH, which uv run puts these first.
 dependencies = [
   "gguf==0.19.0",
   "librosa==0.11.0",
@@ -12,6 +15,10 @@ dependencies = [
   "pyyaml==6.0.3",
   "sentencepiece==0.2.2",
   "torch==2.14.1",
+  "safetensors==0.7.0",
+  "transformers==5.5.1",
+  "cmake==4.1.2",
+  "ninja==1.13.0",
 ]
 
 [tool.uv]

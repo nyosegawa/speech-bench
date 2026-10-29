@@ -25,9 +25,11 @@ behavior.
   system itself), BCP 47 tags (`language.ts`) and the reading of stored records through their upgrades and their
   schemas (`stored.ts`).
 - `src/catalog/` lists the models with their pinned files, their runtimes and the languages of their model
-  cards (`models.ts`), pins the releases of the runtimes (`runtimes.ts`) and finds the build of speech.cpp that runs
-  in place of its release, a local one (`local-build.ts`) or one of its CI fetched by run id and checked
-  (`ci-build.ts`), fetches and verifies pinned files (`store.ts`, `download.ts`), makes a model file no one publishes
+  cards (`models.ts`), pins the releases of the runtimes (`runtimes.ts`), builds a runtime no release has from a pinned
+  commit with the CMake and Ninja that the uv projects in `builders/` lock (`source-build.ts`), and finds the build of
+  speech.cpp that runs in place of its release, a local one (`local-build.ts`) or one of its CI fetched by run id and
+  checked (`ci-build.ts`), fetches and verifies pinned files, taking them from Hugging Face's cache when it holds them
+  (`store.ts`, `download.ts`), fetches a repository at a commit (`checkout.ts`), makes a model file no one publishes
   by converting a pinned checkpoint for another runtime with a pinned converter (`convert.ts`), whose Python packages
   the uv projects in `converters/` lock, takes a model file not yet published from a local path named by its sha256 in
   place of an entry's file (`local-file.ts`), gives every kind of model file a local path (`model-file.ts`), and
