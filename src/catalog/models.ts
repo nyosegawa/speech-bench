@@ -170,6 +170,19 @@ const MLX_NEMOTRON_TRANSCRIBE_4BIT = checkpoint('nativ-community/Nemotron-3.5-Tr
   ['tokenizer_config.json', 10_673, 'c4fb466fb2cd94746dbefc5f768ead8e5760a4ff15d89f55e92b7caf49b96aae']
 ])
 
+/** speech.cpp's conversions of Nemotron 3.5 Transcribe's checkpoint at ef905575, and the revision that holds them. */
+const NEMOTRON_TRANSCRIBE_GGUF = ['sakasegawa/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-GGUF', 'c5985ae0f63946a01f93c537bca43ae47935a577'] as const
+
+/**
+ * Nemotron 3.5 Transcribe in speech.cpp, in each type of speech.cpp's files: F16, Q8_0 and IQ4_NL. speech.cpp gives the
+ * model the card's verbatim instruction, which the file holds.
+ */
+const NEMOTRON_TRANSCRIBE_SPEECH_CPP: readonly (readonly [string, string, number, string])[] = [
+  ['F16', 'NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-F16.gguf', 67_422_535_296, 'b99a4737eba6efc5d2d56eb294e90ee04b643a87f5e10bd8bbfda7b677ff3bc4'],
+  ['Q8_0', 'NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-Q8_0.gguf', 35_840_811_776, 'd348a74dad222c96f1b6c7f6a117ede9d56fbc01cfa57c4b54606934e9b1deec'],
+  ['IQ4_NL', 'NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-IQ4_NL.gguf', 18_997_225_856, '9688cee08c96ee0f54c0cc1cb07856307a79097fb0088cdb8fb31de6dd26c2be']
+]
+
 /**
  * Nemotron 3.5 Transcribe in NeMo-Speech.cpp and in mlx-audio, told one of its instructions, the card's under the plain
  * ids and the runtimes' own under ids that say so.
@@ -347,6 +360,16 @@ export const ASR_MODELS: readonly AsrModel[] = [
     license: 'Apache-2.0'
   },
   ...(['card', 'runtimes'] as const).flatMap(nemotronTranscribe),
+  ...NEMOTRON_TRANSCRIBE_SPEECH_CPP.map(([type, file, bytes, sha256]): AsrModel => ({
+    id: `nemotron-3.5-transcribe-30b-a4b-speech.cpp-${type.toLowerCase()}`,
+    label: `Nemotron 3.5 Transcribe 30B-A4B, speech.cpp ${type}`,
+    runtime: 'speech.cpp',
+    decoding: null,
+    files: [model(NEMOTRON_TRANSCRIBE_GGUF[0], NEMOTRON_TRANSCRIBE_GGUF[1], file, bytes, sha256)],
+    languages: NEMOTRON_TRANSCRIBE_LANGUAGES,
+    languageHint: 'none',
+    license: 'OpenMDW-1.1'
+  })),
   {
     id: 'qwen3-asr-1.7b-official',
     label: 'Qwen3-ASR 1.7B, official BF16',
