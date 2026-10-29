@@ -224,7 +224,10 @@ as an empty transcription: 17 of 99 Common Voice clips trimmed to the voice
 conversion through `adapters/mlx-audio-asr/`, which was made from the early-access checkpoint of NVIDIA's NGC, whose
 weights are not the release's, so its ids say `ea`. Both decode greedily without reasoning and are not told the
 language; they are given the instruction the model card recommends for verbatim transcription, and under the ids
-ending in `-runtime-instruction` the one both write when given none (docs/adr/0034).
+ending in `-runtime-instruction` the one both write when given none (docs/adr/0034). speech.cpp runs it from its own
+files, F16, Q8_0 and IQ4_NL, which it gives the card's verbatim instruction, under the ids ending in `-speech.cpp-<type>`;
+until a release of speech.cpp carries the model, a local build of it runs them (SPEECH_BENCH_SPEECH_CPP)
+(docs/measurements/nemotron-3.5-transcribe-in-speech-cpp-2026-10-29.md).
 
 Recognition runs of one set, chosen on the web app's runs page, open the transcripts page: what every run heard of
 each utterance, as it was scored, with what it heard for another unit, heard but was not said, and did not hear
