@@ -51,9 +51,15 @@ async function startNemoSpeech(name: string, executable: string, file: string, d
     'serve', '--asr-model', file, '--device', device, '--host', '127.0.0.1', '--port', String(port), '--no-ui', '--no-warmup',
     ...Object.entries(options).map(([key, value]) => `--${key}=${value}`)
   ], withoutNemoSpeechSettings(process.env))
-  const ready = (await (await waitUntilHealthy(server, `http://127.0.0.1:${server.port}/ready`)).json()) as { device?: unknown; capabilities?: unknown }
-  if (ready.device !== device || !Array.isArray(ready.capabilities) || !ready.capabilities.includes('asr')) {
-    throw new Error(`NeMo-Speech.cpp is ready with ${JSON.stringify(ready)}, not with speech recognition on ${device}; see ${server.log}`)
+  try {
+    const ready = (await (await waitUntilHealthy(server, `http://127.0.0.1:${server.port}/ready`)).json()) as { device?: unknown; capabilities?: unknown }
+    if (ready.device !== device || !Array.isArray(ready.capabilities) || !ready.capabilities.includes('asr')) {
+      throw new Error(`NeMo-Speech.cpp is ready with ${JSON.stringify(ready)}, not with speech recognition on ${device}; see ${server.log}`)
+    }
+  } catch (error) {
+    // The engine holds no server until this returns, so the run's stop would leave this one holding the model's memory.
+    await stopServer(server)
+    throw error
   }
   return server
 }

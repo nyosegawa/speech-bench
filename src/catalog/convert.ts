@@ -4,7 +4,7 @@ import { dataDir } from '../core/paths.ts'
 import { ensureCheckout, run } from './checkout.ts'
 import { sha256Of } from './download.ts'
 import { BUILD_JOBS } from './source-build.ts'
-import { ensurePinned, type PinnedFile } from './store.ts'
+import { ensurePinned, huggingFaceCacheDir, huggingFaceCachePath, storePath, type PinnedFile } from './store.ts'
 
 /**
  * A converter in a repository of its own, pinned to a commit, run with the packages that the uv project
@@ -123,6 +123,22 @@ const freeBytes = (folder: string): number => {
 }
 
 /**
+ * The bytes fetching the checkpoint writes on the disk: those of its files that neither the store nor Hugging Face's
+ * cache holds, since a file of the cache is cloned into the store.
+ */
+function bytesToFetch(checkpoint: PinnedFile | CheckpointFolder): number {
+  const files = checkpoint.kind === 'folder' ? checkpoint.files : [checkpoint]
+  const cache = huggingFaceCacheDir()
+  return files.filter((file) => !fs.existsSync(storePath(file)) && !fs.existsSync(huggingFaceCachePath(file, cache))).reduce((sum, file) => sum + file.bytes, 0)
+}
+
+/** Refuses the conversion of `repo` when the disk of its files has less than `bytes` free; `of` says what they are for. */
+function requireRoom(conversion: Conversion, repo: string, bytes: number, of: string): void {
+  const free = freeBytes(conversionsDir(conversion))
+  if (free < bytes) throw new Error(`converting ${repo} needs ${(bytes / 1e9).toFixed(0)} GB free on the disk of ${dataDir()}${of}, and it has ${(free / 1e9).toFixed(0)} GB; free that much, or run the conversion where there is room`)
+}
+
+/**
  * The checkpoint as the converter is given it: the path of a single file, or a folder of the checkpoint's name in
  * `work` holding a hard link to each of its files at its path in the repository, downloaded and verified first.
  */
@@ -152,8 +168,8 @@ export async function ensureConverted(converted: ConvertedFile): Promise<string>
   const { repo } = checkpointOrigin(conversion.checkpoint)
   fs.mkdirSync(conversionsDir(conversion), { recursive: true })
   const room = conversion.room ?? conversion.outputs.reduce((sum, output) => sum + output.bytes, 0)
-  const free = freeBytes(conversionsDir(conversion))
-  if (free < room) throw new Error(`converting ${repo} needs ${(room / 1e9).toFixed(0)} GB free on the disk of ${dataDir()}, and it has ${(free / 1e9).toFixed(0)} GB; free that much, or run the conversion where there is room`)
+  const fetched = bytesToFetch(conversion.checkpoint)
+  requireRoom(conversion, repo, room + fetched, fetched > 0 ? `, ${(fetched / 1e9).toFixed(0)} GB of it for the checkpoint fetched first` : '')
   const { converter } = conversion
   const source = ensureCheckout(converter.repository, converter.commit, converter.submodules, path.join(convertersDir(), `${converter.id}-${converter.commit}`))
   const env = { UV_PROJECT_ENVIRONMENT: path.join(convertersDir(), `${converter.id}-environment`) }
@@ -163,6 +179,8 @@ export async function ensureConverted(converted: ConvertedFile): Promise<string>
   const work = fs.mkdtempSync(path.join(conversionsDir(conversion), '.work-'))
   try {
     const checkpoint = await checkpointPath(conversion.checkpoint, work)
+    // What the disk holds now, beside the checkpoint, as another program's writes may have taken some of it.
+    requireRoom(conversion, repo, room, '')
     const made = path.join(work, 'made')
     fs.mkdirSync(made)
     // NeMo-Speech.cpp's converter writes the output's file name without its extension into the file as its model's

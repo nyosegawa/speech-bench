@@ -40,4 +40,15 @@ describe('the files a conversion writes', () => {
     const [decoder] = convertedFiles({ ...conversion({ 'other-platform': 'd'.repeat(64) }), room: Number.MAX_SAFE_INTEGER })
     await expect(ensureConverted(decoder!)).rejects.toThrow(/needs \d+ GB free on the disk of .*, and it has \d+ GB/)
   })
+
+  it('count the checkpoint a conversion fetches first in the room it needs', async () => {
+    process.env.HF_HUB_CACHE = path.join(data, 'hub')
+    try {
+      const fetched: Conversion = { ...conversion({ 'other-platform': 'd'.repeat(64) }), room: 1 }
+      const [decoder] = convertedFiles({ ...fetched, checkpoint: { ...fetched.checkpoint, bytes: Number.MAX_SAFE_INTEGER - 1 } as Conversion['checkpoint'] })
+      await expect(ensureConverted(decoder!)).rejects.toThrow(/needs \d+ GB free on the disk of .*, \d+ GB of it for the checkpoint fetched first, and it has \d+ GB/)
+    } finally {
+      delete process.env.HF_HUB_CACHE
+    }
+  })
 })
