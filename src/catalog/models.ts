@@ -171,7 +171,7 @@ const MLX_NEMOTRON_TRANSCRIBE_4BIT = checkpoint('nativ-community/Nemotron-3.5-Tr
 ])
 
 /** speech.cpp's conversions of Nemotron 3.5 Transcribe's checkpoint at ef905575, and the revision that holds them. */
-const NEMOTRON_TRANSCRIBE_GGUF = ['sakasegawa/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-GGUF', 'REVISION'] as const
+const NEMOTRON_TRANSCRIBE_GGUF = ['sakasegawa/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-GGUF', 'c5985ae0f63946a01f93c537bca43ae47935a577'] as const
 
 /**
  * Nemotron 3.5 Transcribe in speech.cpp, in each type of speech.cpp's files: F16, Q8_0 and IQ4_NL. speech.cpp gives the
