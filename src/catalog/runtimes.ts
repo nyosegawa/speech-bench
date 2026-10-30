@@ -123,6 +123,12 @@ export const SPEECH_CPP: RuntimeSpec = speechCppSpec('0.8.8', {
  */
 export const SPEECH_CPP_RELEASES: readonly RuntimeSpec[] = [
   SPEECH_CPP,
+  // 0.9.2 reads Nemotron 3.5 Transcribe's files, as 0.9.1 was the first release to.
+  speechCppSpec('0.9.2', {
+    'darwin-arm64': '6a5bd43efb073a2ac0276df4c6673bc77093f463b3514fcc8288250fc1c7d487',
+    'win32-x64': '982137ee3f6bc3815651521edf38f8d92136c2bc2181e6e242824ee939851de1',
+    'linux-x64': '525d40703ee1cd22c7140bcf3fb486a61a5e17fcc1c9de32ae5a74c44f8e72f4'
+  }),
   speechCppSpec('0.8.4', {
     'darwin-arm64': '8e2cca3630f7d82b55236d5246f7de5045bf7f11ac14a36e965e5628cfbcbe6a',
     'win32-x64': 'c35e75e64b170d69c2249fc32a82ae6e1a16170f2064eeb60cf815d3a5d65001',
