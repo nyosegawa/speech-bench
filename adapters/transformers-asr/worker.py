@@ -72,6 +72,19 @@ def whole(value):
     return isinstance(value, int) and not isinstance(value, bool)
 
 
+def holds_kernels_for(major, minor):
+    """Whether PyTorch's build holds kernels a GPU of compute capability major.minor runs: machine code of its major for
+    a minor at most its own, which CUDA runs on the later minors of a major, as sm_86's on an RTX 4090 (sm_89), or PTX
+    of a capability at most its own, which the driver compiles."""
+    for arch in torch.cuda.get_arch_list():
+        kind, _, number = arch.partition("_")
+        number = number.rstrip("abcdefghijklmnopqrstuvwxyz")
+        built = (int(number[:-1]), int(number[-1]))
+        if (kind == "sm" and built[0] == major and built[1] <= minor) or (kind == "compute" and built <= (major, minor)):
+            return True
+    return False
+
+
 def check_device(device):
     """Refuses a device PyTorch cannot run on here, rather than letting it fall back to the CPU."""
     if device == "mps" and not torch.backends.mps.is_available():
@@ -80,7 +93,7 @@ def check_device(device):
         if not torch.cuda.is_available():
             raise RuntimeError(f"PyTorch {torch.__version__} finds no CUDA device; install the NVIDIA driver, or check that uv installed PyTorch's CUDA build")
         major, minor = torch.cuda.get_device_capability()
-        if f"sm_{major}{minor}" not in torch.cuda.get_arch_list():
+        if not holds_kernels_for(major, minor):
             raise RuntimeError(f"PyTorch {torch.__version__} has no kernels for {torch.cuda.get_device_name()} (sm_{major}{minor}); it has {', '.join(torch.cuda.get_arch_list())}")
     if device not in ("mps", "cuda"):
         raise RuntimeError(f"the adapter runs on a GPU, mps or cuda, not {device}")
