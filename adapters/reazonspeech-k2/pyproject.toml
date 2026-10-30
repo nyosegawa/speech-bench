@@ -1,0 +1,16 @@
+[project]
+name = "speech-bench-reazonspeech-k2"
+version = "0"
+description = "ReazonSpeech's k2 model in its own package, reazonspeech-k2-asr, behind speech.cpp's worker protocol, for speech-bench"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "reazonspeech-k2-asr @ git+https://github.com/reazon-research/ReazonSpeech@2d4d4762e7ee294ac8e47a177ac2e9b0e8d0d43f#subdirectory=pkg/k2-asr",
+  "sherpa-onnx==2.0.1",
+  "numpy",
+]
+
+[tool.uv]
+# The lock file is made and run with uv 0.11; older releases are not checked against it.
+required-version = ">=0.11"
+package = false
+environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'", "sys_platform == 'linux' and platform_machine == 'x86_64'"]

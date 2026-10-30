@@ -1,0 +1,18 @@
+[project]
+name = "speech-bench-nemo-asr"
+version = "0"
+description = "NVIDIA NeMo's speech recognition, for ReazonSpeech's NeMo model with reazonspeech-nemo-asr's handling of audio and text and for Parakeet TDT-CTC 0.6B ja, behind speech.cpp's worker protocol, for speech-bench"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "nemo_toolkit[asr]==3.0.0",
+  "reazonspeech-nemo-asr @ git+https://github.com/reazon-research/ReazonSpeech@2d4d4762e7ee294ac8e47a177ac2e9b0e8d0d43f#subdirectory=pkg/nemo-asr",
+  "torch==2.10.0",
+  "numpy",
+]
+
+[tool.uv]
+# The lock file is made and run with uv 0.11; older releases are not checked against it.
+required-version = ">=0.11"
+package = false
+# PyPI's PyTorch for Linux is a CUDA build.
+environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'", "sys_platform == 'linux' and platform_machine == 'x86_64'"]

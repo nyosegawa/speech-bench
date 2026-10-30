@@ -16,6 +16,11 @@ describe('pinnedVersion', () => {
     expect(pinnedVersion(project('qwen-asr[vllm]==0.0.6'), 'qwen-asr')).toBe('qwen-asr==0.0.6')
   })
 
+  it('reads the commit of a package installed from a subdirectory of its repository', () => {
+    const k2 = 'reazonspeech-k2-asr @ git+https://github.com/reazon-research/ReazonSpeech@2d4d4762e7ee294ac8e47a177ac2e9b0e8d0d43f#subdirectory=pkg/k2-asr'
+    expect(pinnedVersion(project(k2), 'reazonspeech-k2-asr')).toBe('2d4d4762e7ee')
+  })
+
   it('refuses an implementation not pinned to one commit or release, whose version a result could not name', () => {
     expect(() => pinnedVersion(project('transformers>=5.18'), 'transformers')).toThrow(/does not pin transformers/)
     expect(() => pinnedVersion(project('qwen-tts @ git+https://github.com/QwenLM/Qwen3-TTS@main'), 'qwen-tts')).toThrow(/does not pin qwen-tts/)
