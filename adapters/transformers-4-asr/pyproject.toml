@@ -1,0 +1,18 @@
+[project]
+name = "speech-bench-transformers-4-asr"
+version = "0"
+description = "ReazonSpeech's CTC models in transformers 4.57, run by the transformers adapter's worker, behind speech.cpp's worker protocol, for speech-bench"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  # The Zipformer's own modeling code, which its checkpoint carries, was saved with transformers 4.57.0 and lacks the
+  # all_tied_weights_keys that transformers 5 reads of every model.
+  "transformers==4.57.6",
+  "torch==2.10.0",
+  "numpy",
+]
+
+[tool.uv]
+# The lock file is made and run with uv 0.11; older releases are not checked against it.
+required-version = ">=0.11"
+package = false
+environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'", "sys_platform == 'linux' and platform_machine == 'x86_64'"]

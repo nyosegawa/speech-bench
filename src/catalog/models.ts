@@ -1,4 +1,5 @@
 import { convertedFiles, type CheckpointFolder, type ConvertedFile, type Converter } from './convert.ts'
+import { OFFICIAL_ASR_MODELS } from './official-asr.ts'
 import { NEMO_SPEECH_CPP_SALM } from './runtimes.ts'
 import type { ModelFile } from './model-file.ts'
 import type { PinnedFile } from './store.ts'
@@ -11,7 +12,10 @@ import { tagCovers } from '../core/language.ts'
  * for the model's default, NeMo-Speech.cpp's server with the GGUF files its converter made, a FastConformer model's one
  * file in its release or a speech-LLM's decoder and encoder in the build that has SALM, or an adapter of the model's
  * official implementation with the checkpoint as it is published or of mlx-audio with an MLX conversion. A speech-LLM
- * is told `instruction` with every utterance.
+ * is told `instruction` with every utterance. The transformers adapter runs a model with the code of its card that
+ * `recipe` names, in the dtype the card loads it in on CUDA, in the current transformers or in 4.57; the NeMo adapter runs ReazonSpeech's model through its
+ * package and NVIDIA's through NeMo, as `family` says; VibeVoice samples noise in its acoustic tokenizer, from
+ * generators seeded with `seed` before each utterance.
  */
 export type AsrRuntime =
   | { runtime: 'llama-server' }
@@ -21,6 +25,13 @@ export type AsrRuntime =
   | { runtime: 'nemo-speech.cpp'; family: 'salm'; instruction: string }
   | { runtime: 'adapter'; adapter: 'qwen3-asr' }
   | { runtime: 'adapter'; adapter: 'mlx-audio-asr'; instruction: string }
+  | { runtime: 'adapter'; adapter: 'transformers-asr' | 'transformers-4-asr'; recipe: TransformersRecipe; precision: 'bf16' | 'fp16' | 'fp32'; instruction: string | null }
+  | { runtime: 'adapter'; adapter: 'reazonspeech-k2' }
+  | { runtime: 'adapter'; adapter: 'nemo-asr'; family: 'reazonspeech' | 'parakeet' }
+  | { runtime: 'adapter'; adapter: 'vibevoice-asr'; seed: number }
+
+/** The code of a model card that the transformers adapter runs, as its worker names it. */
+export type TransformersRecipe = 'reazonspeech-ctc' | 'whisper' | 'moonshine' | 'granite-speech' | 'cohere-asr' | 'voxtral-realtime'
 
 /** A speech recognition model the bench can run, with the languages its model card lists. */
 export type AsrModel = AsrRuntime & {
@@ -202,9 +213,9 @@ function nemotronTranscribe(instruction: keyof typeof NEMOTRON_TRANSCRIBE_INSTRU
 /**
  * Qwen3-ASR as ggml-org converts it for llama-server, the CrispASR conversions of the NeMo models, all five in
  * speech.cpp, from the files speech.cpp converts from the models' checkpoints, two of the NeMo models in
- * NeMo-Speech.cpp, and Qwen3-ASR in its official code. The ids and labels of the speech.cpp, NeMo-Speech.cpp and
- * official entries name the runtime, so that runs of one model in two runtimes stay apart wherever only the model is
- * shown.
+ * NeMo-Speech.cpp, and Qwen3-ASR and the models of `official-asr.ts` in their official code. The ids and labels of the
+ * speech.cpp, NeMo-Speech.cpp and official entries name the runtime, so that runs of one model in two runtimes stay
+ * apart wherever only the model is shown.
  */
 export const ASR_MODELS: readonly AsrModel[] = [
   {
@@ -389,7 +400,8 @@ export const ASR_MODELS: readonly AsrModel[] = [
     languages: QWEN3_ASR_LANGUAGES,
     languageHint: 'optional',
     license: 'Apache-2.0'
-  }
+  },
+  ...OFFICIAL_ASR_MODELS
 ]
 
 export function asrModel(id: string): AsrModel {

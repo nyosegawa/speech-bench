@@ -13,6 +13,7 @@ export interface Adapter {
   id: string
   /** The package of the implementation, named in the project's dependencies with the commit or release it is pinned to. */
   implementation: string
+  /** The worker's path from the adapter's folder, which may lead to another adapter's worker run in this environment. */
   script: string
   /** How long the adapter may take to become ready, where its loading takes longer than a worker's usually does. */
   readySeconds?: number
@@ -48,19 +49,46 @@ export const MLX_AUDIO_ADAPTER: Adapter = { id: 'mlx-audio', implementation: 'ml
  */
 export const MLX_AUDIO_ASR_ADAPTER: Adapter = { id: 'mlx-audio-asr', implementation: 'mlx-audio', script: 'worker.py' }
 
+/**
+ * transformers for the speech recognition models whose cards run them in it, each with its card's code: the release
+ * of transformers is the version, as the code that runs the models.
+ */
+export const TRANSFORMERS_ASR_ADAPTER: Adapter = { id: 'transformers-asr', implementation: 'transformers', script: 'worker.py' }
+
+/**
+ * The transformers adapter's worker in an environment of transformers 4.57, for ReazonSpeech's CTC models, whose
+ * Zipformer carries modeling code that transformers 5 cannot load.
+ */
+export const TRANSFORMERS_4_ASR_ADAPTER: Adapter = { id: 'transformers-4-asr', implementation: 'transformers', script: path.join('..', TRANSFORMERS_ASR_ADAPTER.id, TRANSFORMERS_ASR_ADAPTER.script) }
+
+/** ReazonSpeech's k2 model in ReazonSpeech's own package, whose commit is the version. */
+export const REAZONSPEECH_K2_ADAPTER: Adapter = { id: 'reazonspeech-k2', implementation: 'reazonspeech-k2-asr', script: 'worker.py' }
+
+/**
+ * NeMo for ReazonSpeech NeMo v2, through ReazonSpeech's own package, and for parakeet-tdt_ctc-0.6b-ja: the release of
+ * NeMo is the version, as the code that runs both.
+ */
+export const NEMO_ASR_ADAPTER: Adapter = { id: 'nemo-asr', implementation: 'nemo_toolkit', script: 'worker.py' }
+
+/** VibeVoice-ASR-Streaming in Microsoft's VibeVoice, whose commit is the version. */
+export const VIBEVOICE_ASR_ADAPTER: Adapter = { id: 'vibevoice-asr', implementation: 'vibevoice', script: 'worker.py' }
+
 const folderOf = (adapter: Adapter): string => path.join(import.meta.dirname, '..', '..', 'adapters', adapter.id)
+
+/** The file of the adapter's worker. */
+export const adapterScript = (adapter: Adapter): string => path.join(folderOf(adapter), adapter.script)
 
 /** The adapter's Python environment, in the data folder with the other downloads rather than in the repository. */
 const environmentOf = (adapter: Adapter): Record<string, string> => ({ UV_PROJECT_ENVIRONMENT: path.join(dataDir(), 'adapters', adapter.id) })
 
 /**
  * The version of `implementation` that the text of a pyproject.toml pins among its dependencies, with or without
- * extras: the commit of a git dependency, shortened, or the pin of a release, which names the package, since the
- * adapter's id may name another.
+ * extras: the commit of a git dependency, shortened, which may name the package's subdirectory after it, or the pin of
+ * a release, which names the package, since the adapter's id may name another.
  */
 export function pinnedVersion(project: string, implementation: string): string {
   const named = `"${implementation}(?:\\[[^\\]"]*\\])?`
-  const commit = new RegExp(`${named} @ git\\+[^@"]+@([0-9a-f]{40})"`).exec(project)
+  const commit = new RegExp(`${named} @ git\\+[^@"]+@([0-9a-f]{40})(?:#subdirectory=[^"#]+)?"`).exec(project)
   if (commit) return commit[1]!.slice(0, 12)
   const release = new RegExp(`${named}==([^",;\\s]+)"`).exec(project)
   if (release) return `${implementation}==${release[1]!}`
@@ -78,12 +106,14 @@ export function adapterVersion(adapter: Adapter): string {
 }
 
 /**
- * Installs the packages the adapter's lock file pins, which on the first run downloads PyTorch, and does nothing
- * once they are installed. It runs before the worker starts, so that installing is not timed as loading.
+ * Installs the packages the adapter's lock file pins, which on the first run downloads PyTorch, and compiles their
+ * bytecode, and does nothing more once they are installed. It runs before the worker starts, so that neither is timed
+ * as loading: Python otherwise compiles a module the first time it imports it, and the NeMo adapter on an Apple M5
+ * became ready in 15.3 s without its bytecode and in 9.5 s with it (2026-10-30).
  */
 export function syncAdapter(adapter: Adapter): void {
   process.stderr.write(`  installing the Python packages of the ${adapter.id} adapter, once\n`)
-  const synced = spawnSync('uv', ['sync', '--frozen', '--project', folderOf(adapter)], { env: { ...process.env, ...environmentOf(adapter) }, encoding: 'utf8', windowsHide: true })
+  const synced = spawnSync('uv', ['sync', '--frozen', '--compile-bytecode', '--project', folderOf(adapter)], { env: { ...process.env, ...environmentOf(adapter) }, encoding: 'utf8', windowsHide: true })
   if (synced.error) throw new Error(`the ${adapter.id} adapter runs through uv, which could not be started (${synced.error.message}); install uv from https://docs.astral.sh/uv/`)
   if (synced.status !== 0) throw new Error(`uv could not install the ${adapter.id} adapter's packages:\n${synced.stderr}`)
 }
@@ -97,7 +127,7 @@ export const adapterCommand = (adapter: Adapter, name: string, args: readonly st
   name,
   executable: 'uv',
   // --no-sync implies --frozen: the worker runs in the environment syncAdapter() installed from the lock file.
-  args: ['run', '--no-sync', '--project', folderOf(adapter), 'python', path.join(folderOf(adapter), adapter.script), ...args],
+  args: ['run', '--no-sync', '--project', folderOf(adapter), 'python', adapterScript(adapter), ...args],
   env: { ...environmentOf(adapter), HF_HUB_OFFLINE: '1' },
   readySeconds: adapter.readySeconds
 })

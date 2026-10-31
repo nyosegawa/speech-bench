@@ -13,7 +13,7 @@ import { speechWorkerArgs } from '../engines/worker.ts'
 import { WorkerAsr } from '../engines/worker-asr.ts'
 import { VoiceDetector } from '../engines/voice-activity.ts'
 import { gpuDevice, machineInfo, platformKey, torchDevice } from '../core/platform.ts'
-import { adapterCommand, adapterVersion, MLX_AUDIO_ASR_ADAPTER, QWEN3_ASR_ADAPTER, syncAdapter } from '../engines/adapter.ts'
+import { adapterCommand, adapterVersion, MLX_AUDIO_ASR_ADAPTER, NEMO_ASR_ADAPTER, QWEN3_ASR_ADAPTER, REAZONSPEECH_K2_ADAPTER, syncAdapter, TRANSFORMERS_4_ASR_ADAPTER, TRANSFORMERS_ASR_ADAPTER, VIBEVOICE_ASR_ADAPTER, type Adapter } from '../engines/adapter.ts'
 import { RESULT_FORMAT, type AsrRunRecord, type ModelRecord, type NewPreparation, type UtteranceRecord } from './result-file/format.ts'
 import { RuntimeWatch } from './watch.ts'
 import { resultText } from './result-file/file.ts'
@@ -89,6 +89,42 @@ export async function filesFor(model: { files: readonly ModelFile[] }, setup: Ru
  */
 export const speechLmOptions = (instruction: string): Record<string, string> => ({ instruction, temperature: '0', reasoning: 'off' })
 
+/**
+ * The adapter that runs a model's official implementation from `files`, the local paths of its files, the arguments of
+ * its worker and the options the run records: the device, the precision, and what the model is told besides the audio.
+ */
+export function adapterAsr(model: Extract<AsrModel, { runtime: 'adapter' }>, files: readonly string[]): { adapter: Adapter; args: string[]; loadOptions: Record<string, string> } {
+  const folderOf = (name: string): string => path.dirname(files[model.files.findIndex((file) => file.file === name)]!)
+  switch (model.adapter) {
+    case 'mlx-audio-asr': {
+      if (platformKey() !== 'darwin-arm64') throw new Error('mlx-audio runs on Apple silicon alone')
+      return { adapter: MLX_AUDIO_ASR_ADAPTER, args: ['--model', folderOf('config.json'), '--instruction', model.instruction], loadOptions: { device: 'metal', precision: '4bit', ...speechLmOptions(model.instruction) } }
+    }
+    case 'qwen3-asr': {
+      const device = torchDevice()
+      return { adapter: QWEN3_ASR_ADAPTER, args: ['--model', folderOf('config.json'), '--device', device], loadOptions: { device, precision: 'bf16' } }
+    }
+    case 'transformers-asr':
+    case 'transformers-4-asr': {
+      const device = torchDevice()
+      const { instruction } = model
+      const args = ['--model', folderOf('config.json'), '--recipe', model.recipe, '--dtype', model.precision, '--device', device, ...(instruction === null ? [] : ['--instruction', instruction])]
+      return { adapter: model.adapter === 'transformers-asr' ? TRANSFORMERS_ASR_ADAPTER : TRANSFORMERS_4_ASR_ADAPTER, args, loadOptions: { device, precision: model.precision, ...(instruction === null ? {} : { instruction }) } }
+    }
+    case 'reazonspeech-k2':
+      return { adapter: REAZONSPEECH_K2_ADAPTER, args: ['--model', folderOf('tokens.txt')], loadOptions: { device: 'cpu', precision: 'fp32', threads: '1' } }
+    case 'nemo-asr': {
+      const device = torchDevice()
+      return { adapter: NEMO_ASR_ADAPTER, args: ['--model', files[0]!, '--family', model.family, '--device', device], loadOptions: { device, precision: 'fp32' } }
+    }
+    case 'vibevoice-asr': {
+      const device = torchDevice()
+      const seed = String(model.seed)
+      return { adapter: VIBEVOICE_ASR_ADAPTER, args: ['--model', folderOf('config.json'), '--device', device, '--seed', seed], loadOptions: { device, precision: 'bf16', seed } }
+    }
+  }
+}
+
 /** The engine that runs the model from `files`, the local paths of its files, with its runtime and the options it is loaded with. */
 export async function prepareAsr(model: AsrModel, files: readonly string[], setup: RunSetup): Promise<{ engine: AsrEngine; runtime: RuntimeIdentity; loadOptions: Readonly<Record<string, string>> }> {
   checkSetupFor(model, setup)
@@ -97,17 +133,10 @@ export async function prepareAsr(model: AsrModel, files: readonly string[], setu
     return { engine: new LlamaServerAsr(await ensureRuntime(LLAMA_CPP), model, files, device), runtime: releaseOf(LLAMA_CPP), loadOptions: options }
   }
   if (model.runtime === 'adapter') {
-    const folder = path.dirname(files[model.files.findIndex((file) => file.file === 'config.json')]!)
-    if (model.adapter === 'mlx-audio-asr') {
-      if (platformKey() !== 'darwin-arm64') throw new Error('mlx-audio runs on Apple silicon alone')
-      syncAdapter(MLX_AUDIO_ASR_ADAPTER)
-      const engine = new WorkerAsr(adapterCommand(MLX_AUDIO_ASR_ADAPTER, model.id, ['--model', folder, '--instruction', model.instruction]), { ...model, decoding: null })
-      return { engine, runtime: releaseOf({ id: MLX_AUDIO_ASR_ADAPTER.id, version: adapterVersion(MLX_AUDIO_ASR_ADAPTER) }), loadOptions: { device: 'metal', precision: '4bit', ...speechLmOptions(model.instruction) } }
-    }
-    const device = torchDevice()
-    syncAdapter(QWEN3_ASR_ADAPTER)
-    const engine = new WorkerAsr(adapterCommand(QWEN3_ASR_ADAPTER, model.id, ['--model', folder, '--device', device]), { ...model, decoding: null })
-    return { engine, runtime: releaseOf({ id: QWEN3_ASR_ADAPTER.id, version: adapterVersion(QWEN3_ASR_ADAPTER) }), loadOptions: { device, precision: 'bf16' } }
+    const { adapter, args, loadOptions } = adapterAsr(model, files)
+    syncAdapter(adapter)
+    const engine = new WorkerAsr(adapterCommand(adapter, model.id, args), { ...model, decoding: null })
+    return { engine, runtime: releaseOf({ id: adapter.id, version: adapterVersion(adapter) }), loadOptions }
   }
   if (model.runtime === 'nemo-speech.cpp' && model.family === 'salm') {
     // The decoder names its encoder file, which the server loads from the decoder's folder, where the conversion put it.

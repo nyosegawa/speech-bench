@@ -1,0 +1,20 @@
+[project]
+name = "speech-bench-vibevoice-asr"
+version = "0"
+description = "VibeVoice-ASR-Streaming's official PyTorch implementation behind speech.cpp's worker protocol, for speech-bench"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "vibevoice @ git+https://github.com/microsoft/VibeVoice@16fb2cb1217c9934a886e1948ffb06120caa2df5",
+  "torch==2.10.0",
+  # VibeVoice allows transformers 4.51.3 up to 5; its demos pass `dtype` to from_pretrained(), which transformers reads
+  # from 4.56 on and earlier releases pass to the configuration, loading the model in float32.
+  "transformers==4.57.6",
+  "numpy",
+]
+
+[tool.uv]
+# The lock file is made and run with uv 0.11; older releases are not checked against it.
+required-version = ">=0.11"
+package = false
+# PyPI's PyTorch for Linux is a CUDA build.
+environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'", "sys_platform == 'linux' and platform_machine == 'x86_64'"]

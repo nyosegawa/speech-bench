@@ -18,7 +18,8 @@ makes voices for models that have none built in, from a description and lines in
   (`libarchive-tools`), since GNU tar reads no zip; CrispASR, NeMo-Speech.cpp, audio.cpp and mlx-audio do not run there
 - Node.js 22.18 or later (TypeScript runs directly through type stripping)
 - [uv](https://docs.astral.sh/uv/) 0.11 or later, only for the implementations the adapters run (the official ones of Irodori-TTS,
-  Qwen3-TTS and Qwen3-ASR, and mlx-audio) and for NeMo-Speech.cpp's converter and its build, and Git, which fetches the
+  Qwen3-TTS, Qwen3-ASR and the recognition models of `src/catalog/official-asr.ts`, and mlx-audio) and for
+  NeMo-Speech.cpp's converter and its build, and Git, which fetches the
   converter and the source; on Windows and Linux the official implementations need an NVIDIA GPU, on which they run
   through CUDA, and on Linux an adapter runs only where its lock file includes Linux
 - the Xcode Command Line Tools, only on a Mac to build NeMo-Speech.cpp's speech-LLM and the quantizer its converter
@@ -201,6 +202,18 @@ offer (docs/adr/0020); a worker whose model does not offer it stops the run befo
 speech.cpp converts, in an adapter that speaks the same protocol (docs/adr/0012): transformers' model in BF16 with
 qwen-asr's handling of the audio, its prompt and its parse of the output, as speech.cpp's port is checked against
 (docs/adr/0024). They are told the language as the other Qwen3-ASR entries are.
+
+Japanese models speech.cpp does not run, and two it runs, are measured in their official code, each with the code of its
+model card and in the dtype the card loads it in on CUDA, under ids ending in `-official` (docs/adr/0036):
+`adapters/transformers-asr/` runs Whisper large-v3, Kotoba-Whisper v2.2 (without its pipeline's diarization and
+punctuation), Moonshine Tiny Japanese, Granite Speech 5.0 2B, Cohere Transcribe 03-2026 and Voxtral Mini 4B Realtime
+2602 in transformers, and the same worker runs ReazonSpeech's six CTC models (wav2vec 2.0, HuBERT and Zipformer, with
+the character and the BPE vocabularies) in transformers 4.57 through `adapters/transformers-4-asr/`;
+`adapters/nemo-asr/` runs ReazonSpeech NeMo v2 through ReazonSpeech's package and parakeet-tdt_ctc-0.6b-ja in NeMo;
+`adapters/reazonspeech-k2/` runs reazonspeech-k2-v2 through ReazonSpeech's package on one thread of the CPU, as the
+package runs it by default; and `adapters/vibevoice-asr/` runs VibeVoice-ASR-Streaming 7B in VibeVoice, its noise
+seeded before each utterance. Cohere Transcribe is gated on Hugging Face: accept its terms there, then fetch it with
+`hf download CohereLabs/cohere-transcribe-03-2026`, and the bench takes it from Hugging Face's cache.
 
 parakeet-tdt-0.6b-v3 and ReazonSpeech NeMo v2 also run in NVIDIA's NeMo-Speech.cpp, its `nemo-speech serve` asked
 as CrispASR is, with the utterance whole, batching off and the model's own text (docs/adr/0021). NVIDIA publishes
@@ -535,6 +548,11 @@ Every download is pinned by URL and sha256; a Hugging Face file by repository, r
 | Irodori-TTS v4.1 Small, official | Aratako/Irodori-TTS-v4.1-Small-MF and Aratako/Irodori-TTS-v4.1-Small with Aratako/Semantic-DACVAE-Japanese-32dim, in Irodori-TTS at 89f9d8fb with the packages of `adapters/irodori-tts/uv.lock` |
 | Qwen3-TTS 0.6B and 1.7B CustomVoice, official | Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice at 85e237c1 and Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice at 0c0e3051, in qwen-tts at 022e286b with the packages of `adapters/qwen3-tts/uv.lock` |
 | Qwen3-ASR 0.6B and 1.7B, official | Qwen/Qwen3-ASR-0.6B at 5eb14417 and Qwen/Qwen3-ASR-1.7B at 7278e1e7, in transformers 5.18.0 with qwen-asr 0.0.6 and the packages of `adapters/qwen3-asr/uv.lock` |
+| Whisper, Kotoba-Whisper, Moonshine, Granite Speech, Cohere Transcribe and Voxtral Realtime, official | openai/whisper-large-v3 at 06f233fe, kotoba-tech/kotoba-whisper-v2.2 at 9d33482a, moonshine-ai/moonshine-tiny-ja at 02ca41b3, ibm-granite/granite-speech-5.0-2b at c684620b, CohereLabs/cohere-transcribe-03-2026 at d552dadc and mistralai/Voxtral-Mini-4B-Realtime-2602 at 2769294d, in transformers 5.22.0 with the packages of `adapters/transformers-asr/uv.lock` |
+| ReazonSpeech's CTC models, official | reazon-research's japanese-wav2vec2-base-rs35kh, japanese-wav2vec2-large-rs35kh, japanese-hubert-base-k2-rs35kh, japanese-zipformer-base-k2-rs35kh and the last two's `-bpe` models, at the revisions `src/catalog/official-asr.ts` pins, in transformers 4.57.6 with the packages of `adapters/transformers-4-asr/uv.lock` |
+| ReazonSpeech NeMo v2 and parakeet-tdt_ctc-0.6b-ja, official | reazon-research/reazonspeech-nemo-v2 at 33693408 through reazonspeech-nemo-asr at 2d4d4762, and nvidia/parakeet-tdt_ctc-0.6b-ja at 44edb27e, in NeMo 3.0.0 with the packages of `adapters/nemo-asr/uv.lock` |
+| reazonspeech-k2-v2, official | reazon-research/reazonspeech-k2-v2 at 291488c8, in reazonspeech-k2-asr at 2d4d4762 with sherpa-onnx 2.0.1 and the packages of `adapters/reazonspeech-k2/uv.lock` |
+| VibeVoice-ASR-Streaming 7B, official | microsoft/VibeVoice-ASR-Streaming-7B at 60d858b5, in VibeVoice at 16fb2cb1 with transformers 4.57.6 and the packages of `adapters/vibevoice-asr/uv.lock` |
 | Fish Audio Drama 3, official | fishaudio/drama-3 at e0a9218a, in fish-speech at 54156693 with the packages of `adapters/drama3/uv.lock` |
 | Fish Audio Drama 3 in SGLang Omni | fishaudio/drama-3 at e0a9218a and fishaudio/drama-3-int4 at a6f58869, in SGLang Omni at 549dd1b9 with the packages of `adapters/sglang-omni/uv.lock`, SGLang 0.5.21 and PyTorch 2.13.0 among them |
 | PyTorch for the official implementations | PyPI's on a Mac and on Linux, where it is a CUDA build; on Windows the CUDA 12.8 build from PyTorch's index, pinned in each adapter's lock file |
